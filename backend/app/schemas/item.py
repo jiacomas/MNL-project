@@ -1,18 +1,21 @@
 from pydantic import BaseModel
 from typing import List
 
-class Item(BaseModel):
+class Admin(BaseModel):
     id: str
-    title: str
-    category: str
-    tags: List[str] = []
+    passwordHash: str
 
-class ItemCreate(BaseModel):
-    title: str
-    category: str
-    tags: List[str] = []
+class Users(BaseModel):
+    id: str
+    passwordHash: str
+    penalties: str
+    bookmarks: List[str] = []
 
-class ItemUpdate(BaseModel):
+class Movies(BaseModel):
     title : str
     category:str
     tags: List[str] = []
+
+class Bookmark(BaseModel):
+    id: str
+    movies: List[str] = []
