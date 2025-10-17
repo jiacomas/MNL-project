@@ -1,0 +1,23 @@
+# Backend dependencies
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Data handling
+pandas==2.2.3
+
+# Testing
+pytest==8.3.3
+httpx==0.27.2
+
+# Authentication & security
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+
+# File storage & environment
+python-multipart==0.0.9
+pydantic==2.9.2
+kagglehub==0.2.8
+
+# Optional: linting/formatting
+black==24.8.0
+flake8==7.1.1
