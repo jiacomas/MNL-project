@@ -1,10 +1,11 @@
 Jia Comas
-
+* session management
 
 Mia Kuang
-
+* review's management
 
 Mason Liu
-
+* password management
 
 Helin Long
+* movie display management
