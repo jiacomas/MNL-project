@@ -6,3 +6,5 @@
 - xxxxx
 - xxxxx
 - xxxxx
+
+**how to build/run the project?**
