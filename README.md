@@ -4,7 +4,7 @@
 
 - Jia Comas (73041360)
 - Mason Liu (10288041)
-- xxxxx
+- Helin Long (64904501)
 - xxxxx
 
 **how to build/run the project?**
