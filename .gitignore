@@ -1,4 +1,4 @@
 backend/data
-path/to/venv
+venv/
 
 .DS_Store
