@@ -102,7 +102,7 @@ class ReviewUpdate(BaseModel):
             raise ValueError("At least one of 'rating' or 'comment' must be provided for update.")
         return self
     
-class ReviewOur(ReviewBase):
+class ReviewOut(ReviewBase):
     # What the API returns to clients
     id: str
     user_id: str
@@ -113,9 +113,9 @@ class ReviewOur(ReviewBase):
     model_config = ConfigDict(
         from_attributes=True,
         str_strip_whitespace=True,
-        extra="forbid",
+        extra="ignore",
         json_schema_extra={
-            "example": [
+            "examples": [
                 {
                     "id": "review_abc123",
                     "user_id": "user_12345",
