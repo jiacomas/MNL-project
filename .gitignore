@@ -1,3 +1,4 @@
+backend/app/data
 venv/
 
 *.DS_Store
