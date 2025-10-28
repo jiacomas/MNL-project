@@ -1,19 +1,28 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from backend.services.auth_service import AuthService
-from backend.repositories.items_repo import Repository
+import json
+from unittest.mock import patch
+from services.users_service import AuthService
+from repositories.users_repo import UserRepository
 
 @pytest.fixture
-def auth_service(self, mock_repository):
-    service = AuthService(repository=mock_repository)
+def user_repository(temp_data_dir):
+    """create real repository pointing to a temp file"""
+    users_file = temp_data_dir / "users.json"
+    # initialize the file with an empty structure
+    with open(users_file, 'w') as f:
+        json.dump({"users": []}, f)
+    return UserRepository(str(users_file))
+
+def auth_service(user_repository):
+    service = AuthService(repository=user_repository)
     return service
 
-def test_user_not_found(self, auth_service, mock_repository):
+def test_user_not_found(auth_service, user_repository):
     """
     user does not exist
     """
     # prepare the mocks
-    mock_repository.find_by_username.return_value = None
+    user_repository.find_by_username.return_value = None
 
     # execute the function
     result = auth_service.authenticate_user("nonexistent_user", "password123")
@@ -21,14 +30,14 @@ def test_user_not_found(self, auth_service, mock_repository):
     # verifications
     assert "error" in result
     assert result["error"] == "User not found"
-    mock_repository.find_by_username.assert_called_once_with("nonexistent_user")
+    user_repository.find_by_username.assert_called_once_with("nonexistent_user")
 
-def test_invalid_password_first_attempt(self, auth_service, mock_repository, sample_user):
+def test_invalid_password_first_attempt(auth_service, user_repository, sample_user):
     """
     user exists but password is incorrect (first attempt)
     """
     # prepare the mocks
-    mock_repository.find_by_username.return_value = sample_user
+    user_repository.find_by_username.return_value = sample_user
     
     with patch('backend.services.auth_service.verify_password', return_value=False):
         with patch('backend.services.auth_service.increment_login_attempts', return_value=1):
@@ -40,11 +49,11 @@ def test_invalid_password_first_attempt(self, auth_service, mock_repository, sam
             assert result["error"] == "Invalid password"
             assert "Account locked" not in result["error"]  # no account lock message
 
-def test_third_failed_attempt_locks_account(self, auth_service, mock_repository, sample_user):
+def test_third_failed_attempt_locks_account(auth_service, user_repository, sample_user):
     """
     user exists but password is incorrect (third attempt)
     """
-    mock_repository.find_by_username.return_value = sample_user
+    user_repository.find_by_username.return_value = sample_user
     
     with patch('backend.services.auth_service.verify_password', return_value=False):
         with patch('backend.services.auth_service.increment_login_attempts', return_value=3):
@@ -57,7 +66,7 @@ def test_third_failed_attempt_locks_account(self, auth_service, mock_repository,
                 assert result["error"] == "Account locked"
                 mock_lockout.assert_called_once_with("testuser")
 
-def test_locked_account_cannot_login(self, auth_service, mock_repository):
+def test_locked_account_cannot_login(auth_service, user_repository):
     """
     user exists but account is locked
     """
@@ -68,7 +77,7 @@ def test_locked_account_cannot_login(self, auth_service, mock_repository):
         "password_hash": "$2b$12$hashed",
         "is_locked": True
     }
-    mock_repository.find_by_username.return_value = locked_user
+    user_repository.find_by_username.return_value = locked_user
     
     with patch('backend.services.auth_service.verify_password', return_value=True):
         with patch('backend.services.auth_service.is_account_locked', return_value=True):
@@ -79,11 +88,11 @@ def test_locked_account_cannot_login(self, auth_service, mock_repository):
             assert "error" in result
             assert result["error"] == "Account is locked"
 
-def test_successful_authentication(self, auth_service, mock_repository, sample_user):
+def test_successful_authentication(auth_service, user_repository, sample_user):
     """
     user exists and password is correct
     """
-    mock_repository.find_by_username.return_value = sample_user
+    user_repository.find_by_username.return_value = sample_user
     
     with patch('backend.services.auth_service.verify_password', return_value=True):
         with patch('backend.services.auth_service.is_account_locked', return_value=False):

@@ -1,10 +1,10 @@
+from schemas.review import Review
 import json
-from schemas.user import User
 from pathlib import Path
 import json, os
 from typing import List, Dict, Any
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "users.json"
+DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "reviews.json"
 
 def load_all() -> List[Dict[str, Any]]:
    if not DATA_PATH.exists():
@@ -18,15 +18,10 @@ def save_all(items: List[Dict[str, Any]]) -> None:
         json.dump(items, f, ensure_ascii=False, indent=2)
     os.replace(tmp, DATA_PATH)
 
-class UserRepository:
+class ReviewRepository:
     def __init__(self, file_path: str):
         self.file_path = file_path
 
-    def find_by_username(self, username: str):
-        with open(self.file_path, 'r') as f:
-            return json.load(f)
-
-    def save(self, user: User):
+    def create_review(self, review: Review):
         with open(self.file_path, 'w') as f:
-            json.dump(user, f)
-    
+            json.dump(review, f)

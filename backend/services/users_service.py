@@ -3,6 +3,7 @@ from schemas.user import User
 from repositories.users_repo import load_all, save_all
 from fastapi import HTTPException 
 import uuid
+from repositories.users_repo import UserRepository
 
 def create_user(user: User):
     users = load_all()
@@ -20,3 +21,15 @@ def validate_user(user: User):
         if it.get("email") == user.email:
             raise HTTPException(status_code=409, detail="Email already exists")
     return True
+
+class AuthService:
+    def __init__(self, repository: UserRepository):
+        self.repository = repository
+
+    def authenticate_user(self, username: str, password: str):
+        user = self.repository.find_by_username(username)
+        if user is None:
+            return {"error": "User not found"}
+        if user.password != password:
+            return {"error": "Invalid password"}
+        return user
