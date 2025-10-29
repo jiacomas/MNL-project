@@ -1,51 +1,51 @@
 # Testing Structure
 
-Aquest directori conté els **tests d'integració i E2E** del projecte.
+This directory contains the integration and E2E tests of the project.
 
-## Estructura de Tests
+## Test structure
 
 ```
 MNL-project/
-├── backend/tests/          # Tests unitaris del backend (pytest)
-├── frontend/tests/         # Tests unitaris del frontend (jest)
-└── tests/                  # Tests d'integració (aquest directori)
-    ├── integration/        # Tests d'integració entre serveis
-    ├── e2e/               # Tests end-to-end complets
+├── backend/tests/          # Backend unit tests (pytest)
+├── frontend/tests/         # Frontend unit tests (jest)
+└── tests/                  # Integration tests (this directory)
+    ├── integration/        # Integration tests between services
+    ├── e2e/                # Full end-to-end tests
     └── docker-compose.test.yml
 ```
 
-## Com executar els tests
+## How to run the tests
 
-### Tests Unitaris Backend
+### Backend unit tests
 
 ```bash
 cd backend
 pytest tests/ -v
 ```
 
-### Tests Unitaris Frontend
+### Frontend unit tests
 
 ```bash
 cd frontend
 npm test
 ```
 
-### Tests d'Integració
+### Integration tests
 
 ```bash
-# Iniciar els serveis
+# Start the services
 docker compose up -d
 
-# Executar tests d'integració
+# Run integration tests
 cd tests
 pytest integration/ -v
 
-# O usar el docker-compose de test
+# Or use the test docker-compose
 docker compose -f docker-compose.test.yml up --build
 ```
 
-## Tipus de Tests
+## Types of Tests
 
-- **Unitaris**: Testegen funcions/components individuals
-- **Integració**: Testegen comunicació entre serveis
-- **E2E**: Testegen workflows complets d'usuari
+- **Unit**: Test individual functions/components
+- **Integration**: Test communication between services
+- **E2E**: Test full user workflows
