@@ -1,21 +1,16 @@
+from typing import Optional
 from pydantic import BaseModel
-from typing import List
 
-class Admin(BaseModel):
-    id: str
-    passwordHash: str
+class ItemBase(BaseModel):
+    title: str
+    description: Optional[str] = None
 
-class Users(BaseModel):
-    id: str
-    passwordHash: str
-    penalties: str
-    bookmarks: List[str] = []
+class ItemCreate(ItemBase):
+    pass
 
-class Movies(BaseModel):
-    title : str
-    category:str
-    tags: List[str] = []
+class ItemUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
 
-class Bookmark(BaseModel):
-    id: str
-    movies: List[str] = []
+class Item(ItemBase):
+    id: int

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 from typing import List
-from schemas.item import Item, ItemCreate, ItemUpdate
-from services.items_service import list_items, create_item, delete_item, update_item
+from ..schemas.item import Item, ItemCreate, ItemUpdate
+from ..services.items_service import list_items, create_item, delete_item, update_item, get_item_by_id
 
 router = APIRouter(prefix="/items", tags=["items"])
 
