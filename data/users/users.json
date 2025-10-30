@@ -1,0 +1,7 @@
+{
+  "u1": {
+    "email": "user@example.com",
+    "password_hash": "$pbkdf2-sha256$29000$fK.1tnbuPQeAMMbYW4vxPg$3k1Rju5Fdvm0QayTd9P/sBkAJuX//IiQMi3nu4ndk6U",
+    "is_active": true
+  }
+}

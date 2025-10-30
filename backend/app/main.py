@@ -1,12 +1,12 @@
 from fastapi import FastAPI
-from routers.items import router as items_router
+from .routers.password_reset import router as password_reset_router
 
-app = FastAPI()
+app = FastAPI(title="MNL Password Reset API")
 
+# Routers
+app.include_router(password_reset_router)
+
+# Health (optional)
 @app.get("/health")
 def health():
-    return {"status": "ok"}
-
-## don't do this, just for demo purposes
-
-app.include_router(items_router)
+    return {"ok": True}
