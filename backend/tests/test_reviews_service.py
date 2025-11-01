@@ -1,10 +1,11 @@
 # test_reviews_service.py
-import os
 import importlib
 import csv
 from datetime import datetime, timezone
 
 import pytest
+from fastapi import HTTPException
+from app.schemas.reviews import ReviewCreate, ReviewUpdate # Import necessary schemas
 
 @pytest.fixture()
 def svc(monkeypatch, tmp_path):
@@ -42,28 +43,37 @@ def svc(monkeypatch, tmp_path):
     importlib.reload(svc_mod)
     return svc_mod, movie_id
 
+# Fixtures
+@pytest.fixture
+def created_review(svc):
+    '''
+    Fixture: Creates a new review by user 'u2' for subsequent tests, 
+    ensuring cleanup and setup for each update/delete test.
+    '''
+    svc_mod, movie_id = svc
+    # Create review by u2
+    created = svc_mod.create_review(ReviewCreate(
+        user_id="u2", movie_id=movie_id, rating=7, comment="good"
+    ))
+    return created, svc_mod, movie_id
 
+# Tests
 def test_create_duplicate_blocked(svc):
     svc_mod, movie_id = svc
 
     from app.schemas.reviews import ReviewCreate
     # u1 already has a review
     payload = ReviewCreate(user_id="u1", movie_id=movie_id, rating=8, comment="dup")
-    with pytest.raises(Exception) as e:
+    with pytest.raises(HTTPException) as e:
         svc_mod.create_review(payload)
     # HTTP 400
-    assert "already reviewed" in str(e.value)
+    assert e.value.status_code == 400
+    assert "already reviewed" in str(e.value.detail).lower()
 
 
-def test_crud_authorization(svc):
-    svc_mod, movie_id = svc
-    from app.schemas.reviews import ReviewCreate, ReviewUpdate
-
-    # create by u2
-    created = svc_mod.create_review(ReviewCreate(
-        user_id="u2", movie_id=movie_id, rating=7, comment="good"
-    ))
-    assert created.user_id == "u2"
+def test_update_authorization(created_review):
+    '''Test that only the author can update or delete their review.'''
+    created, svc_mod, movie_id = created_review
 
     # author updates ok
     updated = svc_mod.update_review(
@@ -75,20 +85,30 @@ def test_crud_authorization(svc):
     assert updated.rating == 8
 
     # non-author update forbidden
-    with pytest.raises(Exception) as e:
+    with pytest.raises(HTTPException) as e:
         svc_mod.update_review(
             movie_id=movie_id,
             review_id=created.id,
             current_user_id="someone_else",
             payload=ReviewUpdate(comment="hack")
         )
-    assert "Not authorized" in str(e.value)
+    assert e.value.status_code == 403
+    assert "not authorized" in str(e.value.detail).lower()
 
+def test_delete_authorization(created_review):
+    '''Test that only the author can delete their review.'''
+    created, svc_mod, movie_id = created_review
+    review_id = created.id
+    
     # non-author delete forbidden
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as e:
         svc_mod.delete_review(movie_id, created.id, current_user_id="hacker")
+    assert e.value.status_code == 403
+    assert "not authorized" in str(e.value.detail).lower()
 
     # author delete ok
     svc_mod.delete_review(movie_id, created.id, current_user_id="u2")
+    
+    # Verify deletion
     items, _ = svc_mod.list_reviews(movie_id, limit=50)
     assert all(it.id != created.id for it in items)

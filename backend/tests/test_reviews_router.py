@@ -1,7 +1,7 @@
 # test_reviews_router.py
-import os
 import importlib
 import csv
+from typing import Dict, Any
 
 import pytest
 from fastapi import FastAPI
@@ -49,8 +49,23 @@ def seed_movie(data_dir, movie_id, rows):
         for r in rows:
             writer.writerow(r)
 
+def _create_review_helper(client: TestClient, movie_id: str, rating: int = 9) -> Dict[str, Any]:
+    '''Helper to create a review and return its JSON body.'''
+    payload = {
+        "user_id": "u_test",
+        "movie_id": movie_id,
+        "rating": rating,
+        "comment": "temporary for testing",
+    }
+    r = client.post("/api/reviews", json=payload)
+    assert r.status_code == 201
+    created = r.json()
+    assert created["user_id"] == "u_test"
+    return created
 
-def test_router_crud_and_pagination(test_app):
+# Test cases
+def test_review_listing_and_pagination(test_app):
+    '''Tests fetching reviews, filtering, and pagination logic.'''
     client, data_dir = test_app
     movie_id = "Interstellar"
 
@@ -83,9 +98,20 @@ def test_router_crud_and_pagination(test_app):
     assert "items" in body and "nextCursor" in body
     assert len(body["items"]) == 1
     assert body["nextCursor"] == 1
+    
+    # Test second page
+    r2 = client.get(f"/api/reviews/movie/{movie_id}", params={"limit": 1, "cursor": body["nextCursor"]})
+    assert r2.status_code == 200
+    body2 = r2.json()
+    assert len(body2["items"]) == 1
+    assert body2["nextCursor"] is None
+    assert body2["items"][0]["user_id"] == "other2" # Check pagination order
 
-    # Create my own review (user is overridden to u_test only on protected ops;
-    # here POST accepts payload.user_id by design, so we pass u_test)
+def test_review_create_endpoint(test_app):
+    '''Tests the POST /api/reviews endpoint for creation.'''
+    client, data_dir = test_app
+    movie_id = "Joker"
+    
     payload = {
         "user_id": "u_test",
         "movie_id": movie_id,
@@ -96,8 +122,17 @@ def test_router_crud_and_pagination(test_app):
     assert r.status_code == 201, r.text
     created = r.json()
     assert created["user_id"] == "u_test"
-    review_id = created["id"]
+    assert created["rating"] == 9
+    assert "id" in created
 
+def test_review_update_and_get_own_authorized(test_app):
+    '''Tests PATCH update and GET by user (read) authorization flow.'''
+    client, data_dir = test_app
+    movie_id = "Joker"
+    
+    created = _create_review_helper(client, movie_id, rating=9)
+    review_id = created["id"]
+    
     # Update
     r = client.patch(f"/api/reviews/movie/{movie_id}/{review_id}", json={"rating": 10})
     assert r.status_code == 200
@@ -108,13 +143,31 @@ def test_router_crud_and_pagination(test_app):
     assert r.status_code == 200
     mine = r.json()
     assert mine is not None and mine["id"] == review_id
+    assert mine["rating"] == 10
 
+def test_review_delete_authorized(test_app):
+    client, data_dir = test_app
+    movie_id = "Dune"
+    
+    created = _create_review_helper(client, movie_id, rating=8)
+    review_id = created["id"]
+    
+    # Check that it exists before deletion
+    r_check_before = client.get(f"/api/reviews/movie/{movie_id}/user/u_test")
+    assert r_check_before.status_code == 200
+    assert r_check_before.json() is not None
+    
     # Delete (authorized)
     r = client.delete(f"/api/reviews/movie/{movie_id}/{review_id}")
     assert r.status_code == 204
 
     # After delete, my review disappears
-    r = client.get(f"/api/reviews/movie/{movie_id}", params={"limit": 50})
-    assert r.status_code == 200
-    all_items = r.json()["items"]
+    r_check_after = client.get(f"/api/reviews/movie/{movie_id}/user/u_test")
+    assert r_check_after.status_code == 200
+    assert r_check_after.json() is None
+    
+    # Check overall list to ensure total count decreased
+    r_list = client.get(f"/api/reviews/movie/{movie_id}", params={"limit": 50})
+    assert r_list.status_code == 200
+    all_items = r_list.json()["items"]
     assert all(it["id"] != review_id for it in all_items)
