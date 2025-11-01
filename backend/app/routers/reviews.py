@@ -12,7 +12,7 @@ from app.services import reviews_service as svc
 try:
     from app.deps import get_current_user_id
 except ImportError:
-    def get_current_user() -> str:
+    def get_current_user_id() -> str:
         return "demo_user"
     
 router = APIRouter(prefix="/api/reviews", tags=["reviews"])
@@ -82,6 +82,14 @@ def get_my_review_endpoint(
     '''Get the review for a movie by the currently authenticated user'''
     # Use current_user_id
     return svc.get_user_review(movie_id=movie_id, user_id=current_user_id)
+
+@router.get("/movie/{movie_id}/user/{user_id}", response_model=Optional[ReviewOut])
+def get_review_by_user_endpoint(
+    movie_id: str,
+    user_id: str,
+):
+    '''Get the review for a movie by a specific user ID'''
+    return svc.get_user_review(movie_id=movie_id, user_id=user_id)
 
 # .. note::
 #    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
