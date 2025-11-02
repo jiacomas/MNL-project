@@ -1,14 +1,17 @@
 from pathlib import Path
-import json, os
+import json
+import os
 from typing import List, Dict, Any
 
 DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "items.json"
 
+
 def load_all() -> List[Dict[str, Any]]:
-   if not DATA_PATH.exists():
-       return []
-   with DATA_PATH.open("r", encoding="utf-8") as f:
-       return json.load(f)
+    if not DATA_PATH.exists():
+        return []
+    with DATA_PATH.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
 
 def save_all(items: List[Dict[str, Any]]) -> None:
     tmp = DATA_PATH.with_suffix(".tmp")
