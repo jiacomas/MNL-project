@@ -32,6 +32,10 @@ repos:
           - '.'
           - '--exclude'
           - './venv/*,./.pytest_cache/*'
+          - '-f'
+          - 'json' # or "txt", "yaml", "html"
+          - '-o'
+          - 'reports/bandit_report.json'
 
   # Flake8 for Python linting
   - repo: https://github.com/PyCQA/flake8
