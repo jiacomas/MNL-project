@@ -1,0 +1,35 @@
+name: CI (selected branches)
+
+on:
+  push:
+    branches:
+      - "feat/backend/reviews-core-baseline" 
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    if: ${{ github.event_name != 'pull_request' || github.head_ref == 'feat/backend/reviews-core-baseline' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run pytest
+        env:
+          PYTHONPATH: backend
+          MOVIE_DATA_PATH: ./data/movies_ci
+          KAGGLE_DATASET: sadmadlad/imdb-user-reviews
+        run: |
+          mkdir -p "$MOVIE_DATA_PATH"
+          pytest -m "not integration" -q
