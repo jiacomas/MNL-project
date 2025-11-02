@@ -17,3 +17,5 @@ httpx==0.27.2
 # Development tools (optional)
 black==24.8.0
 flake8==7.1.1
+
+bandit==1.8.1
