@@ -3,3 +3,8 @@ path/to/venv
 
 *_pycache*
 *.DS_Store*
+
+__pycache__/
+*.py[cod]
+
+.env
