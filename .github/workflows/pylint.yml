@@ -21,8 +21,7 @@ jobs:
           docker compose run --rm backend sh -c "
             pip install --upgrade pip &&
             pip install --root-user-action=ignore pylint &&
-            mkdir -p /app/reports &&
-            pylint /app/backend > /app/reports/pylint-report.txt
+            pylint /backend > /reports/pylint-report.txt
           "
 
       - name: Upload pylint report
