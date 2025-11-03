@@ -1,7 +1,7 @@
 FROM nginx:alpine
 
 # Copy a simple index.html
-COPY index.html /usr/share/nginx/html/
+COPY src/index.html /usr/share/nginx/html/
 
 # Expose port 3000 (we'll configure nginx to use this port)
 EXPOSE 3000

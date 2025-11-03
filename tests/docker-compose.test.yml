@@ -1,22 +1,21 @@
-version: '3.8'
+rsion: '3.8'
 
 services:
   backend:
     build: ../backend
     ports:
-      - "8000:8000"
+      - '8000:8000'
     environment:
       - TESTING=true
-    
+
   frontend:
-    build: ../frontend  
+    build: ../frontend
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - backend
     environment:
       - NODE_ENV=test
-      
   test-runner:
     build:
       context: ..
@@ -26,6 +25,6 @@ services:
       - frontend
     volumes:
       - ../tests:/app/tests
-      - ../backend:/app/backend  
+      - ../backend:/app/backend
       - ../frontend:/app/frontend
     command: pytest tests/integration/ -v
