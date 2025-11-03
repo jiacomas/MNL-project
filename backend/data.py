@@ -1,5 +1,11 @@
-import kagglehub
+"""
+Download the latest version of the IMDB user reviews dataset
+using kagglehub and store it in the local data directory.
+"""
+
 import os
+
+import kagglehub
 
 # Download latest version
 data_dir = os.path.join(os.path.dirname(__file__), "data")

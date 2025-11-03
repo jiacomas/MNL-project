@@ -7,6 +7,15 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
+  # Isort for import sorting
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.10.1
+    hooks:
+      - id: isort
+        name: 'Sort Python imports with isort'
+        language_version: python3.13
+        files: \.py$
+
   # Black for Python code formatting
   - repo: https://github.com/psf/black
     rev: 24.8.0
@@ -34,8 +43,8 @@ repos:
           - './venv/*,./.pytest_cache/*'
           - '-f'
           - 'json' # or "txt", "yaml", "html"
-          - '-o'
-          - 'reports/bandit_report.json'
+          # - '-o'
+          # - 'reports/bandit_report.json'
 
   # Flake8 for Python linting
   - repo: https://github.com/PyCQA/flake8
