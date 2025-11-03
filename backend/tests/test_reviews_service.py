@@ -15,17 +15,19 @@ def svc(monkeypatch, tmp_path):
     data_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
 
-    # Reload repo first and service
+    # Import modules first
     from services import reviews_service as svc_mod
 
     from repositories import reviews_repo as repo_mod
 
+    # Explicitly reload modules
     importlib.reload(repo_mod)
     importlib.reload(svc_mod)
 
+    # Clear memory state immediately after loading (Fix 1: Ensures a clean start)
     if hasattr(repo_mod, "_reviews") and isinstance(repo_mod._reviews, dict):
         repo_mod._reviews.clear()
-    elif hasattr(repo_mod, "reset_for_testing"):  # If a dedicated reset function exists
+    elif hasattr(repo_mod, "reset_for_testing"):
         repo_mod.reset_for_testing()
 
     # Seed one movie with 1 existing review (user u1)
@@ -59,7 +61,11 @@ def svc(monkeypatch, tmp_path):
             }
         )
 
+    # Final reload to force Repository to load the CSV file *after* it has been written. (Fix 2)
+    # This is critical for ensuring the memory store is synchronized with the seeded data.
+    importlib.reload(repo_mod)
     importlib.reload(svc_mod)
+
     return svc_mod, movie_id
 
 
@@ -75,6 +81,10 @@ def created_review(svc):
     created = svc_mod.create_review(
         ReviewCreate(user_id="u2", movie_id=movie_id, rating=7, comment="good")
     )
+
+    # Verify creation
+    svc_mod.list_reviews(movie_id, limit=1)
+
     return created, svc_mod, movie_id
 
 
