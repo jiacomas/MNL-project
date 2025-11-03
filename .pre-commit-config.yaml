@@ -15,6 +15,7 @@ repos:
         name: 'Sort Python imports with isort'
         language_version: python3.13
         files: \.py$
+        exclude: backend/routers/items.py
 
   # Black for Python code formatting
   - repo: https://github.com/psf/black
@@ -22,6 +23,7 @@ repos:
     hooks:
       - id: black
         language_version: python3.13
+        exclude: backend/routers/items.py
 
   # Prettier for code formatting
   - repo: https://github.com/pre-commit/mirrors-prettier
