@@ -14,15 +14,15 @@ def test_app(monkeypatch, tmp_path):
     data_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
 
-    from app.repositories import reviews_repo as repo_mod
+    from repositories import reviews_repo as repo_mod
 
     importlib.reload(repo_mod)
-    from app.services import reviews_service as svc_mod
+    from services import reviews_service as svc_mod
 
     importlib.reload(svc_mod)
 
     # Build app and include router
-    from app.routers import reviews as reviews_router
+    from routers import reviews as reviews_router
 
     importlib.reload(reviews_router)
 
