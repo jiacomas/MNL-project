@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from schemas.reviews import ReviewCreate, ReviewUpdate  # Import necessary schemas
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def svc(monkeypatch, tmp_path):
     # Prepare env and seed CSV
     data_dir = tmp_path / "data" / "movies"
@@ -64,7 +64,7 @@ def svc(monkeypatch, tmp_path):
 
 
 # Fixtures
-@pytest.fixture
+@pytest.fixture(scope="function")
 def created_review(svc):
     '''
     Fixture: Creates a new review by user 'u2' for subsequent tests,
