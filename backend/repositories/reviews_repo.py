@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from app.schemas.reviews import ReviewOut
+from schemas.reviews import ReviewOut
 
 # Config & CSV columns to match raw data structure
 BASE_PATH = os.getenv("MOVIE_DATA_PATH", "data/movies")

@@ -51,7 +51,7 @@ def svc(monkeypatch, tmp_path):
             }
         )
 
-    from app.services import reviews_service as svc_mod
+    from services import reviews_service as svc_mod
 
     importlib.reload(svc_mod)
     return svc_mod, movie_id

@@ -7,8 +7,8 @@ from typing import List, Optional
 
 from fastapi import HTTPException, status
 
-from app.repositories.reviews_repo import CSVReviewRepo
-from app.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+from repositories.reviews_repo import CSVReviewRepo
+from schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 _repo = CSVReviewRepo()
 
