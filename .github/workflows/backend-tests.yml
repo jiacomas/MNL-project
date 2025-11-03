@@ -3,9 +3,9 @@ name: CI (selected branches)
 on:
   push:
     branches:
-      - "feat/backend/reviews-core-baseline" 
+      - 'feat/backend/reviews-core-baseline'
   pull_request:
-    branches: ["main"]
+    branches: ['main']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,8 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: '3.12'
+          cache: 'pip'
       - name: Install deps
         run: |
           python -m pip install --upgrade pip

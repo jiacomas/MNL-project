@@ -1,6 +1,14 @@
+"""
+Download the latest version of the IMDB user reviews dataset
+using kagglehub and store it in the local data directory.
+"""
+
+import os
+import shutil
+
 # backend/data.py
 from pathlib import Path
-import os, shutil
+
 import kagglehub
 from dotenv import load_dotenv
 
@@ -20,7 +28,7 @@ for dirpath, _, filenames in os.walk(cache_root):
         if not filename.lower().endswith((".csv", ".json")):
             continue
         src = Path(dirpath) / filename
-        rel = src.relative_to(cache_root)      # e.g. "Joker/movieReviews.csv"
+        rel = src.relative_to(cache_root)  # e.g. "Joker/movieReviews.csv"
         dst = target_root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)

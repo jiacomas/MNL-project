@@ -1,11 +1,12 @@
 # test_reviews_service.py
-import importlib
 import csv
-from datetime import datetime, timezone
+import importlib
 
 import pytest
 from fastapi import HTTPException
-from app.schemas.reviews import ReviewCreate, ReviewUpdate # Import necessary schemas
+
+from schemas.reviews import ReviewCreate, ReviewUpdate  # Import necessary schemas
+
 
 @pytest.fixture()
 def svc(monkeypatch, tmp_path):
@@ -15,7 +16,8 @@ def svc(monkeypatch, tmp_path):
     monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
 
     # Reload repo first and service
-    from app.repositories import reviews_repo as repo_mod
+    from repositories import reviews_repo as repo_mod
+
     importlib.reload(repo_mod)
 
     # Seed one movie with 1 existing review (user u1)
@@ -24,44 +26,58 @@ def svc(monkeypatch, tmp_path):
     mdir.mkdir(parents=True, exist_ok=True)
     p = mdir / "movieReviews.csv"
     with p.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            "Date of Review", "User", "Usefulness Vote", "Total Votes",
-            "User's Rating out of 10", "Review Title", "id"
-        ])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "Date of Review",
+                "User",
+                "Usefulness Vote",
+                "Total Votes",
+                "User's Rating out of 10",
+                "Review Title",
+                "id",
+            ],
+        )
         writer.writeheader()
-        writer.writerow({
-            "Date of Review": "20 July 2008",
-            "User": "u1",
-            "Usefulness Vote": "10",
-            "Total Votes": "12",
-            "User's Rating out of 10": "9",
-            "Review Title": "masterpiece",
-            "id": "",
-        })
+        writer.writerow(
+            {
+                "Date of Review": "20 July 2008",
+                "User": "u1",
+                "Usefulness Vote": "10",
+                "Total Votes": "12",
+                "User's Rating out of 10": "9",
+                "Review Title": "masterpiece",
+                "id": "",
+            }
+        )
 
     from app.services import reviews_service as svc_mod
+
     importlib.reload(svc_mod)
     return svc_mod, movie_id
+
 
 # Fixtures
 @pytest.fixture
 def created_review(svc):
     '''
-    Fixture: Creates a new review by user 'u2' for subsequent tests, 
+    Fixture: Creates a new review by user 'u2' for subsequent tests,
     ensuring cleanup and setup for each update/delete test.
     '''
     svc_mod, movie_id = svc
     # Create review by u2
-    created = svc_mod.create_review(ReviewCreate(
-        user_id="u2", movie_id=movie_id, rating=7, comment="good"
-    ))
+    created = svc_mod.create_review(
+        ReviewCreate(user_id="u2", movie_id=movie_id, rating=7, comment="good")
+    )
     return created, svc_mod, movie_id
+
 
 # Tests
 def test_create_duplicate_blocked(svc):
     svc_mod, movie_id = svc
 
-    from app.schemas.reviews import ReviewCreate
+    from schemas.reviews import ReviewCreate
+
     # u1 already has a review
     payload = ReviewCreate(user_id="u1", movie_id=movie_id, rating=8, comment="dup")
     with pytest.raises(HTTPException) as e:
@@ -80,7 +96,7 @@ def test_update_authorization(created_review):
         movie_id=movie_id,
         review_id=created.id,
         current_user_id="u2",
-        payload=ReviewUpdate(rating=8)
+        payload=ReviewUpdate(rating=8),
     )
     assert updated.rating == 8
 
@@ -90,16 +106,17 @@ def test_update_authorization(created_review):
             movie_id=movie_id,
             review_id=created.id,
             current_user_id="someone_else",
-            payload=ReviewUpdate(comment="hack")
+            payload=ReviewUpdate(comment="hack"),
         )
     assert e.value.status_code == 403
     assert "not authorized" in str(e.value.detail).lower()
 
+
 def test_delete_authorization(created_review):
     '''Test that only the author can delete their review.'''
     created, svc_mod, movie_id = created_review
-    review_id = created.id
-    
+    # review_id = created.id
+
     # non-author delete forbidden
     with pytest.raises(HTTPException) as e:
         svc_mod.delete_review(movie_id, created.id, current_user_id="hacker")
@@ -108,7 +125,7 @@ def test_delete_authorization(created_review):
 
     # author delete ok
     svc_mod.delete_review(movie_id, created.id, current_user_id="u2")
-    
+
     # Verify deletion
     items, _ = svc_mod.list_reviews(movie_id, limit=50)
     assert all(it.id != created.id for it in items)

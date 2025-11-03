@@ -1,10 +1,11 @@
 # reviews router
 from __future__ import annotations
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.schemas.reviews import ReviewCreate, ReviewUpdate, ReviewOut
+from app.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 from app.services import reviews_service as svc
 
 # TODO: import auth and get current user from the app dependency file
@@ -12,21 +13,26 @@ from app.services import reviews_service as svc
 try:
     from app.deps import get_current_user_id
 except ImportError:
+
     def get_current_user_id() -> str:
         return "demo_user"
-    
+
+
 router = APIRouter(prefix="/api/reviews", tags=["reviews"])
+
 
 @router.get("/movie/{movie_id}", response_model=Dict[str, Any])
 def list_reviews_endpoint(
     movie_id: str = Path(..., description="Movie ID(directory name under data/movies)"),
     limit: int = Query(50, ge=1, le=200, description="Max number of reviews to return"),
     cursor: Optional[int] = Query(None, description="Pagination cursor"),
-    min_rating: Optional[int] = Query(None, ge=1, le=10, description="Minimum rating filter"),
+    min_rating: Optional[int] = Query(
+        None, ge=1, le=10, description="Minimum rating filter"
+    ),
 ):
     '''List reviews for a movie with cursor-based pagination
-        Returns a JSON object: {"items": ReviewOut[], "nextCursor": int | null}.
-        Frontend can pass nextCursor from the previous response to fetch the next page.
+    Returns a JSON object: {"items": ReviewOut[], "nextCursor": int | null}.
+    Frontend can pass nextCursor from the previous response to fetch the next page.
     '''
     items, next_cursor = svc.list_reviews(
         movie_id=movie_id,
@@ -36,6 +42,7 @@ def list_reviews_endpoint(
     )
     return {"items": items, "nextCursor": next_cursor}
 
+
 @router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
 def create_review_endpoint(payload: ReviewCreate):
     '''Create a new review for a movie by the current user
@@ -43,6 +50,7 @@ def create_review_endpoint(payload: ReviewCreate):
     # current_user_id = Depends(get_current_user_id)
     # payload.user_id = current_user_id
     return svc.create_review(payload)
+
 
 @router.patch("/movie/{movie_id}/{review_id}", response_model=ReviewOut)
 def update_review_endpoint(
@@ -59,6 +67,7 @@ def update_review_endpoint(
         payload=payload,
     )
 
+
 @router.delete("/movie/{movie_id}/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_review_endpoint(
     movie_id: str,
@@ -74,14 +83,18 @@ def delete_review_endpoint(
     )
     return None
 
+
 @router.get("/movie/{movie_id}/me", response_model=Optional[ReviewOut])
 def get_my_review_endpoint(
     movie_id: str,
-    current_user_id: str = Depends(get_current_user_id), # only depends on current_user_id
+    current_user_id: str = Depends(
+        get_current_user_id
+    ),  # only depends on current_user_id
 ):
     '''Get the review for a movie by the currently authenticated user'''
     # Use current_user_id
     return svc.get_user_review(movie_id=movie_id, user_id=current_user_id)
+
 
 @router.get("/movie/{movie_id}/user/{user_id}", response_model=Optional[ReviewOut])
 def get_review_by_user_endpoint(
@@ -90,6 +103,7 @@ def get_review_by_user_endpoint(
 ):
     '''Get the review for a movie by a specific user ID'''
     return svc.get_user_review(movie_id=movie_id, user_id=user_id)
+
 
 # .. note::
 #    Parts of this file comments and basic scaffolding were auto-completed by VS Code.

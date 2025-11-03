@@ -1,0 +1,18 @@
+# Backend dependencies
+fastapi
+uvicorn[standard]
+pydantic
+python-jose
+passlib[bcrypt]
+
+# Data handling
+kagglehub
+
+# Testing
+pytest
+
+# Development tools (optional)
+flake8
+
+bandit
+pre-commit
