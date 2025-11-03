@@ -17,9 +17,16 @@ def svc(monkeypatch, tmp_path):
 
     # Reload repo first and service
     from repositories import reviews_repo as repo_mod
+    from services import reviews_service as svc_mod
 
     importlib.reload(repo_mod)
+    importlib.reload(svc_mod)
 
+    if hasattr(repo_mod, "_reviews") and isinstance(repo_mod._reviews, dict):
+        repo_mod._reviews.clear()
+    elif hasattr(repo_mod, "reset_for_testing"): # If a dedicated reset function exists
+        repo_mod.reset_for_testing()
+        
     # Seed one movie with 1 existing review (user u1)
     movie_id = "The Dark Knight"
     mdir = data_dir / movie_id
@@ -50,8 +57,6 @@ def svc(monkeypatch, tmp_path):
                 "id": "",
             }
         )
-
-    from services import reviews_service as svc_mod
 
     importlib.reload(svc_mod)
     return svc_mod, movie_id
