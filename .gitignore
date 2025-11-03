@@ -1,6 +1,7 @@
-backend/data
+backend/app/data
 venv/
 .pytest_cache/
 
 .DS_Store
 **/__pycache__/
+.env

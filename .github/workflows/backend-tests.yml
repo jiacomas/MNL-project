@@ -3,9 +3,9 @@ name: CI (selected branches)
 on:
   push:
     branches:
-      - 'feat/backend/reviews-core-baseline'   # only this branch
+      - 'feat/backend/reviews-core-baseline' # only this branch
   pull_request:
-    branches: ['main']                         # PRs targeting main
+    branches: ['main'] # PRs targeting main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
