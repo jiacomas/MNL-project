@@ -4,6 +4,7 @@ uvicorn[standard]
 pydantic
 python-jose
 passlib[bcrypt]
+httpx
 
 # Data handling
 kagglehub

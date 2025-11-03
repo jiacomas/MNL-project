@@ -4,13 +4,34 @@ using kagglehub and store it in the local data directory.
 """
 
 import os
+import shutil
+
+# backend/data.py
+from pathlib import Path
 
 import kagglehub
+from dotenv import load_dotenv
 
-# Download latest version
-data_dir = os.path.join(os.path.dirname(__file__), "data")
-os.makedirs(data_dir, exist_ok=True)
+# read .env
+load_dotenv()
+dataset_slug = os.getenv("KAGGLE_DATASET", "sadmadlad/imdb-user-reviews")
+target_root = Path(os.getenv("MOVIE_DATA_PATH", "backend/app/data/movies"))
 
-path = kagglehub.dataset_download("sadmadlad/imdb-user-reviews", download_dir=data_dir)
+# Download dataset from Kaggle to cache
+cache_root = Path(kagglehub.dataset_download(dataset_slug))
 
-print("Path to dataset files:", path)
+# Copy relevant files to target location
+target_root.mkdir(parents=True, exist_ok=True)
+copied = 0
+for dirpath, _, filenames in os.walk(cache_root):
+    for filename in filenames:
+        if not filename.lower().endswith((".csv", ".json")):
+            continue
+        src = Path(dirpath) / filename
+        rel = src.relative_to(cache_root)  # e.g. "Joker/movieReviews.csv"
+        dst = target_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        copied += 1
+
+print(f"Copied {copied} files to: {target_root}")
