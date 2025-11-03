@@ -19,6 +19,7 @@ jobs:
       - name: Run pylint inside backend container
         run: |
           docker compose run --rm backend sh -c "
+            pip install --upgrade pip &&
             pip install pylint &&
             mkdir -p /app/reports &&
             pylint /app > /app/reports/pylint-report.txt
