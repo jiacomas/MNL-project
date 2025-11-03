@@ -3,9 +3,9 @@ name: CI (selected branches)
 on:
   push:
     branches:
-      - 'feat/backend/reviews-core-baseline'
+      - 'feat/backend/reviews-core-baseline'   # only this branch
   pull_request:
-    branches: ['main']
+    branches: ['main']                         # PRs targeting main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,23 +13,27 @@ concurrency:
 
 jobs:
   backend-tests:
+    # run on push to your branch; on PRs, only if the source branch is yours
     if: ${{ github.event_name != 'pull_request' || github.head_ref == 'feat/backend/reviews-core-baseline' }}
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend
+      MOVIE_DATA_PATH: ./data/movies_ci
+      KAGGLE_DATASET: sadmadlad/imdb-user-reviews
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
+
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Run pytest
-        env:
-          PYTHONPATH: backend
-          MOVIE_DATA_PATH: ./data/movies_ci
-          KAGGLE_DATASET: sadmadlad/imdb-user-reviews
         run: |
           mkdir -p "$MOVIE_DATA_PATH"
           pytest -m "not integration" -q
