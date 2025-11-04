@@ -1,17 +1,36 @@
-version: '3.9'
-
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: . # set to root to access the requirements.txt
+      dockerfile: frontend/Dockerfile
     ports:
       - '3000:80'
     depends_on:
       - backend
 
   backend:
-    build: ./backend
+    build:
+      context: . # set to root to access the requirements.txt
+      dockerfile: backend/Dockerfile
     ports:
       - '8000:8000'
+    environment:
+      - TESTING=true
+      - PYTHONPATH=/app
     volumes:
       - ./backend:/app
     working_dir: /app
+
+  test-runner:
+    build:
+      context: . # context should be root to access all services
+      dockerfile: tests/Dockerfile.test # specify the test Dockerfile
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      - PYTHONPATH=/app/backend
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+    command: pytest /app/backend/tests -v

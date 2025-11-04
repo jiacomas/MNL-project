@@ -1,7 +1,10 @@
 FROM nginx:alpine
 
+# Set the working directory inside the container
+WORKDIR /usr/share/nginx/html
+
 # Copy a simple index.html
-COPY src/index.html /usr/share/nginx/html/
+COPY frontend/src/index.html /usr/share/nginx/html/
 
 # Expose port 3000 (we'll configure nginx to use this port)
 EXPOSE 3000
