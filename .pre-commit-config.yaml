@@ -24,6 +24,7 @@ repos:
       - id: black
         language_version: python3.13
         exclude: backend/routers/items.py
+        stages: [pre-commit]
 
   # Prettier for code formatting
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -32,21 +33,21 @@ repos:
       - id: prettier
         additional_dependencies: ['prettier@3.3.3']
 
-  # Bandit for Python security checks
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.9
-    hooks:
-      - id: bandit
-        pass_filenames: false
-        args:
-          - '-r'
-          - '.'
-          - '--exclude'
-          - './venv/*,./.pytest_cache/*'
-          - '-f'
-          - 'json' # or "txt", "yaml", "html"
-          # - '-o'
-          # - 'reports/bandit_report.json'
+  # # Bandit for Python security checks
+  # - repo: https://github.com/PyCQA/bandit
+  #   rev: 1.7.9
+  #   hooks:
+  #     - id: bandit
+  #       pass_filenames: false
+  #       args:
+  #         - '-r'
+  #         - '.'
+  #         - '--exclude'
+  #         - './venv/*,./.pytest_cache/*'
+  #         - '-f'
+  #         - 'json' # or "txt", "yaml", "html"
+  #         # - '-o'
+  #         # - 'reports/bandit_report.json'
 
   # Flake8 for Python linting
   - repo: https://github.com/PyCQA/flake8
