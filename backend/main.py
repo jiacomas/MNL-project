@@ -5,7 +5,7 @@ Includes health check endpoint and item router.
 
 from fastapi import FastAPI
 from routers.items import router as items_router
-from routers import admin_analytics, admin_sync
+from backend.routers import admin_analytics, admin_sync
 
 app = FastAPI()
 
