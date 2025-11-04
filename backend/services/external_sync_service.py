@@ -16,7 +16,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
 import httpx  # add to requirements.txt
 
@@ -45,7 +45,7 @@ def _save_json(path: Path, data: Any) -> None:
 
 async def _fetch_external_metadata(
     client: httpx.AsyncClient, title: str
-) -> Dict | None:
+) -> dict | None:
     """
     Fetches metadata from external API by title.
 
@@ -74,6 +74,31 @@ async def _fetch_external_metadata(
     }
 
 
+async def _update_item_from_external(client: httpx.AsyncClient, item: dict) -> bool:
+    """
+    Fetches external metadata for a single item and updates it in-place.
+
+    Returns True if any field changed.
+    """
+    title = item.get("title")
+    if not title:
+        return False
+
+    external = await _fetch_external_metadata(client, title)
+    if not external:
+        return False
+
+    changed = False
+
+    for key in ("poster_url", "runtime", "cast"):
+        value = external.get(key)
+        if value and item.get(key) != value:
+            item[key] = value
+            changed = True
+
+    return changed
+
+
 async def sync_external_metadata() -> Tuple[int, datetime]:
     """
     Syncs external metadata into items.json.
@@ -90,32 +115,7 @@ async def sync_external_metadata() -> Tuple[int, datetime]:
 
     async with httpx.AsyncClient() as client:
         for index, item in enumerate(items):
-            title = item.get("title")
-            if not title:
-                continue
-
-            external = await _fetch_external_metadata(client, title)
-            if not external:
-                continue
-
-            changed = False
-
-            poster_url = external.get("poster_url")
-            if poster_url and item.get("poster_url") != poster_url:
-                item["poster_url"] = poster_url
-                changed = True
-
-            runtime = external.get("runtime")
-            if runtime and item.get("runtime") != runtime:
-                item["runtime"] = runtime
-                changed = True
-
-            cast = external.get("cast")
-            if cast and item.get("cast") != cast:
-                item["cast"] = cast
-                changed = True
-
-            if changed:
+            if await _update_item_from_external(client, item):
                 updated_indices.append(index)
 
     if updated_indices:
