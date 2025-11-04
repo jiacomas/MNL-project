@@ -1,11 +1,19 @@
-name: CI (selected branches)
+name: CI
 
 on:
   push:
-    branches:
-      - 'feat/backend/reviews-core-baseline' # only this branch
+    branches: ['**']
+    paths:
+      - 'backend/**'
+      - 'requirements.txt'
+      - '.github/workflows/**'
   pull_request:
-    branches: ['main'] # PRs targeting main
+    branches: ['main']
+    paths:
+      - 'backend/**'
+      - 'requirements.txt'
+      - '.github/workflows/**'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,8 +21,6 @@ concurrency:
 
 jobs:
   backend-tests:
-    # run on push to your branch; on PRs, only if the source branch is yours
-    if: ${{ github.event_name != 'pull_request' || github.head_ref == 'feat/backend/reviews-core-baseline' }}
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: backend
