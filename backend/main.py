@@ -15,6 +15,7 @@ def health():
     """Return a simple status message to indicate the API is running."""
     return {"status": "ok"}
 
+
 app.include_router(admin_analytics.router)
 app.include_router(admin_sync.router)
 # Don't do this in production; just for demo purposes
