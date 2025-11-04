@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
-
 from services import external_sync_service as sync_mod
+
 
 @pytest.fixture
 def anyio_backend():
