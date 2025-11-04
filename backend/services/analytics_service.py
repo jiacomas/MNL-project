@@ -1,185 +1,117 @@
-"""
-Analytics / CSV export service.
-
-Computes platform statistics (users, items/movies, etc.) and writes
-them to a CSV file for admins to download.
-"""
-
+# Reviews service
 from __future__ import annotations
 
-import csv
-import json
-from collections import Counter
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, List
+import uuid
+from datetime import datetime, timezone
+from typing import List, Optional
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-# This file is backend/services/analytics_service.py
-# parents[0] -> services, parents[1] -> backend, parents[2] -> project root
-SERVICES_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = SERVICES_DIR.parent
-PROJECT_ROOT = BACKEND_DIR.parent
+from fastapi import HTTPException, status
 
-ROOT_DATA_DIR = PROJECT_ROOT / "data"
+from repositories.reviews_repo import CSVReviewRepo
+from schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
-USERS_FILE = ROOT_DATA_DIR / "users" / "users.json"
-ITEMS_FILE = ROOT_DATA_DIR / "items.json"
-
-# Optional future files – if missing we just return 0
-REVIEWS_FILE = ROOT_DATA_DIR / "reviews" / "reviews.json"
-BOOKMARKS_FILE = ROOT_DATA_DIR / "bookmarks" / "bookmarks.json"
-PENALTIES_FILE = ROOT_DATA_DIR / "penalties" / "penalties.json"
-
-EXPORT_DIR = ROOT_DATA_DIR / "exports"
-EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+_repo = CSVReviewRepo()
 
 
-@dataclass
-class PlatformStats:
-    """Aggregated statistics for the export."""
+def create_review(payload: ReviewCreate) -> ReviewOut:
+    """Create a new review (one per user per movie)."""
+    existing = _repo.get_by_user(payload.movie_id, payload.user_id)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has already reviewed this movie. Use update instead.",
+        )
 
-    total_users: int
-    active_users: int
-    reviews_count: int
-    bookmarks_count: int
-    penalties_count: int
-    top_genres: List[tuple[str, int]]
-    generated_at: datetime
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-def _load_json(path: Path) -> Any:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _count_records(path: Path) -> int:
-    """
-    Counts records in a JSON file:
-    - if list -> len(list)
-    - if dict -> len(dict)
-    If file does not exist, returns 0.
-    """
-    if not path.exists():
-        return 0
-
-    data = _load_json(path)
-
-    if isinstance(data, list):
-        return len(data)
-    if isinstance(data, dict):
-        return len(data)
-
-    return 0
+    now = datetime.now(timezone.utc)
+    review = ReviewOut(
+        id=str(uuid.uuid4()),
+        user_id=payload.user_id,
+        movie_id=payload.movie_id,
+        rating=payload.rating,
+        comment=payload.comment,
+        created_at=now,
+        updated_at=now,
+    )
+    return _repo.create(review)
 
 
-def _compute_top_genres(limit: int = 10) -> List[tuple[str, int]]:
-    """
-    Computes top genres/categories using items.json.
-
-    We treat each item as e.g.:
-    {
-        "id": "...",
-        "title": "...",
-        "genre": "Action",    # preferred
-        "category": "Action"  # fallback
-        ...
-    }
-    """
-    if not ITEMS_FILE.exists():
-        return []
-
-    items = _load_json(ITEMS_FILE)
-    if not isinstance(items, list):
-        return []
-
-    counter: Counter[str] = Counter()
-
-    for item in items:
-        genre = item.get("genre") or item.get("category")
-        if genre:
-            counter[genre] += 1
-
-    return counter.most_common(limit)
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-def compute_stats() -> PlatformStats:
-    """Computes all statistics required by the export user story."""
-    users_data = _load_json(USERS_FILE)
-
-    if isinstance(users_data, dict):
-        users = list(users_data.values())
-    elif isinstance(users_data, list):
-        users = users_data
-    else:
-        users = []
-
-    total_users = len(users)
-    active_users = sum(1 for user in users if user.get("is_active", True))
-
-    reviews_count = _count_records(REVIEWS_FILE)
-    bookmarks_count = _count_records(BOOKMARKS_FILE)
-    penalties_count = _count_records(PENALTIES_FILE)
-    top_genres = _compute_top_genres()
-    generated_at = datetime.now(UTC)
-
-    return PlatformStats(
-        total_users=total_users,
-        active_users=active_users,
-        reviews_count=reviews_count,
-        bookmarks_count=bookmarks_count,
-        penalties_count=penalties_count,
-        top_genres=top_genres,
-        generated_at=generated_at,
+def list_reviews(
+    movie_id: str,
+    limit: int = 50,
+    cursor: Optional[int] = None,
+    min_rating: Optional[int] = None,
+) -> tuple[List[ReviewOut], Optional[int]]:
+    """List reviews for a movie with pagination and optional filters."""
+    return _repo.list_by_movie(
+        movie_id,
+        limit=limit,
+        cursor=cursor,
+        min_rating=min_rating,
     )
 
 
-def write_stats_csv(stats: PlatformStats) -> Path:
-    """
-    Writes a single-row CSV file containing platform stats.
-
-    Headers are stable and include generated_at.
-    """
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-
-    timestamp = stats.generated_at.strftime("%Y%m%d_%H%M%S")
-    out_path = EXPORT_DIR / f"platform_stats_{timestamp}.csv"
-
-    headers = [
-        "generated_at",
-        "total_users",
-        "active_users",
-        "reviews_count",
-        "bookmarks_count",
-        "penalties_count",
-        "top_genres",  # stored as "Genre1:count;Genre2:count;..."
-    ]
-
-    top_genres_str = ";".join(f"{genre}:{count}" for genre, count in stats.top_genres)
-
-    with out_path.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=headers)
-        writer.writeheader()
-        writer.writerow(
-            {
-                "generated_at": stats.generated_at.isoformat(),
-                "total_users": stats.total_users,
-                "active_users": stats.active_users,
-                "reviews_count": stats.reviews_count,
-                "bookmarks_count": stats.bookmarks_count,
-                "penalties_count": stats.penalties_count,
-                "top_genres": top_genres_str,
-            }
+def update_review(
+    movie_id: str,
+    review_id: str,
+    current_user_id: str,
+    payload: ReviewUpdate,
+) -> ReviewOut:
+    """Update an existing review; only the author may update."""
+    existing = _repo.get_by_id(movie_id, review_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found.",
         )
 
-    return out_path
+    if existing.user_id != current_user_id:
+        # Review exists but belongs to someone else -> 403
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this review.",
+        )
+
+    updated = ReviewOut(
+        # keep immutable fields from existing
+        **existing.model_dump(exclude={"rating", "comment", "updated_at"}),
+        rating=payload.rating if payload.rating is not None else existing.rating,
+        comment=payload.comment if payload.comment is not None else existing.comment,
+        updated_at=datetime.now(timezone.utc),
+    )
+    return _repo.update(updated)
+
+
+def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
+    """Delete a review.
+
+    Rules (what the tests expect):
+    * If the review does not exist -> 404.
+    * If the review exists but current_user_id is not the author -> 403.
+    * If the review exists and user is the author -> delete it.
+    """
+    existing = _repo.get_by_id(movie_id, review_id)
+    if not existing:
+        # No such review at all -> 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found.",
+        )
+
+    if existing.user_id != current_user_id:
+        # Review exists but belongs to another user -> 403 (this is the failing test)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this review.",
+        )
+
+    _repo.delete(movie_id, review_id)
+
+
+def get_user_review(movie_id: str, user_id: str) -> Optional[ReviewOut]:
+    """Return a user's own review for a movie, or None if not found."""
+    return _repo.get_by_user(movie_id, user_id)
+
+
+# .. note::
+#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
+#    Core logic and subsequent modifications were implemented by the author(s).
