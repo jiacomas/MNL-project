@@ -13,12 +13,15 @@ def anyio_backend():
     # Tell pytest-anyio to only use asyncio, not trio
     return "asyncio"
 
+
 def _write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
 
 @pytest.mark.anyio
-async def test_sync_external_metadata_updates_items_and_logs(tmp_path, monkeypatch) -> None:
+async def test_sync_external_metadata_updates_items_and_logs(
+    tmp_path, monkeypatch
+) -> None:
     """Unit test for external API sync.
 
     Verifies:
