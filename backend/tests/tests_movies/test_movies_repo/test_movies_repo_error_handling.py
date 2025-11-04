@@ -3,16 +3,14 @@ Exception handling and fault injection tests for Movies Repository.
 Tests error conditions, corrupted data, and exception scenarios.
 """
 import csv
-import json
 import os
 import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from backend.app.repositories.movies_repo import MovieRepository
-from backend.app.schemas.movies import MovieCreate, MovieUpdate
+from backend.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate, MovieUpdate
 
 
 class TestMoviesRepoExceptionHandling:
@@ -30,7 +28,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
 
                 movie_create = MovieCreate(
@@ -61,7 +59,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
 
                 movie_update = MovieUpdate(title="Updated Title")
@@ -99,7 +97,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
                 # Should handle corruption gracefully
                 movies, total = repo.get_all()
@@ -125,7 +123,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', temp_path):
                 repo = MovieRepository(use_json=True)
                 # Should handle corruption gracefully
                 movies, total = repo.get_all()
@@ -139,7 +137,7 @@ class TestMoviesRepoExceptionHandling:
         """Test repository operation when data directory doesn't exist"""
         non_existent_path = tmp_path / "nonexistent" / "movies.csv"
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', str(non_existent_path)):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', str(non_existent_path)):
             repo = MovieRepository(use_json=False)
 
             # Should handle missing directory gracefully
@@ -159,7 +157,7 @@ class TestMoviesRepoExceptionHandling:
         read_only_file.chmod(0o444)  # Read-only
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', str(read_only_file)):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', str(read_only_file)):
                 repo = MovieRepository(use_json=False)
 
                 # Reading should work
@@ -201,7 +199,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
 
                 # Should handle invalid data gracefully
@@ -236,7 +234,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
                 movies, total = repo.get_all()
                 assert total == 0
@@ -271,7 +269,7 @@ class TestMoviesRepoExceptionHandling:
             temp_path = f.name
 
         try:
-            with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
                 repo = MovieRepository(use_json=False)
 
                 # Should handle malformed dates gracefully

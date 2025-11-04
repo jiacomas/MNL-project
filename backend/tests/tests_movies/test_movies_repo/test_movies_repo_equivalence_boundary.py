@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from backend.app.repositories.movies_repo import MovieRepository
-from backend.app.schemas.movies import MovieCreate
+from backend.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate
 
 
 class TestMoviesRepoEquivalenceBoundary:
@@ -28,7 +28,7 @@ class TestMoviesRepoEquivalenceBoundary:
             writer.writeheader()
             temp_path = f.name
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
             repo = MovieRepository(use_json=False)
             yield repo
 

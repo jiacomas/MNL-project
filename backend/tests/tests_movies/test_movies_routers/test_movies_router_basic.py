@@ -7,8 +7,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from fastapi import status, HTTPException
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieOut, MovieListResponse
+from backend.main import app
+from backend.schemas.movies import MovieOut, MovieListResponse
 
 
 class TestMoviesRouterBasic:
@@ -65,7 +65,7 @@ class TestMoviesRouterBasic:
             total_pages=2
         )
 
-        with patch('backend.app.routers.movies.svc.get_movies', return_value=mock_response):
+        with patch('backend.routers.movies.svc.get_movies', return_value=mock_response):
             response = client.get("/api/movies?page=1&page_size=50")
 
         assert response.status_code == status.HTTP_200_OK
@@ -87,7 +87,7 @@ class TestMoviesRouterBasic:
             total_pages=1
         )
 
-        with patch('backend.app.routers.movies.svc.search_movies', return_value=mock_response):
+        with patch('backend.routers.movies.svc.search_movies', return_value=mock_response):
             response = client.get("/api/movies/search?title=shawshank&genre=Drama")
 
         assert response.status_code == status.HTTP_200_OK
@@ -98,7 +98,7 @@ class TestMoviesRouterBasic:
 
     def test_get_movie_success(self, client, sample_movie_out):
         """Test successful retrieval of movie by ID"""
-        with patch('backend.app.routers.movies.svc.get_movie', return_value=sample_movie_out):
+        with patch('backend.routers.movies.svc.get_movie', return_value=sample_movie_out):
             response = client.get("/api/movies/tt0111161")
 
         assert response.status_code == status.HTTP_200_OK
@@ -108,7 +108,7 @@ class TestMoviesRouterBasic:
 
     def test_get_movie_not_found(self, client):
         """Test retrieval of non-existent movie"""
-        with patch('backend.app.routers.movies.svc.get_movie') as mock_get:
+        with patch('backend.routers.movies.svc.get_movie') as mock_get:
             mock_get.side_effect = HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Movie not found"
@@ -125,8 +125,8 @@ class TestMoviesRouterBasic:
             "release_year": 2024
         }
 
-        with patch('backend.app.routers.movies.svc.create_movie', return_value=sample_movie_out), \
-                patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch('backend.routers.movies.svc.create_movie', return_value=sample_movie_out), \
+                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
             response = client.post("/api/movies", json=movie_data)
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -147,7 +147,7 @@ class TestMoviesRouterBasic:
     ])
     def test_list_movies_parameter_validation(self, client, page, page_size, expected_status):
         """Test parameter validation using equivalence partitioning and boundary values"""
-        with patch('backend.app.routers.movies.svc.get_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.get_movies') as mock_svc:
             if expected_status == status.HTTP_200_OK:
                 mock_svc.return_value = MovieListResponse(
                     items=[],
@@ -172,7 +172,7 @@ class TestMoviesRouterBasic:
     ])
     def test_search_movies_parameter_validation(self, client, min_year, max_year, min_rating, expected_status):
         """Test search parameter validation with equivalence partitioning"""
-        with patch('backend.app.routers.movies.svc.search_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.search_movies') as mock_svc:
             mock_svc.return_value = MovieListResponse(
                 items=[],
                 total=0,

@@ -5,14 +5,14 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieOut
+from backend.main import app
+from backend.schemas.movies import MovieOut
 
 
 @pytest.fixture(autouse=True)
 def setup_test_environment():
     """Setup test environment for all tests"""
-    with patch('backend.app.routers.movies._AUTH_ENABLED', True):
+    with patch('backend.routers.movies._AUTH_ENABLED', True):
         yield
 
 

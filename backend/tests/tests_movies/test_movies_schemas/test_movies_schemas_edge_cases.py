@@ -1,9 +1,8 @@
 """
 Edge case and performance tests for movie schemas.
 """
-import pytest
 from datetime import datetime, timezone
-from backend.app.schemas.movies import MovieOut, MovieListResponse, MovieBase
+from backend.schemas.movies import MovieOut, MovieListResponse, MovieBase
 
 
 class TestMovieSchemasEdgeCases:

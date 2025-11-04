@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from backend.app.repositories.movies_repo import MovieRepository
-from backend.app.schemas.movies import MovieCreate, MovieUpdate
+from backend.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate, MovieUpdate
 
 
 class TestIntegrationMoviesRepository:
@@ -32,8 +32,8 @@ class TestIntegrationMoviesRepository:
         """Integration test for complete CSV operations cycle"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=False)
 
             # Test 1: Empty repository
@@ -90,8 +90,8 @@ class TestIntegrationMoviesRepository:
         """Integration test for complete JSON operations cycle"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=True)
 
             # Test empty repository
@@ -118,8 +118,8 @@ class TestIntegrationMoviesRepository:
         temp_dir, csv_path, json_path = temp_data_dir
 
         # Start with CSV repository
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
 
             csv_repo = MovieRepository(use_json=False)
 
@@ -170,8 +170,8 @@ class TestIntegrationMoviesRepository:
                 )
                 repo_instance.create(movie)
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             # Simulate concurrent access by multiple repository instances
             repo1 = MovieRepository(use_json=False)
             repo2 = MovieRepository(use_json=False)
@@ -195,8 +195,8 @@ class TestIntegrationMoviesRepository:
         """Test repository performance with large dataset"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=False)
 
             # Create larger dataset
@@ -225,8 +225,8 @@ class TestIntegrationMoviesRepository:
         """Test data consistency across multiple operations"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=False)
 
             # Create initial movie
@@ -262,8 +262,8 @@ class TestIntegrationMoviesRepository:
         """Test that search functionality works with persisted data"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=False)
 
             # Create test data with specific characteristics
@@ -298,8 +298,8 @@ class TestIntegrationMoviesRepository:
         """Test that sorting works with persisted data"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
+                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
             repo = MovieRepository(use_json=False)
 
             # Create test data with different ratings

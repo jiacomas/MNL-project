@@ -3,7 +3,7 @@ Tests for MovieBase schema using multiple testing methodologies.
 """
 import pytest
 from pydantic import ValidationError
-from backend.app.schemas.movies import MovieBase
+from backend.schemas.movies import MovieBase
 
 
 class TestMovieBaseSchema:

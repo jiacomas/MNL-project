@@ -7,8 +7,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from fastapi import status
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieOut, MovieListResponse
+from backend.main import app
+from backend.schemas.movies import MovieOut, MovieListResponse
 
 
 class TestMoviesRouterIntegration:
@@ -42,8 +42,8 @@ class TestMoviesRouterIntegration:
             "poster_url": "https://example.com/poster.jpg"
         }
 
-        with patch('backend.app.routers.movies.svc.create_movie') as mock_create, \
-                patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch('backend.routers.movies.svc.create_movie') as mock_create, \
+                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
             mock_create.return_value = MovieOut(
                 movie_id="tt9999999",
                 **create_data,
@@ -57,7 +57,7 @@ class TestMoviesRouterIntegration:
             movie_id = create_response.json()["movie_id"]
 
         # 2. Read movie
-        with patch('backend.app.routers.movies.svc.get_movie') as mock_get:
+        with patch('backend.routers.movies.svc.get_movie') as mock_get:
             mock_get.return_value = MovieOut(
                 movie_id=movie_id,
                 **create_data,
@@ -72,8 +72,8 @@ class TestMoviesRouterIntegration:
 
         # 3. Update movie
         update_data = {"rating": 9.0, "title": "Updated Integration Test Movie"}
-        with patch('backend.app.routers.movies.svc.update_movie') as mock_update, \
-                patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch('backend.routers.movies.svc.update_movie') as mock_update, \
+                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
             updated_movie_data = {**create_data, **update_data}
             mock_update.return_value = MovieOut(
                 movie_id=movie_id,
@@ -89,8 +89,8 @@ class TestMoviesRouterIntegration:
             assert update_response.json()["title"] == "Updated Integration Test Movie"
 
         # 4. Delete movie
-        with patch('backend.app.routers.movies.svc.delete_movie') as mock_delete, \
-                patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch('backend.routers.movies.svc.delete_movie') as mock_delete, \
+                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
             delete_response = client.delete(f"/api/movies/{movie_id}")
             assert delete_response.status_code == status.HTTP_204_NO_CONTENT
 
@@ -115,7 +115,7 @@ class TestMoviesRouterIntegration:
             ) for i in range(1, 101)
         ]
 
-        with patch('backend.app.routers.movies.svc.search_movies') as mock_search:
+        with patch('backend.routers.movies.svc.search_movies') as mock_search:
             # First page
             mock_search.return_value = MovieListResponse(
                 items=mock_movies[:50],

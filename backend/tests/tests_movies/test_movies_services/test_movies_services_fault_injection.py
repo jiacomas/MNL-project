@@ -5,15 +5,15 @@ import pytest
 from unittest.mock import patch, create_autospec
 from fastapi import HTTPException, status
 
-from backend.app.services.movies_service import (
+from backend.services.movies_service import (
     get_movies,
     search_movies,
     create_movie,
     update_movie,
     get_movie_stats
 )
-from backend.app.schemas.movies import MovieCreate, MovieUpdate, MovieSearchFilters
-from backend.app.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate, MovieUpdate, MovieSearchFilters
+from backend.repositories.movies_repo import MovieRepository
 
 
 class TestMoviesServiceFaultInjection:
@@ -27,7 +27,7 @@ class TestMoviesServiceFaultInjection:
         """Test fault injection: repository raises unexpected exception"""
         mock_repo.get_all.side_effect = Exception("Database connection failed")
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(Exception) as exc_info:
                 get_movies(page=1, page_size=10)
 
@@ -45,7 +45,7 @@ class TestMoviesServiceFaultInjection:
         # Simulate repository-level validation error
         mock_repo.create.side_effect = ValueError("Database constraint violation")
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(HTTPException) as exc_info:
                 create_movie(movie_create, is_admin=True)
 
@@ -69,7 +69,7 @@ class TestMoviesServiceFaultInjection:
         # Simulate concurrent modification by having the repository return None
         mock_repo.update.return_value = None
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(HTTPException) as exc_info:
                 update_movie("tt0111161", movie_update, is_admin=True)
 
@@ -81,7 +81,7 @@ class TestMoviesServiceFaultInjection:
 
         filters = MovieSearchFilters(title="test")
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(Exception) as exc_info:
                 search_movies(filters=filters, page=1, page_size=10)
 
@@ -91,7 +91,7 @@ class TestMoviesServiceFaultInjection:
         """Test exception handling: error during stats calculation"""
         mock_repo.get_all.side_effect = Exception("Statistics calculation failed")
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(Exception) as exc_info:
                 get_movie_stats()
 
@@ -102,7 +102,7 @@ class TestMoviesServiceFaultInjection:
         movie_create = MovieCreate(title="Network Test Movie")
         mock_repo.create.side_effect = TimeoutError("Database connection timeout")
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(TimeoutError) as exc_info:
                 create_movie(movie_create, is_admin=True)
 

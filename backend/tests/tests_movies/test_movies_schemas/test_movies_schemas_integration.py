@@ -1,9 +1,8 @@
 """
 Integration tests for movie schemas working together.
 """
-import pytest
 from datetime import datetime, timezone
-from backend.app.schemas.movies import MovieCreate, MovieUpdate, MovieOut, MovieSearchFilters, MovieListResponse
+from backend.schemas.movies import MovieCreate, MovieUpdate, MovieOut, MovieSearchFilters, MovieListResponse
 
 
 class TestMovieSchemasIntegration:

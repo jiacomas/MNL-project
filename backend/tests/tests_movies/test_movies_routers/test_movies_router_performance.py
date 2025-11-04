@@ -8,8 +8,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from fastapi import status
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieListResponse
+from backend.main import app
+from backend.schemas.movies import MovieListResponse
 
 
 class TestMoviesRouterPerformance:
@@ -34,10 +34,10 @@ class TestMoviesRouterPerformance:
         max_response_time = 2.0  # 2 seconds maximum
 
         for endpoint in endpoints:
-            with patch('backend.app.routers.movies.svc.get_movies') as mock_svc, \
-                    patch('backend.app.routers.movies.svc.search_movies') as mock_search, \
-                    patch('backend.app.routers.movies.svc.get_popular_movies') as mock_popular, \
-                    patch('backend.app.routers.movies.svc.get_recent_movies') as mock_recent:
+            with patch('backend.routers.movies.svc.get_movies') as mock_svc, \
+                    patch('backend.routers.movies.svc.search_movies') as mock_search, \
+                    patch('backend.routers.movies.svc.get_popular_movies') as mock_popular, \
+                    patch('backend.routers.movies.svc.get_recent_movies') as mock_recent:
                 mock_svc.return_value = MovieListResponse(items=[], total=0, page=1, page_size=50, total_pages=0)
                 mock_search.return_value = MovieListResponse(items=[], total=0, page=1, page_size=50, total_pages=0)
                 mock_popular.return_value = []

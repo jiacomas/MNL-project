@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from backend.app.repositories.movies_repo import MovieRepository
-from backend.app.schemas.movies import MovieCreate, MovieUpdate
+from backend.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate, MovieUpdate
 
 
 class TestMovieRepositoryBasic:
@@ -110,14 +110,14 @@ class TestMovieRepositoryBasic:
     @pytest.fixture
     def csv_repo(self, temp_csv_file):
         """Create MovieRepository instance with CSV backend"""
-        with patch('backend.app.repositories.movies_repo.MOVIES_CSV_PATH', temp_csv_file):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_csv_file):
             repo = MovieRepository(use_json=False)
             yield repo
 
     @pytest.fixture
     def json_repo(self, temp_json_file):
         """Create MovieRepository instance with JSON backend"""
-        with patch('backend.app.repositories.movies_repo.MOVIES_JSON_PATH', temp_json_file):
+        with patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', temp_json_file):
             repo = MovieRepository(use_json=True)
             yield repo
 

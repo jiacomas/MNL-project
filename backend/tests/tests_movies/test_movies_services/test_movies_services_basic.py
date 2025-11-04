@@ -5,26 +5,19 @@ import pytest
 from unittest.mock import patch, create_autospec
 from fastapi import HTTPException, status
 
-from backend.app.services.movies_service import (
+from backend.services.movies_service import (
     get_movies,
     search_movies,
-    get_movie,
-    create_movie,
-    update_movie,
-    delete_movie,
     get_popular_movies,
     get_recent_movies,
     get_movie_recommendations,
-    get_movie_stats
 )
-from backend.app.schemas.movies import (
-    MovieCreate,
-    MovieUpdate,
+from backend.schemas.movies import (
     MovieOut,
     MovieSearchFilters,
     MovieListResponse
 )
-from backend.app.repositories.movies_repo import MovieRepository
+from backend.repositories.movies_repo import MovieRepository
 
 
 class TestMoviesServiceBasic:
@@ -68,7 +61,7 @@ class TestMoviesServiceBasic:
         """Test get_movies with various equivalence partitions"""
         mock_repo.get_all.return_value = ([sample_movie_out], 1000)
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             response = get_movies(page=page, page_size=page_size)
 
         mock_repo.get_all.assert_called_once_with(
@@ -87,7 +80,7 @@ class TestMoviesServiceBasic:
     ])
     def test_get_movies_invalid_equivalence(self, mock_repo, page, page_size, expected_exception):
         """Test get_movies with invalid equivalence partitions"""
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(expected_exception):
                 get_movies(page=page, page_size=page_size)
 
@@ -98,7 +91,7 @@ class TestMoviesServiceBasic:
         """Test boundary values for popular movies limit"""
         mock_repo.get_popular.return_value = [sample_movie_out]
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             movies = get_popular_movies(limit=limit)
 
         assert len(movies) == 1
@@ -107,7 +100,7 @@ class TestMoviesServiceBasic:
     @pytest.mark.parametrize("invalid_limit", [0, 51, -1])
     def test_get_popular_movies_invalid_boundaries(self, mock_repo, invalid_limit):
         """Test invalid boundary values for popular movies limit"""
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(HTTPException) as exc_info:
                 get_popular_movies(limit=invalid_limit)
 
@@ -119,7 +112,7 @@ class TestMoviesServiceBasic:
         """Test successful retrieval of movies with pagination"""
         mock_repo.get_all.return_value = ([sample_movie_out], 100)
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             response = get_movies(page=1, page_size=50)
 
         assert isinstance(response, MovieListResponse)
@@ -146,7 +139,7 @@ class TestMoviesServiceBasic:
             min_rating=9.0
         )
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             response = search_movies(filters=filters, page=1, page_size=10)
 
         assert isinstance(response, MovieListResponse)
@@ -158,7 +151,7 @@ class TestMoviesServiceBasic:
         """Test getting recent movies"""
         mock_repo.get_recent.return_value = [sample_movie_out]
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             movies = get_recent_movies(limit=5)
 
         assert len(movies) == 1
@@ -168,7 +161,7 @@ class TestMoviesServiceBasic:
         """Test getting movie recommendations"""
         mock_repo.get_popular.return_value = [sample_movie_out]
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             recommendations = get_movie_recommendations("user123", limit=5)
 
         assert len(recommendations) == 1

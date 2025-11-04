@@ -8,8 +8,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from fastapi import status
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieOut, MovieListResponse
+from backend.main import app
+from backend.schemas.movies import MovieOut, MovieListResponse
 
 
 class TestMoviesRouterSecurity:
@@ -41,8 +41,8 @@ class TestMoviesRouterSecurity:
             "poster_url": "https://example.com/poster.jpg"
         }
 
-        with patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
-            with patch('backend.app.routers.movies.svc.create_movie') as mock_create:
+        with patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+            with patch('backend.routers.movies.svc.create_movie') as mock_create:
                 mock_create.return_value = MovieOut(
                     movie_id="tt9999999",
                     **large_data,
@@ -69,7 +69,7 @@ class TestMoviesRouterSecurity:
         ]
 
         for payload in sql_injection_payloads:
-            with patch('backend.app.routers.movies.svc.search_movies') as mock_search:
+            with patch('backend.routers.movies.svc.search_movies') as mock_search:
                 mock_search.return_value = MovieListResponse(
                     items=[],
                     total=0,
@@ -88,7 +88,7 @@ class TestMoviesRouterSecurity:
 
         def make_request(request_id):
             try:
-                with patch('backend.app.routers.movies.svc.get_movies') as mock_svc:
+                with patch('backend.routers.movies.svc.get_movies') as mock_svc:
                     mock_svc.return_value = MovieListResponse(
                         items=[],
                         total=0,
@@ -127,8 +127,8 @@ class TestMoviesRouterSecurity:
             "poster_url": "https://example.com/poster.jpg"
         }
 
-        with patch('backend.app.routers.movies.svc.create_movie') as mock_create, \
-                patch('backend.app.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch('backend.routers.movies.svc.create_movie') as mock_create, \
+                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
             mock_create.return_value = MovieOut(
                 movie_id="tt9999999",
                 **large_movie_data,
@@ -177,7 +177,7 @@ class TestMoviesRouterSecurity:
         ]
 
         for param, value in edge_cases:
-            with patch('backend.app.routers.movies.svc.search_movies') as mock_search:
+            with patch('backend.routers.movies.svc.search_movies') as mock_search:
                 mock_search.return_value = MovieListResponse(
                     items=[],
                     total=0,

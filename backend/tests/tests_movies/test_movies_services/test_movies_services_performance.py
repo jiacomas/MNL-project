@@ -5,12 +5,12 @@ import pytest
 import time
 from unittest.mock import patch, create_autospec
 
-from backend.app.services.movies_service import (
+from backend.services.movies_service import (
     get_movies,
     search_movies
 )
-from backend.app.schemas.movies import MovieOut, MovieSearchFilters
-from backend.app.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieOut, MovieSearchFilters
+from backend.repositories.movies_repo import MovieRepository
 
 
 class TestMoviesServicePerformance:
@@ -45,7 +45,7 @@ class TestMoviesServicePerformance:
 
         mock_repo.get_all.return_value = (large_movie_list[:50], 1000)
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             start_time = time.time()
 
             response = get_movies(page=1, page_size=50)
@@ -70,7 +70,7 @@ class TestMoviesServicePerformance:
             director="Christopher Nolan"
         )
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             start_time = time.time()
 
             search_movies(filters=complex_filters, page=1, page_size=50)

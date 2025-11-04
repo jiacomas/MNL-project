@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.app.repositories.movies_repo import _movie_to_dict, _dict_to_movie_dict
+from backend.repositories.movies_repo import _movie_to_dict, _dict_to_movie_dict
 
 
 class TestMoviesRepoHelpers:

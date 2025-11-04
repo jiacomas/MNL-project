@@ -9,8 +9,7 @@ from fastapi.testclient import TestClient
 from fastapi import status, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.app.main import app
-from backend.app.schemas.movies import MovieOut, MovieListResponse
+from backend.main import app
 
 
 class TestMoviesRouterErrorHandling:
@@ -30,7 +29,7 @@ class TestMoviesRouterErrorHandling:
 
     def test_service_layer_exception_handling(self, client):
         """Test fault injection by simulating service layer exceptions"""
-        with patch('backend.app.routers.movies.svc.get_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.get_movies') as mock_svc:
             mock_svc.side_effect = Exception("Database connection failed")
 
             try:
@@ -41,7 +40,7 @@ class TestMoviesRouterErrorHandling:
 
     def test_database_connection_error(self, client):
         """Test SQLAlchemy database connection errors"""
-        with patch('backend.app.routers.movies.svc.get_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.get_movies') as mock_svc:
             mock_svc.side_effect = SQLAlchemyError("Database connection timeout")
 
             try:
@@ -52,7 +51,7 @@ class TestMoviesRouterErrorHandling:
 
     def test_timeout_handling(self, client):
         """Test timeout scenarios using fault injection"""
-        with patch('backend.app.routers.movies.svc.search_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.search_movies') as mock_svc:
             mock_svc.side_effect = asyncio.TimeoutError("Query timeout")
 
             try:
@@ -63,7 +62,7 @@ class TestMoviesRouterErrorHandling:
 
     def test_service_exception_returns_500(self, client):
         """Test that service exceptions result in 500 responses when properly handled"""
-        with patch('backend.app.routers.movies.svc.get_movies') as mock_svc:
+        with patch('backend.routers.movies.svc.get_movies') as mock_svc:
             test_exceptions = [
                 ValueError("Invalid data"),
                 RuntimeError("Service unavailable"),
@@ -83,7 +82,7 @@ class TestMoviesRouterErrorHandling:
 
     def test_http_exception_propagation(self, client):
         """Test that HTTPExceptions are properly propagated"""
-        with patch('backend.app.routers.movies.svc.get_movie') as mock_svc:
+        with patch('backend.routers.movies.svc.get_movie') as mock_svc:
             mock_svc.side_effect = HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Movie not found"
@@ -102,7 +101,7 @@ class TestMoviesRouterErrorHandling:
         ]
 
         for endpoint, service_method in endpoints_to_test:
-            with patch(f'backend.app.routers.movies.svc.{service_method}') as mock_service:
+            with patch(f'backend.routers.movies.svc.{service_method}') as mock_service:
                 mock_service.side_effect = Exception("Service failure")
 
                 try:
@@ -115,8 +114,8 @@ class TestMoviesRouterErrorHandling:
 
     def test_authentication_fallback_comprehensive(self, client):
         """Comprehensive test for authentication fallback scenarios"""
-        with patch('backend.app.routers.movies._AUTH_ENABLED', False):
-            with patch('backend.app.routers.movies.get_current_user', side_effect=ImportError):
+        with patch('backend.routers.movies._AUTH_ENABLED', False):
+            with patch('backend.routers.movies.get_current_user', side_effect=ImportError):
                 try:
                     response = client.get("/api/movies/tt0111161/recommendations")
                     assert response.status_code in [status.HTTP_200_OK, status.HTTP_500_INTERNAL_SERVER_ERROR]

@@ -4,15 +4,15 @@ State-based testing for Movies Service - Testing state transitions and lifecycle
 import pytest
 from unittest.mock import patch, create_autospec
 
-from backend.app.services.movies_service import (
+from backend.services.movies_service import (
     create_movie,
     get_movie,
     update_movie,
     delete_movie,
     get_movie_stats
 )
-from backend.app.schemas.movies import MovieCreate, MovieUpdate, MovieOut
-from backend.app.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import MovieCreate, MovieUpdate, MovieOut
+from backend.repositories.movies_repo import MovieRepository
 
 
 class TestMoviesServiceStateBased:
@@ -57,7 +57,7 @@ class TestMoviesServiceStateBased:
         mock_repo.update.return_value = updated_movie
         mock_repo.delete.return_value = True
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             # Create movie
             created_movie = create_movie(movie_create, is_admin=True)
             assert created_movie.rating == 9.3
@@ -91,7 +91,7 @@ class TestMoviesServiceStateBased:
 
         mock_repo.get_all.return_value = (movies_data, 3)
 
-        with patch('backend.app.services.movies_service.movie_repo', mock_repo):
+        with patch('backend.services.movies_service.movie_repo', mock_repo):
             stats = get_movie_stats()
 
         assert stats["total_movies"] == 3

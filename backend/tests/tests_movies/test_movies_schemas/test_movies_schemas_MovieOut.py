@@ -4,7 +4,7 @@ Tests for MovieOut schema using multiple testing methodologies.
 import pytest
 from datetime import datetime, timezone
 from pydantic import ValidationError
-from backend.app.schemas.movies import MovieOut
+from backend.schemas.movies import MovieOut
 
 
 class TestMovieOutSchema:

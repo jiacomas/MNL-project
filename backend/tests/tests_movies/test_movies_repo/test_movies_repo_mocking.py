@@ -4,12 +4,12 @@ Tests datetime operations, UUID generation, and file operations using mocks.
 """
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
-from backend.app.repositories.movies_repo import MovieRepository, _movie_to_dict, _dict_to_movie_dict
-from backend.app.schemas.movies import MovieCreate
+from backend.repositories.movies_repo import MovieRepository, _dict_to_movie_dict
+from backend.schemas.movies import MovieCreate, MovieUpdate
 
 
 class TestMovieRepositoryMocking:
@@ -22,7 +22,7 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_datetime_operations(self):
         """Test datetime operations using mocking"""
-        with patch('backend.app.repositories.movies_repo.datetime') as mock_datetime:
+        with patch('backend.repositories.movies_repo.datetime') as mock_datetime:
             fixed_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
             mock_datetime.now.return_value = fixed_time
 
@@ -47,7 +47,7 @@ class TestMovieRepositoryMocking:
     def test_mock_repo_uuid_generation(self):
         """Test UUID generation using mocking"""
         fixed_uuid = "12345678-1234-5678-1234-567812345678"
-        with patch('backend.app.repositories.movies_repo.uuid.uuid4') as mock_uuid:
+        with patch('backend.repositories.movies_repo.uuid.uuid4') as mock_uuid:
             mock_uuid.return_value = uuid.UUID(fixed_uuid)
 
             movie_data = {"title": "Mocked UUID Movie"}
@@ -81,8 +81,8 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_csv_operations(self):
         """Test CSV-specific operations with mocking"""
-        with patch('backend.app.repositories.movies_repo._load_movies_from_csv') as mock_load, \
-                patch('backend.app.repositories.movies_repo._save_movies_to_csv') as mock_save:
+        with patch('backend.repositories.movies_repo._load_movies_from_csv') as mock_load, \
+                patch('backend.repositories.movies_repo._save_movies_to_csv') as mock_save:
             mock_load.return_value = [
                 {
                     "movie_id": "csv_mock_123",
@@ -104,8 +104,8 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_json_operations(self):
         """Test JSON-specific operations with mocking"""
-        with patch('backend.app.repositories.movies_repo._load_movies_from_json') as mock_load, \
-                patch('backend.app.repositories.movies_repo._save_movies_to_json') as mock_save:
+        with patch('backend.repositories.movies_repo._load_movies_from_json') as mock_load, \
+                patch('backend.repositories.movies_repo._save_movies_to_json') as mock_save:
             mock_load.return_value = [
                 {
                     "movie_id": "json_mock_123",
@@ -159,7 +159,6 @@ class TestMovieRepositoryMocking:
 
             mock_load.return_value = [existing_movie]
 
-            from backend.app.schemas.movies import MovieUpdate
             movie_update = MovieUpdate(title="Updated Title", rating=9.0)
 
             updated_movie = csv_repo.update("update_mock_123", movie_update)
