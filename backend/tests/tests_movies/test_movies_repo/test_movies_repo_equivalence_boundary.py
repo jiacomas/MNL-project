@@ -100,7 +100,7 @@ class TestMoviesRepoEquivalenceBoundary:
         1896,  # Just above minimum
         1950,  # Mid-20th century
         2000,  # Turn of century
-        2024,  # Current year
+        2025,  # Current year
         None,  # Optional field
     ])
     def test_movies_repo_release_year_combined(self, csv_repo, release_year):
