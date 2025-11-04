@@ -14,12 +14,11 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import httpx  # add to requirements.txt
-
 
 SERVICES_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = SERVICES_DIR.parent
