@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
@@ -10,6 +10,30 @@ from repositories.reviews_repo import CSVReviewRepo
 from schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 _repo = CSVReviewRepo()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
+    """Fetch a review or raise a 404 HTTPException.
+
+    Centralised helper so that *all* 'not found' behaviour is consistent.
+    """
+    review = _repo.get_by_id(movie_id, review_id)
+    if review is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found.",
+        )
+    return review
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def create_review(payload: ReviewCreate) -> ReviewOut:
@@ -39,7 +63,7 @@ def list_reviews(
     limit: int = 50,
     cursor: Optional[int] = None,
     min_rating: Optional[int] = None,
-) -> tuple[List[ReviewOut], Optional[int]]:
+) -> Tuple[List[ReviewOut], Optional[int]]:
     """List reviews for a movie with pagination and optional filters."""
     return _repo.list_by_movie(
         movie_id,
@@ -49,27 +73,15 @@ def list_reviews(
     )
 
 
-def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
-    """Helper so we always do the same 'not found' behaviour."""
-    review = _repo.get_by_id(movie_id, review_id)
-    if review is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found.",
-        )
-    return review
-
-
 def update_review(
     movie_id: str,
     review_id: str,
     current_user_id: str,
     payload: ReviewUpdate,
 ) -> ReviewOut:
-    """Update an existing review (only the author may do this)."""
+    """Update an existing review (only the author is allowed)."""
     existing = _get_review_or_404(movie_id, review_id)
 
-    # authorization check – this is what the tests care about
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -89,7 +101,8 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
     """Delete a review.
 
     Allowed if:
-    - current user is the author (tests expect 403 if not)
+    - current user is the author, OR
+    - (future) current user is an admin (once roles are implemented).
     """
     existing = _get_review_or_404(movie_id, review_id)
 
