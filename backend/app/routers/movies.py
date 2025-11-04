@@ -134,6 +134,3 @@ def get_movie_recommendations_endpoint(
 def get_movie_stats_endpoint():
     """Get movie statistics summary"""
     return svc.get_movie_stats()
-
-# Note: Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-# Core logic and subsequent modifications were implemented by the author(s).
