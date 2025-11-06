@@ -8,6 +8,10 @@ import shutil
 
 # backend/data.py
 from pathlib import Path
+import shutil
+
+# backend/data.py
+from pathlib import Path
 
 import kagglehub
 from dotenv import load_dotenv

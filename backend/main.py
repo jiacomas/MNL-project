@@ -15,4 +15,4 @@ def health():
 
 
 # Don't do this in production; just for demo purposes
-app.include_router(reviews_router)
+app.include_router(items_router)
