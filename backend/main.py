@@ -1,10 +1,9 @@
 """
 Main FastAPI application entrypoint.
-Includes health check endpoint and item router.
 """
 
 from fastapi import FastAPI
-from routers.items import router as items_router
+from routers.reviews import router as reviews_router
 
 app = FastAPI()
 
@@ -16,4 +15,4 @@ def health():
 
 
 # Don't do this in production; just for demo purposes
-app.include_router(items_router)
+app.include_router(reviews_router)
