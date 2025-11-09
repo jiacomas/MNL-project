@@ -7,7 +7,6 @@ import os
 import shutil
 
 # backend/data.py
-# backend/data.py
 from pathlib import Path
 
 import kagglehub
