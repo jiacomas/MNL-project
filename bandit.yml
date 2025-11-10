@@ -2,3 +2,4 @@ skips:
   - B101
 exclude_dirs:
   - backend/tests
+  - frontend/tests
