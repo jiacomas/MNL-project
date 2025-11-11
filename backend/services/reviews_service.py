@@ -69,7 +69,7 @@ def update_review(
     """Update an existing review (only the author may do this)."""
     existing = _get_review_or_404(movie_id, review_id)
 
-    # authorization check – this is what the tests care about
+    # Authorization – tests expect 403 if a non-author tries to update
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -105,3 +105,4 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
 def get_user_review(movie_id: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
     return _repo.get_by_user(movie_id, user_id)
+
