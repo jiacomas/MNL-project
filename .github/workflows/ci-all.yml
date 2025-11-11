@@ -4,13 +4,13 @@ on:
   # Trigger only when backend-related files are changed
   workflow_dispatch:
   push:
-    branches: ['**']  # run for all branches
+    branches: ['**'] # run for all branches
     paths:
       - 'backend/**'
       - 'requirements.txt'
       - '.github/workflows/**'
   pull_request:
-    branches: ['**']  # run for all PRs
+    branches: ['**'] # run for all PRs
     paths:
       - 'backend/**'
       - 'requirements.txt'
@@ -45,6 +45,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Seed mock movie data
+        run: |
+          mkdir -p "$MOVIE_DATA_PATH/The Dark Knight"
+          echo '[]' > "$MOVIE_DATA_PATH/The Dark Knight/movieReviews.csv"
+          echo '{"by_id": {}, "by_user": {}, "source_mtime": 0}' > "$MOVIE_DATA_PATH/The Dark Knight/index.json"
+          ls -R "$MOVIE_DATA_PATH"
 
       - name: Run pytest
         run: |
