@@ -126,7 +126,7 @@ def _row_to_dict(movie_id: str, row: Dict[str, str]) -> Dict[str, Any]:
         review_id = _stable_uuid5(movie_id, user, date_str, title)
 
     return {
-        "id": review_id or "",
+        "id": str(review_id or ""),
         "movie_id": movie_id,
         "user_id": user or "",
         "rating": rating or 0,
@@ -144,15 +144,15 @@ def _dict_to_row(data: Dict[str, Any]) -> Dict[str, str]:
     created_iso = data.get("created_at")
     if isinstance(created_iso, datetime):
         created_dt = created_iso
-
-    try:
-        created_dt = (
-            datetime.fromisoformat(created_iso)
-            if created_iso
-            else datetime.now(timezone.utc)
-        )
-    except Exception:
-        created_dt = datetime.now(timezone.utc)
+    else:
+        try:
+            created_dt = (
+                datetime.fromisoformat(created_iso)
+                if created_iso
+                else datetime.now(timezone.utc)
+            )
+        except Exception:
+            created_dt = datetime.now(timezone.utc)
 
     return {
         "Date of Review": _format_date_for_csv(created_dt),
@@ -251,7 +251,7 @@ class CSVReviewRepo:
                 reader = csv.DictReader(csvfile)
                 for i, row in enumerate(reader):
                     d = _row_to_dict(movie_id, row)
-                    by_id[d["id"]] = i  # row number
+                    by_id[str(d["id"])] = i  # row number
                     if d["user_id"] and d["user_id"] not in by_user:
                         by_user[d["user_id"]] = d["id"]
         idx = {
@@ -263,19 +263,21 @@ class CSVReviewRepo:
         return idx
 
     def get_by_id(self, movie_id: str, review_id: str) -> Optional[ReviewOut]:
-        '''Get a single review by its ID using the index for fast lookup'''
+        """Get a single review by its ID using the index for fast lookup"""
         idx = self._ensure_index(movie_id)
-        pos = idx["by_id"].get(review_id)  # position (row index of the review in CSV
+        pos = idx.get("by_id", {}).get(review_id)
         if pos is None:
             return None
+
         path = _movie_csv_path(movie_id)
+        if not os.path.exists(path):
+            return None  # prevent crash if CSV file missing
+
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
-            # Iterate to the target row
             for i, row in enumerate(reader):
                 if i == pos:
-                    d = _row_to_dict(movie_id, row)
-                    return ReviewOut.model_validate(d)
+                    return ReviewOut.model_validate(_row_to_dict(movie_id, row))
         return None
 
     def get_by_user(self, movie_id: str, user_id: str) -> Optional[ReviewOut]:
@@ -341,6 +343,7 @@ class CSVReviewRepo:
 
     def delete(self, movie_id: str, review_id: str) -> None:
         '''Delete a review by id by rewriting the CSV file, rebuild index'''
+        review_id = str(review_id).strip()
         path = _movie_csv_path(movie_id)
         if not os.path.exists(path):
             return

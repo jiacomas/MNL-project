@@ -51,6 +51,7 @@ def update_review(
     movie_id: str, review_id: str, current_user_id: str, payload: ReviewUpdate
 ) -> ReviewOut:
     '''Update an existing review only by user for a movie.'''
+    review_id = str(review_id)
     existing = _repo.get_by_id(movie_id, review_id)
     if not existing:
         raise HTTPException(
@@ -76,6 +77,7 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
     - current user is the author, OR
     TODO: - current user is admin (by config)
     '''
+    review_id = str(review_id)
     existing = _repo.get_by_id(movie_id, review_id)
     if not existing:
         raise HTTPException(
