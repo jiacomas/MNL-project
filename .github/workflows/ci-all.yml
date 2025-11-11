@@ -46,6 +46,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Seed mock movie data
+        run: |
+          mkdir -p "$MOVIE_DATA_PATH"
+          echo "{}" > "$MOVIE_DATA_PATH/index.json"
+          echo "[]" > "$MOVIE_DATA_PATH/movies.json"
+          echo "[]" > "$MOVIE_DATA_PATH/reviews.json"
+          ls -R "$MOVIE_DATA_PATH"
+
       - name: Run pytest
         run: |
           mkdir -p "$MOVIE_DATA_PATH"
