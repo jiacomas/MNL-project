@@ -171,3 +171,18 @@ class UserRepository:
             )
         else:
             raise ValueError("Invalid user type: must be 'admin' or 'customer'")
+
+    def edit_user_info(
+        self,
+        username: str,
+        **kwargs,
+    ) -> User:
+        user = self.get_user_by_username(username)
+        if not user:
+            raise ValueError("User not found")
+
+        for key, value in kwargs.items():
+            if hasattr(user, key):
+                setattr(user, key, value)
+
+        return user
