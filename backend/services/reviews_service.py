@@ -105,4 +105,3 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
 def get_user_review(movie_id: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
     return _repo.get_by_user(movie_id, user_id)
-
