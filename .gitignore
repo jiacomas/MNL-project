@@ -1,8 +1,18 @@
-backend/app/data
-venv/
-.pytest_cache/
-
+# System files
 .DS_Store
+*.DS_Store
+
+# IDE / editor configs
+.vscode/
+.idea/
+
+# Python environments
+venv/
+__pycache__/
 **/__pycache__/
 
+# Project data
+backend/data
+
+# Environment configuration
 .env
