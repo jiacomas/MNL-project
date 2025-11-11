@@ -2,6 +2,7 @@ import json
 
 from backend.__local_use__.create_users import main as create_users
 from backend.repositories.users_repo import UserRepository, save_all
+from backend.services.users_service import UsersService
 
 
 def print_menu():
@@ -25,20 +26,20 @@ def list_users(users):
         print(json.dumps(obj, ensure_ascii=False, indent=2))
 
 
-def add_user(repository, users):
+def add_user(service, users):
     username = input("Enter username: ")
     password = input("Enter password: ")
     email = input("Enter email: ")
     print("Choose type of user to add:\n 1. Admin\n 2. Customer")
     user_type = input("Enter your choice: ")
     if user_type == "1":
-        new_user = repository.create_user(
+        new_user = service.create_user(
             username=username, email=email, password=password, user_type="admin"
         )
     else:
         penalties = input("Enter penalties (default ''): ") or ""
         bookmarks_input = input("Enter bookmarks separated by commas (default none): ")
-        new_user = repository.create_user(
+        new_user = service.create_user(
             username=username,
             email=email,
             password=password,
@@ -147,6 +148,7 @@ def main():
     create_users()
     repository = UserRepository()
     users = repository.users
+    service = UsersService(repository)
 
     while True:
         print_menu()
@@ -154,7 +156,7 @@ def main():
         if choice == "1":
             list_users(users)
         elif choice == "2":
-            add_user(repository, users)
+            add_user(service, users)
         elif choice == "3":
             remove_user(repository, users)
         elif choice == "4":

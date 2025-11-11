@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import uuid
@@ -60,12 +59,15 @@ def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
 class UserRepository:
     def __init__(self, file_path: str = DATA_PATH):
         self.users = load_all(file_path)
+        # remember where this repository loads/saves data so services can persist
+        self.file_path = file_path
 
     def new_user_id(self) -> str:
         return uuid.uuid4().hex
 
-    def hash_password(self, password: str) -> str:
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    def save(self) -> None:
+        """Persist current users list to the configured data file."""
+        save_all(self.users, path=self.file_path)
 
     def user_exists(self, user_id: str):
         return any(user for user in self.users if user.user_id == user_id)
@@ -79,110 +81,45 @@ class UserRepository:
                 return user
         return None
 
-    def check_password(self, username: str, password: str) -> bool:
-        for user in self.users:
-            if user.username == username and user.passwordHash == self.hash_password(
-                password
-            ):
-                return True
-        return False
+    # def check_password(self, username: str, password: str) -> bool:
+    #     # delegate to service implementation to keep logic centralized
+    #     from backend.services.users_service import UsersService
 
-    def _create_admin(
-        self,
-        username: str,
-        email: str,
-        password: str,
-        admin_id: str | None = None,
-        user_id: str | None = None,
-        is_locked: bool = False,
-    ) -> Admin:
-        user_id = user_id or self.new_user_id()
-        admin_id = admin_id or self.new_user_id()
-        password_hash = self.hash_password(password)
-        return Admin(
-            user_id=user_id,
-            user_type="admin",
-            username=username,
-            email=email,
-            password=password,
-            passwordHash=password_hash,
-            is_locked=is_locked,
-            admin_id=admin_id,
-        )
+    #     return UsersService(self).check_password(username, password)
 
-    def _create_customer(
-        self,
-        username: str,
-        email: str,
-        password: str,
-        customer_id: str | None = None,
-        user_id: str | None = None,
-        penalties: str = "",
-        bookmarks: list[str] | None = None,
-        is_locked: bool = False,
-    ) -> Customers:
-        user_id = user_id or self.new_user_id()
-        customer_id = customer_id or self.new_user_id()
-        password_hash = self.hash_password(password)
-        return Customers(
-            user_id=user_id,
-            user_type="customer",
-            username=username,
-            email=email,
-            password=password,
-            passwordHash=password_hash,
-            is_locked=is_locked,
-            customer_id=customer_id,
-            penalties=penalties,
-            bookmarks=bookmarks or [],
-        )
+    # def create_user(
+    #     self,
+    #     username: str,
+    #     email: str,
+    #     password: str,
+    #     user_type: str,
+    #     user_id: str | None = None,
+    #     **kwargs,
+    # ) -> User:
+    #     # Delegate to service layer to create and persist a user. This keeps
+    #     # backwards compatibility for callers that still call repo.create_user.
+    #     from backend.services.users_service import UsersService
 
-    def create_user(
-        self,
-        username: str,
-        email: str,
-        password: str,
-        user_type: str,
-        user_id: str | None = None,
-        **kwargs,
-    ) -> User:
-        if self.user_exists(user_id):
-            # raise ValueError("User ID already exists")
-            print("User ID already exists")
-        if self.username_exists(username):
-            print("Username already exists")
-            # raise ValueError("Username already exists")
+    #     return UsersService(self).create_user(
+    #         username=username,
+    #         email=email,
+    #         password=password,
+    #         user_type=user_type,
+    #         user_id=user_id,
+    #         **kwargs,
+    #     )
 
-        if user_type == "admin":
-            return self._create_admin(
-                username=username,
-                email=email,
-                password=password,
-                user_id=user_id,
-                **kwargs,
-            )
-        elif user_type == "customer":
-            return self._create_customer(
-                username=username,
-                email=email,
-                password=password,
-                user_id=user_id,
-                **kwargs,
-            )
-        else:
-            raise ValueError("Invalid user type: must be 'admin' or 'customer'")
+    # def edit_user_info(
+    #     self,
+    #     username: str,
+    #     **kwargs,
+    # ) -> User:
+    #     user = self.get_user_by_username(username)
+    #     if not user:
+    #         raise ValueError("User not found")
 
-    def edit_user_info(
-        self,
-        username: str,
-        **kwargs,
-    ) -> User:
-        user = self.get_user_by_username(username)
-        if not user:
-            raise ValueError("User not found")
+    #     for key, value in kwargs.items():
+    #         if hasattr(user, key):
+    #             setattr(user, key, value)
 
-        for key, value in kwargs.items():
-            if hasattr(user, key):
-                setattr(user, key, value)
-
-        return user
+    #     return user

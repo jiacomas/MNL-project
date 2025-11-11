@@ -3,6 +3,7 @@ import argparse
 from pydantic import ValidationError
 
 from backend.repositories.users_repo import UserRepository, save_all
+from backend.services.users_service import UsersService
 
 
 # Simple CLI
@@ -29,11 +30,12 @@ def main():
 
     repository = UserRepository()
     users = repository.users
+    service = UsersService(repository)
     try:
         if args.type == "admin":
             if not (args.username and args.email and args.password):
                 parser.error("admin requires --username --email --password")
-            admin = repository.create_user(
+            admin = service.create_user(
                 args.username, args.email, args.password, user_type="admin"
             )
             users.append(admin)
@@ -41,7 +43,7 @@ def main():
         elif args.type == "customer":
             if not (args.username and args.email and args.password):
                 parser.error("customer requires --username --email --password")
-            customer = repository.create_user(
+            customer = service.create_user(
                 args.username,
                 args.email,
                 args.password,
@@ -54,10 +56,10 @@ def main():
         elif args.type == "sample":
             # create a small sample set
             users = [
-                repository.create_user(
+                service.create_user(
                     "admin1", "admin1@example.com", "secret1", user_type="admin"
                 ),
-                repository.create_user(
+                service.create_user(
                     "cust1",
                     "cust1@example.com",
                     "secret2",
@@ -65,7 +67,7 @@ def main():
                     penalties="0",
                     bookmarks=["item1", "item2"],
                 ),
-                repository.create_user(
+                service.create_user(
                     "cust2",
                     "cust2@example.com",
                     "secret3",
