@@ -63,14 +63,17 @@ def remove_user(repository, users):
     print("User removed successfully.")
 
 
-def edit_user(repository, users):
+def _print_users_list(users):
     print("users:", [user.username for user in users])
-    username = input("Enter username to edit: ")
-    user = repository.get_user_by_username(username)
-    if not user:
-        print("User not found.")
-        return
+
+
+def _edit_email(user):
     new_email = input(f"Enter new email (current: {user.email}): ") or user.email
+    user.email = new_email
+    print("Email updated.")
+
+
+def _edit_password(user, repository):
     new_password = input("Enter new password (leave blank to keep current): ")
     if new_password:
         # repository.hash_password may exist; fall back if it doesn't
@@ -79,9 +82,65 @@ def edit_user(repository, users):
         except Exception:
             user.passwordHash = new_password
         user.password = new_password
-    user.email = new_email
-    save_all(users)
-    print("User info updated successfully.")
+        print("Password updated.")
+    else:
+        print("Password unchanged.")
+
+
+def _edit_user_type(user):
+    new_user_type = (
+        input(f"Enter new user type (current: {user.user_type}): ") or user.user_type
+    )
+    user.user_type = new_user_type
+    print("User type updated.")
+
+
+def _edit_username(user, users, repository):
+    new_username = (
+        input(f"Enter new username (current: {user.username}): ") or user.username
+    )
+    if new_username != user.username and repository.username_exists(new_username):
+        print("Username already exists.")
+        return
+    user.username = new_username
+    print("Username updated.")
+
+
+def edit_user(repository, users):  # TODO: make possible to edit user_type
+    _print_users_list(users)
+    username = input("Enter username to edit: ")
+    user = repository.get_user_by_username(username)
+    if not user:
+        print("User not found.")
+        return
+
+    handlers = {
+        "1": lambda: _edit_email(user),
+        "2": lambda: _edit_password(user, repository),
+        "3": lambda: _edit_user_type(user),
+        "4": lambda: _edit_username(user, users, repository),
+    }
+
+    while True:
+        print(
+            f"\nEditing user: {user.username}"
+            "\n 1. Email"
+            "\n 2. Password"
+            "\n 3. User Type"
+            "\n 4. Username"
+            "\n 5. Done"
+        )
+        choice = input("Enter the number of the field you want to edit: ")
+        if choice == "5":
+            break
+
+        handler = handlers.get(choice)
+        if handler:
+            handler()
+            save_all(users)
+            print("User info updated successfully.")
+        else:
+            print("Invalid choice, please try again.")
 
 
 def main():
