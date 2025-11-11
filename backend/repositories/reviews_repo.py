@@ -263,20 +263,21 @@ class CSVReviewRepo:
         return idx
 
     def get_by_id(self, movie_id: str, review_id: str) -> Optional[ReviewOut]:
-        '''Get a single review by its ID using the index for fast lookup'''
-        review_id = str(review_id).strip()
+        """Get a single review by its ID using the index for fast lookup"""
         idx = self._ensure_index(movie_id)
-        pos = idx["by_id"].get(review_id)  # position (row index of the review in CSV
+        pos = idx.get("by_id", {}).get(review_id)
         if pos is None:
             return None
+
         path = _movie_csv_path(movie_id)
+        if not os.path.exists(path):
+            return None  # prevent crash if CSV file missing
+
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
-            # Iterate to the target row
             for i, row in enumerate(reader):
                 if i == pos:
-                    d = _row_to_dict(movie_id, row)
-                    return ReviewOut.model_validate(d)
+                    return ReviewOut.model_validate(_row_to_dict(movie_id, row))
         return None
 
     def get_by_user(self, movie_id: str, user_id: str) -> Optional[ReviewOut]:
