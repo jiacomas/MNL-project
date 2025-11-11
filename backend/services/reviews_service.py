@@ -66,10 +66,13 @@ def update_review(
     current_user_id: str,
     payload: ReviewUpdate,
 ) -> ReviewOut:
-    """Update an existing review (only the author may do this)."""
-    existing = _get_review_or_404(movie_id, review_id)
-
-    # Authorization – tests expect 403 if a non-author tries to update
+    '''Update an existing review only by user for a movie.'''
+    review_id = str(review_id)
+    existing = _repo.get_by_id(movie_id, review_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found."
+        )
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -86,13 +89,16 @@ def update_review(
 
 
 def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
-    """Delete a review.
-
-    Allowed if:
-    - current user is the author (tests expect 403 if not)
-    """
-    existing = _get_review_or_404(movie_id, review_id)
-
+    '''Allowed if:
+    - current user is the author, OR
+    TODO: - current user is admin (by config)
+    '''
+    review_id = str(review_id)
+    existing = _repo.get_by_id(movie_id, review_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Review not found."
+        )
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
