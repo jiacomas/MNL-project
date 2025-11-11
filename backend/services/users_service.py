@@ -53,11 +53,11 @@ class UsersService:
         - Persists to the repository's data file.
         """
         if user_id and self.repo.user_exists(user_id):
-            # raise ValueError("User ID already exists")
-            print("User ID already exists")
+            raise ValueError("User ID already exists")
+            # print("User ID already exists")
         if self.repo.username_exists(username):
-            # raise ValueError("Username already exists")
-            print("Username already exists")
+            raise ValueError("Username already exists")
+            # print("Username already exists")
 
         user_id = user_id or uuid.uuid4().hex
 
