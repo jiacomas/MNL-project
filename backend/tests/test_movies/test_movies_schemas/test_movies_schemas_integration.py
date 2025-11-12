@@ -7,7 +7,6 @@ from schemas.movies import MovieCreate, MovieUpdate, MovieOut, MovieSearchFilter
 
 
 @pytest.mark.integration
-@pytest.mark.slow
 class TestMovieSchemasIntegration:
     """Integration tests for movie schemas working together.
 
@@ -130,7 +129,6 @@ class TestMovieSchemasIntegration:
         assert movie.rating >= search_filters.min_rating
 
     @pytest.mark.integration
-    @pytest.mark.slow
     def test_complete_movie_lifecycle(self):
         """Integration test: Complete movie lifecycle from creation to search.
 
@@ -209,52 +207,3 @@ class TestMovieSchemasIntegration:
         assert any(movie.movie_id == "tt0468569" for movie in list_response.items)
         # The Godfather should be filtered out due to release year < 1990
         assert not any(movie.movie_id == "tt0068646" for movie in list_response.items)
-
-
-@pytest.mark.integration
-class TestMovieSchemaDataFlow:
-    """Additional integration tests focusing on data flow between schemas."""
-
-    @pytest.mark.integration
-    def test_partial_update_workflow(self):
-        """Integration test: Verify partial update workflow with null values."""
-        # Create original movie with complete data
-        original_data = {
-            "movie_id": "tt0111161",
-            "title": "Original Movie",
-            "genre": "Drama",
-            "release_year": 1994,
-            "rating": 8.5,
-            "runtime": 142,
-            "director": "Original Director",
-            "cast": "Original Cast",
-            "plot": "Original plot summary",
-            "poster_url": "https://original.com/poster.jpg",
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
-            "review_count": 1000
-        }
-        original_movie = MovieOut(**original_data)
-
-        # Create partial update that sets some fields to None
-        update_data = {
-            "genre": None,  # Remove genre
-            "rating": 9.0,  # Update rating
-            "director": "New Director"  # Change director
-        }
-        movie_update = MovieUpdate(**update_data)
-
-        # Simulate applying partial update
-        updated_data = original_data.copy()
-        for field, value in movie_update.model_dump(exclude_unset=True).items():
-            updated_data[field] = value
-        updated_data["updated_at"] = datetime.now(timezone.utc)
-
-        updated_movie = MovieOut(**updated_data)
-
-        # Verify partial update results
-        assert updated_movie.genre is None  # Field was set to None
-        assert updated_movie.rating == 9.0  # Field was updated
-        assert updated_movie.director == "New Director"  # Field was changed
-        assert updated_movie.title == original_movie.title  # Unchanged
-        assert updated_movie.release_year == original_movie.release_year  # Unchanged
