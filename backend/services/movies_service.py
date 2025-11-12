@@ -169,11 +169,11 @@ def get_recent_movies(limit: int = 10) -> List[MovieOut]:
     return movie_repo.get_recent(limit=limit)
 
 
-# def get_movie_recommendations(user_id: str, limit: int = 10) -> List[MovieOut]:
-#     """Get movie recommendations for a user based on their preferences"""
-#     # Implement recommendation logic based on user's review history
-#     # For now, return popular movies as placeholder
-#     return get_popular_movies(limit=limit)
+def get_movie_recommendations(user_id: str, limit: int = 10) -> List[MovieOut]:
+    """Get movie recommendations for a user based on their preferences"""
+    # Implement recommendation logic based on user's review history
+    # For now, return popular movies as placeholder
+    return get_popular_movies(limit=limit)
 
 
 def get_movie_stats() -> Dict[str, Any]:
