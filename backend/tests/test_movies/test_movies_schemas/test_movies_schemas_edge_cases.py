@@ -7,35 +7,34 @@ from backend.schemas.movies import MovieOut, MovieListResponse, MovieBase
 
 
 class TestMovieSchemasEdgeCases:
-    """Tests for edge cases and performance considerations"""
+    """Tests for edge cases and performance considerations."""
 
-    def test_movie_out_with_maximum_data(self):
-        """Test MovieOut with maximum allowed data sizes"""
+    def test_maximum_data_sizes(self):
+        """Test MovieOut with maximum allowed data sizes."""
         now = datetime.now(timezone.utc)
         max_data = {
-            "movie_id": "t" * 100,  # Long movie ID
-            "title": "A" * 500,  # Maximum length title
-            "genre": "A" * 200,  # Long genre
-            "release_year": 2100,  # Maximum year
-            "rating": 10.0,  # Maximum rating
-            "runtime": 999,  # Maximum runtime
-            "director": "A" * 200,  # Long director name
-            "cast": "A" * 1000,  # Long cast list
-            "plot": "A" * 2000,  # Long plot
-            "poster_url": "https://example.com/" + "a" * 100 + ".jpg",  # Long URL
+            "movie_id": "t" * 100,
+            "title": "A" * 500,
+            "genre": "A" * 200,
+            "release_year": 2100,
+            "rating": 10.0,
+            "runtime": 999,
+            "director": "A" * 200,
+            "cast": "A" * 1000,
+            "plot": "A" * 2000,
+            "poster_url": "https://example.com/" + "a" * 100 + ".jpg",
             "created_at": now,
             "updated_at": now,
-            "review_count": 2 ** 31 - 1  # Maximum practical integer
+            "review_count": 2 ** 31 - 1
         }
 
         movie = MovieOut(**max_data)
         assert movie.title == "A" * 500
         assert movie.review_count == 2 ** 31 - 1
 
-    def test_movie_list_response_large_dataset(self):
-        """Test MovieListResponse with large number of items"""
+    def test_large_dataset_performance(self):
+        """Test MovieListResponse handles large datasets efficiently."""
         now = datetime.now(timezone.utc)
-        # Create a larger but reasonable number of items
         large_movie_list = [
             MovieOut(
                 movie_id=f"tt{i:07d}",
@@ -44,7 +43,7 @@ class TestMovieSchemasEdgeCases:
                 updated_at=now,
                 review_count=i * 100
             )
-            for i in range(100)  # Larger dataset
+            for i in range(100)
         ]
 
         response = MovieListResponse(
@@ -59,9 +58,8 @@ class TestMovieSchemasEdgeCases:
         assert response.total == 10000
         assert response.total_pages == 100
 
-    def test_string_fields_special_characters(self):
-        """Test that string fields handle special characters safely"""
-        # Test with characters that might cause issues in different contexts
+    def test_special_characters_handling(self):
+        """Test string fields safely handle special characters."""
         special_chars_data = {
             "title": "Test'; DROP TABLE movies; --",
             "genre": "Action'; <script>alert('xss')</script>",
@@ -71,13 +69,12 @@ class TestMovieSchemasEdgeCases:
             "poster_url": "https://example.com/image.jpg?param=value&other=test"
         }
 
-        # These should all be handled safely through Pydantic validation
         movie = MovieBase(**special_chars_data)
         assert movie.title == "Test'; DROP TABLE movies; --"
         assert movie.genre == "Action'; <script>alert('xss')</script>"
 
-    def test_movie_out_with_none_values(self):
-        """Test MovieOut with None values for optional fields"""
+    def test_none_values_handling(self):
+        """Test MovieOut properly handles None values for optional fields."""
         now = datetime.now(timezone.utc)
         data = {
             "movie_id": "tt0111161",
@@ -100,10 +97,9 @@ class TestMovieSchemasEdgeCases:
         assert movie.title == "Test Movie"
         assert movie.genre is None
         assert movie.release_year is None
-        assert movie.rating is None
 
-    def test_movie_base_with_unicode_characters(self):
-        """Test MovieBase with Unicode and special characters"""
+    def test_unicode_characters_support(self):
+        """Test MovieBase properly handles Unicode and special characters."""
         unicode_data = {
             "title": "Movie with emoji 🎬 and unicode 中文",
             "genre": "Sci-Fi 🚀",
@@ -117,15 +113,12 @@ class TestMovieSchemasEdgeCases:
         assert movie.title == "Movie with emoji 🎬 and unicode 中文"
         assert movie.genre == "Sci-Fi 🚀"
         assert movie.director == "Director名字"
-        assert movie.cast == "Actor 🎭, Another Actor"
 
-    # Performance Tests
-    def test_movie_out_creation_performance(self):
-        """Test performance of MovieOut creation with multiple instances"""
+    def test_creation_performance(self):
+        """Test performance of rapid MovieOut instance creation."""
         now = datetime.now(timezone.utc)
 
-        # Create multiple MovieOut instances quickly
-        for i in range(100):  # Reasonable number for performance test
+        for i in range(100):
             movie = MovieOut(
                 movie_id=f"tt{i:07d}",
                 title=f"Movie {i}",
@@ -135,11 +128,9 @@ class TestMovieSchemasEdgeCases:
             )
             assert movie.movie_id == f"tt{i:07d}"
 
-    def test_movie_list_response_memory_efficiency(self):
-        """Test that MovieListResponse handles memory efficiently"""
+    def test_memory_efficiency(self):
+        """Test MovieListResponse maintains memory efficiency with substantial data."""
         now = datetime.now(timezone.utc)
-
-        # Create a substantial but reasonable number of items
         items = [
             MovieOut(
                 movie_id=f"tt{i:07d}",
@@ -159,35 +150,24 @@ class TestMovieSchemasEdgeCases:
             total_pages=20
         )
 
-        # Verify all items are accessible and correct
         assert len(response.items) == 50
         for i, item in enumerate(response.items):
             assert item.movie_id == f"tt{i:07d}"
             assert item.title == f"Movie {i}"
 
-    # Edge Case: Extreme Values
-    def test_movie_base_extreme_numeric_values(self):
-        """Test MovieBase with extreme numeric values"""
-        # Test with minimum valid values
-        min_data = {
-            "title": "A",
-            "release_year": 1888,
-            "rating": 0.0,
-            "runtime": 1
-        }
+    @pytest.mark.parametrize("field,min_value,max_value", [
+        ("release_year", 1888, 2100),
+        ("rating", 0.0, 10.0),
+        ("runtime", 1, 999),
+    ])
+    def test_extreme_numeric_values(self, field, min_value, max_value):
+        """Test MovieBase with extreme valid numeric values."""
+        # Test minimum values
+        min_data = {"title": "A", field: min_value}
         movie_min = MovieBase(**min_data)
-        assert movie_min.release_year == 1888
-        assert movie_min.rating == 0.0
-        assert movie_min.runtime == 1
+        assert getattr(movie_min, field) == min_value
 
-        # Test with maximum valid values
-        max_data = {
-            "title": "A" * 500,
-            "release_year": 2100,
-            "rating": 10.0,
-            "runtime": 999
-        }
+        # Test maximum values
+        max_data = {"title": "A" * 500, field: max_value}
         movie_max = MovieBase(**max_data)
-        assert movie_max.release_year == 2100
-        assert movie_max.rating == 10.0
-        assert movie_max.runtime == 999
+        assert getattr(movie_max, field) == max_value

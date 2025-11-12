@@ -6,11 +6,18 @@ from datetime import datetime, timezone
 from backend.schemas.movies import MovieCreate, MovieUpdate, MovieOut, MovieSearchFilters, MovieListResponse
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 class TestMovieSchemasIntegration:
-    """Integration tests for movie schemas working together"""
+    """Integration tests for movie schemas working together.
 
-    def test_movie_create_to_movie_out_flow(self):
-        """Integration test: Create movie and convert to output format"""
+    These tests verify that multiple schemas work correctly together
+    in real-world scenarios and workflows.
+    """
+
+    @pytest.mark.integration
+    def test_create_to_output_flow(self):
+        """Integration test: Verify MovieCreate to MovieOut conversion workflow."""
         # Create a movie using MovieCreate
         create_data = {
             "movie_id": "tt0111161",
@@ -32,7 +39,7 @@ class TestMovieSchemasIntegration:
         }
         movie_out = MovieOut(**movie_out_data)
 
-        # Verify data consistency
+        # Verify data consistency between create and output schemas
         assert movie_out.movie_id == movie_create.movie_id
         assert movie_out.title == movie_create.title
         assert movie_out.genre == movie_create.genre
@@ -40,8 +47,9 @@ class TestMovieSchemasIntegration:
         assert movie_out.rating == movie_create.rating
         assert movie_out.runtime == movie_create.runtime
 
-    def test_movie_update_flow(self):
-        """Integration test: Update existing movie"""
+    @pytest.mark.integration
+    def test_update_workflow(self):
+        """Integration test: Verify complete movie update workflow."""
         # Create original movie
         original_data = {
             "movie_id": "tt0111161",
@@ -55,7 +63,7 @@ class TestMovieSchemasIntegration:
         }
         original_movie = MovieOut(**original_data)
 
-        # Create update
+        # Create update request
         update_data = {
             "title": "Updated Title",
             "rating": 9.0
@@ -71,14 +79,15 @@ class TestMovieSchemasIntegration:
 
         updated_movie = MovieOut(**updated_data)
 
-        # Verify updates were applied correctly
+        # Verify updates were applied correctly and unchanged fields preserved
         assert updated_movie.title == "Updated Title"
         assert updated_movie.rating == 9.0
         assert updated_movie.genre == original_movie.genre  # Unchanged
         assert updated_movie.release_year == original_movie.release_year  # Unchanged
 
-    def test_search_filters_with_movie_list_integration(self):
-        """Integration test: Search filters with movie list response"""
+    @pytest.mark.integration
+    def test_search_and_list_integration(self):
+        """Integration test: Verify search filters work with list response."""
         # Create search filters
         search_filters = MovieSearchFilters(
             title="shawshank",
@@ -103,7 +112,7 @@ class TestMovieSchemasIntegration:
             )
         ]
 
-        # Create list response
+        # Create paginated list response
         list_response = MovieListResponse(
             items=matching_movies,
             total=1,
@@ -112,7 +121,7 @@ class TestMovieSchemasIntegration:
             total_pages=1
         )
 
-        # Verify integration
+        # Verify integration between search filters and response
         assert len(list_response.items) == 1
         movie = list_response.items[0]
         assert search_filters.title.lower() in movie.title.lower()
@@ -120,9 +129,18 @@ class TestMovieSchemasIntegration:
         assert search_filters.min_year <= movie.release_year <= search_filters.max_year
         assert movie.rating >= search_filters.min_rating
 
-    def test_complete_movie_lifecycle_integration(self):
-        """Integration test: Complete movie lifecycle from creation to search"""
-        # Step 1: Create multiple movies
+    @pytest.mark.integration
+    @pytest.mark.slow
+    def test_complete_movie_lifecycle(self):
+        """Integration test: Complete movie lifecycle from creation to search.
+
+        This test simulates a real-world workflow:
+        1. Create multiple movies
+        2. Convert to output format (simulating database persistence)
+        3. Apply search filters
+        4. Return paginated results
+        """
+        # Step 1: Create multiple movies using MovieCreate schema
         movies_to_create = [
             {
                 "movie_id": "tt0111161",
@@ -185,7 +203,58 @@ class TestMovieSchemasIntegration:
             total_pages=1
         )
 
-        # Verify results
+        # Verify final results match expected business logic
         assert len(list_response.items) == 2  # Shawshank Redemption and The Dark Knight
         assert any(movie.movie_id == "tt0111161" for movie in list_response.items)
         assert any(movie.movie_id == "tt0468569" for movie in list_response.items)
+        # The Godfather should be filtered out due to release year < 1990
+        assert not any(movie.movie_id == "tt0068646" for movie in list_response.items)
+
+
+@pytest.mark.integration
+class TestMovieSchemaDataFlow:
+    """Additional integration tests focusing on data flow between schemas."""
+
+    @pytest.mark.integration
+    def test_partial_update_workflow(self):
+        """Integration test: Verify partial update workflow with null values."""
+        # Create original movie with complete data
+        original_data = {
+            "movie_id": "tt0111161",
+            "title": "Original Movie",
+            "genre": "Drama",
+            "release_year": 1994,
+            "rating": 8.5,
+            "runtime": 142,
+            "director": "Original Director",
+            "cast": "Original Cast",
+            "plot": "Original plot summary",
+            "poster_url": "https://original.com/poster.jpg",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+            "review_count": 1000
+        }
+        original_movie = MovieOut(**original_data)
+
+        # Create partial update that sets some fields to None
+        update_data = {
+            "genre": None,  # Remove genre
+            "rating": 9.0,  # Update rating
+            "director": "New Director"  # Change director
+        }
+        movie_update = MovieUpdate(**update_data)
+
+        # Simulate applying partial update
+        updated_data = original_data.copy()
+        for field, value in movie_update.model_dump(exclude_unset=True).items():
+            updated_data[field] = value
+        updated_data["updated_at"] = datetime.now(timezone.utc)
+
+        updated_movie = MovieOut(**updated_data)
+
+        # Verify partial update results
+        assert updated_movie.genre is None  # Field was set to None
+        assert updated_movie.rating == 9.0  # Field was updated
+        assert updated_movie.director == "New Director"  # Field was changed
+        assert updated_movie.title == original_movie.title  # Unchanged
+        assert updated_movie.release_year == original_movie.release_year  # Unchanged

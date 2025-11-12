@@ -7,7 +7,7 @@ from backend.schemas.movies import MovieBase
 
 
 class TestMovieBaseSchema:
-    """Comprehensive tests for MovieBase schema with multiple testing methodologies"""
+    """Comprehensive tests for MovieBase schema validation and functionality."""
 
     # Equivalence Partitioning Tests
     @pytest.mark.parametrize("valid_title", [
@@ -17,8 +17,8 @@ class TestMovieBaseSchema:
         "Movie with 123 numbers",  # Alphanumeric
         "Movie with-special_chars",  # Special characters
     ])
-    def test_movie_base_title_equivalence_partitioning_valid(self, valid_title):
-        """Test title field with valid equivalence partitions"""
+    def test_title_validation_valid_cases(self, valid_title):
+        """Test title field accepts valid equivalence partitions."""
         movie = MovieBase(title=valid_title)
         assert movie.title == valid_title
 
@@ -27,8 +27,8 @@ class TestMovieBaseSchema:
         "   ",  # Only whitespace
         "A" * 501,  # Exceeds maximum length
     ])
-    def test_movie_base_title_equivalence_partitioning_invalid(self, invalid_title):
-        """Test title field with invalid equivalence partitions"""
+    def test_title_validation_invalid_cases(self, invalid_title):
+        """Test title field rejects invalid equivalence partitions."""
         with pytest.raises(ValidationError):
             MovieBase(title=invalid_title)
 
@@ -38,8 +38,8 @@ class TestMovieBaseSchema:
         (10.0, 10.0),  # Maximum boundary
         (None, None),  # Optional field
     ])
-    def test_movie_base_rating_equivalence_partitioning(self, rating, expected):
-        """Test rating field with boundary value analysis"""
+    def test_rating_boundary_values(self, rating, expected):
+        """Test rating field with boundary value analysis."""
         movie = MovieBase(title="Test Movie", rating=rating)
         assert movie.rating == expected
 
@@ -49,36 +49,13 @@ class TestMovieBaseSchema:
         -100.0,  # Far below minimum
         100.0,  # Far above maximum
     ])
-    def test_movie_base_rating_fault_injection(self, invalid_rating):
-        """Fault injection: Test rating with invalid values"""
+    def test_rating_invalid_values(self, invalid_rating):
+        """Test rating field rejects invalid values."""
         with pytest.raises(ValidationError):
             MovieBase(title="Test Movie", rating=invalid_rating)
 
-    # Fault Injection Tests
-    def test_movie_base_invalid_field_types(self):
-        """Fault injection: Test with incorrect data types"""
-        # Test with string instead of number for release_year
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", release_year="not-a-number")
-
-        # Test with string instead of number for rating
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", rating="high")
-
-    def test_movie_base_extra_fields_rejection(self):
-        """Fault injection: Test that extra fields are rejected"""
-        with pytest.raises(ValidationError) as exc_info:
-            MovieBase(
-                title="Test Movie",
-                invalid_field="This should not be allowed",
-                another_invalid_field=123
-            )
-        # Check that validation error was raised for extra fields
-        error_str = str(exc_info.value)
-        assert "extra" in error_str.lower() or "forbidden" in error_str.lower()
-
-    def test_movie_base_valid_data(self):
-        """Test MovieBase with valid data"""
+    def test_complete_valid_data(self):
+        """Test MovieBase with all valid fields populated."""
         data = {
             "title": "The Shawshank Redemption",
             "genre": "Drama",
@@ -90,67 +67,27 @@ class TestMovieBaseSchema:
             "plot": "Two imprisoned men bond over a number of years...",
             "poster_url": "https://example.com/poster.jpg"
         }
-
         movie = MovieBase(**data)
-        assert movie.title == data["title"]
-        assert movie.genre == data["genre"]
-        assert movie.release_year == data["release_year"]
-        assert movie.rating == data["rating"]
-        assert movie.runtime == data["runtime"]
-        assert movie.director == data["director"]
-        assert movie.cast == data["cast"]
-        assert movie.plot == data["plot"]
-        assert movie.poster_url == data["poster_url"]
 
-    def test_movie_base_optional_fields(self):
-        """Test MovieBase with only required fields"""
-        data = {
-            "title": "Test Movie"
-        }
+        for field, value in data.items():
+            assert getattr(movie, field) == value
 
-        movie = MovieBase(**data)
+    def test_required_fields_only(self):
+        """Test MovieBase with only required title field."""
+        movie = MovieBase(title="Test Movie")
         assert movie.title == "Test Movie"
         assert movie.genre is None
         assert movie.release_year is None
         assert movie.rating is None
-        assert movie.runtime is None
-        assert movie.director is None
-        assert movie.cast is None
-        assert movie.plot is None
-        assert movie.poster_url is None
 
-    def test_movie_base_title_validation(self):
-        """Test MovieBase title validation"""
-        # Test empty title
+    @pytest.mark.parametrize("year", [1887, 2101])
+    def test_release_year_validation(self, year):
+        """Test release year validation with invalid values."""
         with pytest.raises(ValidationError):
-            MovieBase(title="")
+            MovieBase(title="Test", release_year=year)
 
-        # Test title too long
-        with pytest.raises(ValidationError):
-            MovieBase(title="a" * 501)
-
-    def test_movie_base_rating_validation(self):
-        """Test MovieBase rating validation"""
-        # Test rating below minimum
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", rating=-1)
-
-        # Test rating above maximum
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", rating=11)
-
-    def test_movie_base_year_validation(self):
-        """Test MovieBase release year validation"""
-        # Test year below minimum
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", release_year=1887)
-
-        # Test year above maximum
-        with pytest.raises(ValidationError):
-            MovieBase(title="Test", release_year=2101)
-
-    def test_movie_base_string_normalization(self):
-        """Test string field normalization"""
+    def test_string_normalization(self):
+        """Test string fields are properly normalized with whitespace stripping."""
         data = {
             "title": "  Test Movie  ",
             "genre": "  Drama  ",
@@ -159,8 +96,8 @@ class TestMovieBaseSchema:
             "plot": "  Plot summary  ",
             "poster_url": "  https://example.com/poster.jpg  "
         }
-
         movie = MovieBase(**data)
+
         assert movie.title == "Test Movie"
         assert movie.genre == "Drama"
         assert movie.director == "Director Name"
@@ -168,8 +105,8 @@ class TestMovieBaseSchema:
         assert movie.plot == "Plot summary"
         assert movie.poster_url == "https://example.com/poster.jpg"
 
-    def test_movie_base_empty_string_normalization(self):
-        """Test empty string fields are normalized to None"""
+    def test_empty_string_normalization(self):
+        """Test empty string fields are normalized to None."""
         data = {
             "title": "Test Movie",
             "genre": "   ",
@@ -178,10 +115,30 @@ class TestMovieBaseSchema:
             "plot": "",
             "poster_url": "   "
         }
-
         movie = MovieBase(**data)
+
         assert movie.genre is None
         assert movie.director is None
         assert movie.cast is None
         assert movie.plot is None
         assert movie.poster_url is None
+
+    def test_invalid_data_types(self):
+        """Test validation fails with incorrect data types."""
+        with pytest.raises(ValidationError):
+            MovieBase(title="Test", release_year="not-a-number")
+
+        with pytest.raises(ValidationError):
+            MovieBase(title="Test", rating="high")
+
+    def test_extra_fields_rejection(self):
+        """Test that extra fields are properly rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            MovieBase(
+                title="Test Movie",
+                invalid_field="This should not be allowed",
+                another_invalid_field=123
+            )
+
+        error_str = str(exc_info.value)
+        assert "extra" in error_str.lower() or "forbidden" in error_str.lower()

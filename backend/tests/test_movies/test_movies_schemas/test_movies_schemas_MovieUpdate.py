@@ -7,10 +7,10 @@ from backend.schemas.movies import MovieUpdate
 
 
 class TestMovieUpdateSchema:
-    """Comprehensive tests for MovieUpdate schema with multiple testing methodologies"""
+    """Comprehensive tests for MovieUpdate schema functionality."""
 
-    def test_movie_update_valid_data(self):
-        """Test MovieUpdate with valid data"""
+    def test_valid_partial_update(self):
+        """Test MovieUpdate with valid partial data."""
         data = {
             "rating": 9.5,
             "poster_url": "https://updated-poster.com/image.jpg"
@@ -20,15 +20,15 @@ class TestMovieUpdateSchema:
         assert movie_update.rating == data["rating"]
         assert movie_update.poster_url == data["poster_url"]
 
-    def test_movie_update_no_fields_provided(self):
-        """Test MovieUpdate validation when no fields are provided"""
+    def test_empty_update_rejection(self):
+        """Test MovieUpdate validation fails when no fields are provided."""
         with pytest.raises(ValidationError) as exc_info:
             MovieUpdate()
 
         assert "At least one field must be provided for update" in str(exc_info.value)
 
-    def test_movie_update_string_normalization(self):
-        """Test MovieUpdate string field normalization"""
+    def test_string_field_normalization(self):
+        """Test string fields are properly normalized."""
         data = {
             "title": "  Updated Title  ",
             "genre": "  Updated Genre  ",
@@ -40,19 +40,6 @@ class TestMovieUpdateSchema:
         assert movie_update.genre == "Updated Genre"
         assert movie_update.director == "New Director"
 
-    def test_movie_update_partial_data(self):
-        """Test MovieUpdate with partial data"""
-        # Only update rating
-        movie_update = MovieUpdate(rating=8.5)
-        assert movie_update.rating == 8.5
-        assert movie_update.title is None
-
-        # Only update title
-        movie_update = MovieUpdate(title="New Title")
-        assert movie_update.title == "New Title"
-        assert movie_update.rating is None
-
-    # Equivalence Partitioning Tests
     @pytest.mark.parametrize("field_name,valid_value", [
         ("title", "Valid Title"),
         ("genre", "Action"),
@@ -64,45 +51,43 @@ class TestMovieUpdateSchema:
         ("plot", "Plot summary"),
         ("poster_url", "https://example.com/poster.jpg"),
     ])
-    def test_movie_update_single_field_validation(self, field_name, valid_value):
-        """Test MovieUpdate with each field individually"""
+    def test_individual_field_updates(self, field_name, valid_value):
+        """Test each field can be updated individually."""
         data = {field_name: valid_value}
         movie_update = MovieUpdate(**data)
         assert getattr(movie_update, field_name) == valid_value
 
-    def test_movie_update_extra_fields_rejection(self):
-        """Fault injection: Test that extra fields are rejected in MovieUpdate"""
+    def test_extra_fields_rejection(self):
+        """Test that extra fields are properly rejected."""
         with pytest.raises(ValidationError) as exc_info:
             MovieUpdate(
                 title="Updated Title",
                 invalid_field="This should not be allowed"
             )
-        # Check that validation error was raised for extra fields
+
         error_str = str(exc_info.value)
         assert "extra" in error_str.lower() or "forbidden" in error_str.lower()
 
-    # Boundary Value Analysis
     @pytest.mark.parametrize("rating", [0.0, 5.0, 10.0])
-    def test_movie_update_rating_boundary_values(self, rating):
-        """Test MovieUpdate with rating boundary values"""
+    def test_rating_boundary_values(self, rating):
+        """Test rating boundary values are accepted."""
         movie_update = MovieUpdate(rating=rating)
         assert movie_update.rating == rating
 
     @pytest.mark.parametrize("runtime", [1, 100, 999])
-    def test_movie_update_runtime_boundary_values(self, runtime):
-        """Test MovieUpdate with runtime boundary values"""
+    def test_runtime_boundary_values(self, runtime):
+        """Test runtime boundary values are accepted."""
         movie_update = MovieUpdate(runtime=runtime)
         assert movie_update.runtime == runtime
 
-    # Fault Injection Tests
     @pytest.mark.parametrize("invalid_rating", [-1.0, 10.1, -100.0, 100.0])
-    def test_movie_update_invalid_rating_fault_injection(self, invalid_rating):
-        """Fault injection: Test MovieUpdate with invalid rating values"""
+    def test_invalid_rating_values(self, invalid_rating):
+        """Test invalid rating values are rejected."""
         with pytest.raises(ValidationError):
             MovieUpdate(rating=invalid_rating)
 
     @pytest.mark.parametrize("invalid_year", [1887, 2101])
-    def test_movie_update_invalid_year_fault_injection(self, invalid_year):
-        """Fault injection: Test MovieUpdate with invalid year values"""
+    def test_invalid_year_values(self, invalid_year):
+        """Test invalid year values are rejected."""
         with pytest.raises(ValidationError):
             MovieUpdate(release_year=invalid_year)

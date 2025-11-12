@@ -7,10 +7,10 @@ from backend.schemas.movies import MovieListResponse, MovieOut
 
 
 class TestMovieListResponseSchema:
-    """Comprehensive tests for MovieListResponse schema with multiple testing methodologies"""
+    """Comprehensive tests for MovieListResponse schema functionality."""
 
-    def test_movie_list_response_valid_data(self):
-        """Test MovieListResponse with valid data"""
+    def test_basic_functionality(self):
+        """Test MovieListResponse with basic valid data."""
         now = datetime.now(timezone.utc)
         movie_data = {
             "movie_id": "tt0111161",
@@ -21,7 +21,6 @@ class TestMovieListResponseSchema:
         }
 
         movie = MovieOut(**movie_data)
-
         response_data = {
             "items": [movie],
             "total": 100,
@@ -38,8 +37,8 @@ class TestMovieListResponseSchema:
         assert response.page_size == 50
         assert response.total_pages == 2
 
-    def test_movie_list_response_empty_items(self):
-        """Test MovieListResponse with empty items list"""
+    def test_empty_response(self):
+        """Test MovieListResponse with empty items list."""
         response_data = {
             "items": [],
             "total": 0,
@@ -53,8 +52,8 @@ class TestMovieListResponseSchema:
         assert response.total == 0
         assert response.total_pages == 0
 
-    def test_movie_list_response_multiple_items(self):
-        """Test MovieListResponse with multiple items"""
+    def test_multiple_items(self):
+        """Test MovieListResponse with multiple movie items."""
         now = datetime.now(timezone.utc)
         movies = [
             MovieOut(
@@ -82,15 +81,14 @@ class TestMovieListResponseSchema:
         assert response.page == 2
         assert response.total_pages == 20
 
-    # Boundary Value Analysis
     @pytest.mark.parametrize("page,page_size,total,total_pages", [
         (1, 1, 1, 1),  # Minimum values
         (1, 50, 100, 2),  # Normal values
         (10, 100, 1000, 10),  # Larger values
         (1, 100, 0, 0),  # Zero total
     ])
-    def test_movie_list_response_pagination_boundary_values(self, page, page_size, total, total_pages):
-        """Test MovieListResponse with pagination boundary values"""
+    def test_pagination_variations(self, page, page_size, total, total_pages):
+        """Test various pagination scenarios."""
         now = datetime.now(timezone.utc)
         items = [
             MovieOut(
@@ -116,10 +114,9 @@ class TestMovieListResponseSchema:
         assert response.total == total
         assert response.total_pages == total_pages
 
-    # Equivalence Partitioning Tests
     @pytest.mark.parametrize("item_count", [0, 1, 5, 10])
-    def test_movie_list_response_item_count_equivalence(self, item_count):
-        """Test MovieListResponse with different item counts"""
+    def test_varying_item_counts(self, item_count):
+        """Test response with different numbers of items."""
         now = datetime.now(timezone.utc)
         items = [
             MovieOut(
@@ -134,7 +131,7 @@ class TestMovieListResponseSchema:
 
         response_data = {
             "items": items,
-            "total": item_count * 10,  # Simulate more total items than current page
+            "total": item_count * 10,
             "page": 1,
             "page_size": 10,
             "total_pages": max(1, (item_count * 10) // 10)
@@ -144,11 +141,9 @@ class TestMovieListResponseSchema:
         assert len(response.items) == item_count
         assert response.total == item_count * 10
 
-    # Performance and Edge Case Tests
-    def test_movie_list_response_large_dataset(self):
-        """Test MovieListResponse with large number of items"""
+    def test_large_dataset_handling(self):
+        """Test MovieListResponse with large number of items."""
         now = datetime.now(timezone.utc)
-        # Create a larger but reasonable number of items
         large_movie_list = [
             MovieOut(
                 movie_id=f"tt{i:07d}",
@@ -157,7 +152,7 @@ class TestMovieListResponseSchema:
                 updated_at=now,
                 review_count=i * 100
             )
-            for i in range(100)  # Larger dataset
+            for i in range(100)
         ]
 
         response = MovieListResponse(
