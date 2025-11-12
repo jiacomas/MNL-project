@@ -1,4 +1,4 @@
-# Reviews service
+# Analytics service
 from __future__ import annotations
 
 import csv

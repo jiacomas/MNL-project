@@ -80,6 +80,17 @@ def list_reviews(
     )
 
 
+def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
+    """Helper so we always do the same 'not found' behaviour."""
+    review = _repo.get_by_id(movie_id, review_id)
+    if review is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found.",
+        )
+    return review
+
+
 def update_review(
     movie_id: str,
     review_id: str,

@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from routers import admin_analytics, admin_sync
 from routers.reviews import router as reviews_router
 
+from backend.routers import admin_analytics, admin_sync
+
 app = FastAPI()
 
 
