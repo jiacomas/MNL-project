@@ -3,7 +3,7 @@ Tests for MovieListResponse schema using multiple testing methodologies.
 """
 import pytest
 from datetime import datetime, timezone
-from backend.schemas.movies import MovieListResponse, MovieOut
+from schemas.movies import MovieListResponse, MovieOut
 
 
 class TestMovieListResponseSchema:
