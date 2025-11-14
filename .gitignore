@@ -16,9 +16,3 @@ backend/data
 
 # Environment configuration
 .env
-
-# Node.js dependencies
-frontend/node_modules/
-frontend/.next/
-frontend/package-lock.json
-frontend/package.json
