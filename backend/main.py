@@ -5,6 +5,8 @@ Main FastAPI application entrypoint.
 from fastapi import FastAPI
 from routers.reviews import router as reviews_router
 
+from backend.routers import admin_analytics, admin_sync
+
 app = FastAPI()
 
 
@@ -14,5 +16,7 @@ def health():
     return {"status": "ok"}
 
 
+app.include_router(admin_analytics.router)
+app.include_router(admin_sync.router)
 # Don't do this in production; just for demo purposes
 app.include_router(reviews_router)
