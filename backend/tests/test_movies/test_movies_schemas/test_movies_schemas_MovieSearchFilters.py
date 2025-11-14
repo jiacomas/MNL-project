@@ -1,8 +1,10 @@
 """
 Tests for MovieSearchFilters schema using multiple testing methodologies.
 """
+
 import pytest
 from pydantic import ValidationError
+
 from schemas.movies import MovieSearchFilters
 
 
@@ -17,7 +19,7 @@ class TestMovieSearchFiltersSchema:
             "min_year": 1990,
             "max_year": 2000,
             "min_rating": 8.5,
-            "director": "Frank Darabont"
+            "director": "Frank Darabont",
         }
 
         filters = MovieSearchFilters(**data)
@@ -28,14 +30,17 @@ class TestMovieSearchFiltersSchema:
         assert filters.min_rating == data["min_rating"]
         assert filters.director == data["director"]
 
-    @pytest.mark.parametrize("filters", [
-        {"title": "test"},
-        {"genre": "Action"},
-        {"min_year": 2000, "max_year": 2010},
-        {"min_rating": 8.0},
-        {"director": "Director"},
-        {"title": "test", "genre": "Action", "min_rating": 7.0},
-    ])
+    @pytest.mark.parametrize(
+        "filters",
+        [
+            {"title": "test"},
+            {"genre": "Action"},
+            {"min_year": 2000, "max_year": 2010},
+            {"min_rating": 8.0},
+            {"director": "Director"},
+            {"title": "test", "genre": "Action", "min_rating": 7.0},
+        ],
+    )
     def test_partial_filters(self, filters):
         """Test various filter combinations work correctly."""
         filter_obj = MovieSearchFilters(**filters)
@@ -76,18 +81,18 @@ class TestMovieSearchFiltersSchema:
     def test_extra_fields_rejection(self):
         """Test that extra fields are properly rejected."""
         with pytest.raises(ValidationError) as exc_info:
-            MovieSearchFilters(
-                title="test",
-                invalid_field="This should not be allowed"
-            )
+            MovieSearchFilters(title="test", invalid_field="This should not be allowed")
 
         error_str = str(exc_info.value)
         assert "extra" in error_str.lower() or "forbidden" in error_str.lower()
 
-    @pytest.mark.parametrize("year_pair", [
-        {"min_year": 2000, "max_year": 1999},
-        {"min_year": 2020, "max_year": 2010},
-    ])
+    @pytest.mark.parametrize(
+        "year_pair",
+        [
+            {"min_year": 2000, "max_year": 1999},
+            {"min_year": 2020, "max_year": 2010},
+        ],
+    )
     def test_invalid_year_ranges(self, year_pair):
         """Test that invalid year ranges don't cause validation errors."""
         # Note: Schema doesn't validate min_year <= max_year

@@ -1,9 +1,12 @@
 """
 Edge case and performance tests for movie schemas.
 """
-import pytest
+
 from datetime import datetime, timezone
-from schemas.movies import MovieOut, MovieListResponse, MovieBase
+
+import pytest
+
+from schemas.movies import MovieBase, MovieListResponse, MovieOut
 
 
 class TestMovieSchemasEdgeCases:
@@ -25,12 +28,12 @@ class TestMovieSchemasEdgeCases:
             "poster_url": "https://example.com/" + "a" * 100 + ".jpg",
             "created_at": now,
             "updated_at": now,
-            "review_count": 2 ** 31 - 1
+            "review_count": 2**31 - 1,
         }
 
         movie = MovieOut(**max_data)
         assert movie.title == "A" * 500
-        assert movie.review_count == 2 ** 31 - 1
+        assert movie.review_count == 2**31 - 1
 
     def test_large_dataset_performance(self):
         """Test MovieListResponse handles large datasets efficiently."""
@@ -41,17 +44,13 @@ class TestMovieSchemasEdgeCases:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             for i in range(100)
         ]
 
         response = MovieListResponse(
-            items=large_movie_list,
-            total=10000,
-            page=1,
-            page_size=100,
-            total_pages=100
+            items=large_movie_list, total=10000, page=1, page_size=100, total_pages=100
         )
 
         assert len(response.items) == 100
@@ -66,7 +65,7 @@ class TestMovieSchemasEdgeCases:
             "director": "O'Conner; --",
             "cast": "Actor1; Actor2\nActor3",
             "plot": "Plot with 'quotes' and \"double quotes\"",
-            "poster_url": "https://example.com/image.jpg?param=value&other=test"
+            "poster_url": "https://example.com/image.jpg?param=value&other=test",
         }
 
         movie = MovieBase(**special_chars_data)
@@ -89,7 +88,7 @@ class TestMovieSchemasEdgeCases:
             "poster_url": None,
             "created_at": now,
             "updated_at": now,
-            "review_count": 0
+            "review_count": 0,
         }
 
         movie = MovieOut(**data)
@@ -106,7 +105,7 @@ class TestMovieSchemasEdgeCases:
             "director": "Director名字",
             "cast": "Actor 🎭, Another Actor",
             "plot": "Plot with emojis: ❤️🔥🌟",
-            "poster_url": "https://example.com/海报.jpg"
+            "poster_url": "https://example.com/海报.jpg",
         }
 
         movie = MovieBase(**unicode_data)
@@ -124,7 +123,7 @@ class TestMovieSchemasEdgeCases:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             assert movie.movie_id == f"tt{i:07d}"
 
@@ -137,17 +136,13 @@ class TestMovieSchemasEdgeCases:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             for i in range(50)
         ]
 
         response = MovieListResponse(
-            items=items,
-            total=1000,
-            page=1,
-            page_size=50,
-            total_pages=20
+            items=items, total=1000, page=1, page_size=50, total_pages=20
         )
 
         assert len(response.items) == 50
@@ -155,11 +150,14 @@ class TestMovieSchemasEdgeCases:
             assert item.movie_id == f"tt{i:07d}"
             assert item.title == f"Movie {i}"
 
-    @pytest.mark.parametrize("field,min_value,max_value", [
-        ("release_year", 1888, 2100),
-        ("rating", 0.0, 10.0),
-        ("runtime", 1, 999),
-    ])
+    @pytest.mark.parametrize(
+        "field,min_value,max_value",
+        [
+            ("release_year", 1888, 2100),
+            ("rating", 0.0, 10.0),
+            ("runtime", 1, 999),
+        ],
+    )
     def test_extreme_numeric_values(self, field, min_value, max_value):
         """Test MovieBase with extreme valid numeric values."""
         # Test minimum values

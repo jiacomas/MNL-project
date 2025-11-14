@@ -1,9 +1,12 @@
 """
 Tests for MovieOut schema using multiple testing methodologies.
 """
-import pytest
+
 from datetime import datetime, timezone
+
+import pytest
 from pydantic import ValidationError
+
 from schemas.movies import MovieOut
 
 
@@ -26,7 +29,7 @@ class TestMovieOutSchema:
             "poster_url": "https://example.com/poster.jpg",
             "created_at": now,
             "updated_at": now,
-            "review_count": 2500000
+            "review_count": 2500000,
         }
 
         movie = MovieOut(**data)
@@ -41,7 +44,7 @@ class TestMovieOutSchema:
             "movie_id": "tt0111161",
             "title": "Test Movie",
             "created_at": now,
-            "updated_at": now
+            "updated_at": now,
         }
 
         movie = MovieOut(**data)
@@ -55,7 +58,7 @@ class TestMovieOutSchema:
             "movie_id": "tt0111161",
             "title": "Test Movie",
             "created_at": now,
-            "updated_at": now
+            "updated_at": now,
         }
         data.pop(missing_field)
 
@@ -71,17 +74,20 @@ class TestMovieOutSchema:
                 title="Test Movie",
                 created_at=now,
                 updated_at=now,
-                invalid_field="This should not be allowed"
+                invalid_field="This should not be allowed",
             )
 
         error_str = str(exc_info.value)
         assert "extra" in error_str.lower() or "forbidden" in error_str.lower()
 
-    @pytest.mark.parametrize("review_count,expected", [
-        (0, 0),  # Minimum
-        (1000, 1000),  # Normal value
-        (1000000, 1000000),  # Large value
-    ])
+    @pytest.mark.parametrize(
+        "review_count,expected",
+        [
+            (0, 0),  # Minimum
+            (1000, 1000),  # Normal value
+            (1000000, 1000000),  # Large value
+        ],
+    )
     def test_review_count_values(self, review_count, expected):
         """Test review_count field accepts various valid values."""
         now = datetime.now(timezone.utc)
@@ -90,16 +96,19 @@ class TestMovieOutSchema:
             "title": "Test Movie",
             "created_at": now,
             "updated_at": now,
-            "review_count": review_count
+            "review_count": review_count,
         }
 
         movie = MovieOut(**data)
         assert movie.review_count == expected
 
-    @pytest.mark.parametrize("past_date", [
-        datetime(2020, 1, 1, tzinfo=timezone.utc),
-        datetime(1990, 1, 1, tzinfo=timezone.utc),
-    ])
+    @pytest.mark.parametrize(
+        "past_date",
+        [
+            datetime(2020, 1, 1, tzinfo=timezone.utc),
+            datetime(1990, 1, 1, tzinfo=timezone.utc),
+        ],
+    )
     def test_past_dates_acceptance(self, past_date):
         """Test MovieOut accepts past datetime values."""
         now = datetime.now(timezone.utc)
@@ -107,7 +116,7 @@ class TestMovieOutSchema:
             movie_id="tt0111161",
             title="Test Movie",
             created_at=past_date,
-            updated_at=now
+            updated_at=now,
         )
         assert movie.created_at == past_date
 
@@ -120,6 +129,6 @@ class TestMovieOutSchema:
             movie_id="tt0111161",
             title="Test Movie",
             created_at=now,
-            updated_at=future_date
+            updated_at=future_date,
         )
         assert movie.updated_at == future_date

@@ -1,8 +1,10 @@
 """
 Tests for MovieBase schema using multiple testing methodologies.
 """
+
 import pytest
 from pydantic import ValidationError
+
 from schemas.movies import MovieBase
 
 
@@ -10,45 +12,57 @@ class TestMovieBaseSchema:
     """Comprehensive tests for MovieBase schema validation and functionality."""
 
     # Equivalence Partitioning Tests
-    @pytest.mark.parametrize("valid_title", [
-        "A",  # Minimum length
-        "Test Movie",  # Normal case
-        "A" * 500,  # Maximum length
-        "Movie with 123 numbers",  # Alphanumeric
-        "Movie with-special_chars",  # Special characters
-    ])
+    @pytest.mark.parametrize(
+        "valid_title",
+        [
+            "A",  # Minimum length
+            "Test Movie",  # Normal case
+            "A" * 500,  # Maximum length
+            "Movie with 123 numbers",  # Alphanumeric
+            "Movie with-special_chars",  # Special characters
+        ],
+    )
     def test_title_validation_valid_cases(self, valid_title):
         """Test title field accepts valid equivalence partitions."""
         movie = MovieBase(title=valid_title)
         assert movie.title == valid_title
 
-    @pytest.mark.parametrize("invalid_title", [
-        "",  # Empty string
-        "   ",  # Only whitespace
-        "A" * 501,  # Exceeds maximum length
-    ])
+    @pytest.mark.parametrize(
+        "invalid_title",
+        [
+            "",  # Empty string
+            "   ",  # Only whitespace
+            "A" * 501,  # Exceeds maximum length
+        ],
+    )
     def test_title_validation_invalid_cases(self, invalid_title):
         """Test title field rejects invalid equivalence partitions."""
         with pytest.raises(ValidationError):
             MovieBase(title=invalid_title)
 
-    @pytest.mark.parametrize("rating,expected", [
-        (0.0, 0.0),  # Minimum boundary
-        (5.5, 5.5),  # Middle value
-        (10.0, 10.0),  # Maximum boundary
-        (None, None),  # Optional field
-    ])
+    @pytest.mark.parametrize(
+        "rating,expected",
+        [
+            (0.0, 0.0),  # Minimum boundary
+            (5.5, 5.5),  # Middle value
+            (10.0, 10.0),  # Maximum boundary
+            (None, None),  # Optional field
+        ],
+    )
     def test_rating_boundary_values(self, rating, expected):
         """Test rating field with boundary value analysis."""
         movie = MovieBase(title="Test Movie", rating=rating)
         assert movie.rating == expected
 
-    @pytest.mark.parametrize("invalid_rating", [
-        -0.1,  # Below minimum
-        10.1,  # Above maximum
-        -100.0,  # Far below minimum
-        100.0,  # Far above maximum
-    ])
+    @pytest.mark.parametrize(
+        "invalid_rating",
+        [
+            -0.1,  # Below minimum
+            10.1,  # Above maximum
+            -100.0,  # Far below minimum
+            100.0,  # Far above maximum
+        ],
+    )
     def test_rating_invalid_values(self, invalid_rating):
         """Test rating field rejects invalid values."""
         with pytest.raises(ValidationError):
@@ -65,7 +79,7 @@ class TestMovieBaseSchema:
             "director": "Frank Darabont",
             "cast": "Tim Robbins, Morgan Freeman",
             "plot": "Two imprisoned men bond over a number of years...",
-            "poster_url": "https://example.com/poster.jpg"
+            "poster_url": "https://example.com/poster.jpg",
         }
         movie = MovieBase(**data)
 
@@ -94,7 +108,7 @@ class TestMovieBaseSchema:
             "director": "  Director Name  ",
             "cast": "  Actor 1, Actor 2  ",
             "plot": "  Plot summary  ",
-            "poster_url": "  https://example.com/poster.jpg  "
+            "poster_url": "  https://example.com/poster.jpg  ",
         }
         movie = MovieBase(**data)
 
@@ -113,7 +127,7 @@ class TestMovieBaseSchema:
             "director": "",
             "cast": "  ",
             "plot": "",
-            "poster_url": "   "
+            "poster_url": "   ",
         }
         movie = MovieBase(**data)
 
@@ -137,7 +151,7 @@ class TestMovieBaseSchema:
             MovieBase(
                 title="Test Movie",
                 invalid_field="This should not be allowed",
-                another_invalid_field=123
+                another_invalid_field=123,
             )
 
         error_str = str(exc_info.value)

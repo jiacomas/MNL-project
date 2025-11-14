@@ -1,8 +1,10 @@
 """
 Tests for MovieUpdate schema using multiple testing methodologies.
 """
+
 import pytest
 from pydantic import ValidationError
+
 from schemas.movies import MovieUpdate
 
 
@@ -11,10 +13,7 @@ class TestMovieUpdateSchema:
 
     def test_valid_partial_update(self):
         """Test MovieUpdate with valid partial data."""
-        data = {
-            "rating": 9.5,
-            "poster_url": "https://updated-poster.com/image.jpg"
-        }
+        data = {"rating": 9.5, "poster_url": "https://updated-poster.com/image.jpg"}
 
         movie_update = MovieUpdate(**data)
         assert movie_update.rating == data["rating"]
@@ -32,7 +31,7 @@ class TestMovieUpdateSchema:
         data = {
             "title": "  Updated Title  ",
             "genre": "  Updated Genre  ",
-            "director": "  New Director  "
+            "director": "  New Director  ",
         }
 
         movie_update = MovieUpdate(**data)
@@ -40,17 +39,20 @@ class TestMovieUpdateSchema:
         assert movie_update.genre == "Updated Genre"
         assert movie_update.director == "New Director"
 
-    @pytest.mark.parametrize("field_name,valid_value", [
-        ("title", "Valid Title"),
-        ("genre", "Action"),
-        ("release_year", 2020),
-        ("rating", 8.5),
-        ("runtime", 120),
-        ("director", "Director Name"),
-        ("cast", "Actor 1, Actor 2"),
-        ("plot", "Plot summary"),
-        ("poster_url", "https://example.com/poster.jpg"),
-    ])
+    @pytest.mark.parametrize(
+        "field_name,valid_value",
+        [
+            ("title", "Valid Title"),
+            ("genre", "Action"),
+            ("release_year", 2020),
+            ("rating", 8.5),
+            ("runtime", 120),
+            ("director", "Director Name"),
+            ("cast", "Actor 1, Actor 2"),
+            ("plot", "Plot summary"),
+            ("poster_url", "https://example.com/poster.jpg"),
+        ],
+    )
     def test_individual_field_updates(self, field_name, valid_value):
         """Test each field can be updated individually."""
         data = {field_name: valid_value}
@@ -61,8 +63,7 @@ class TestMovieUpdateSchema:
         """Test that extra fields are properly rejected."""
         with pytest.raises(ValidationError) as exc_info:
             MovieUpdate(
-                title="Updated Title",
-                invalid_field="This should not be allowed"
+                title="Updated Title", invalid_field="This should not be allowed"
             )
 
         error_str = str(exc_info.value)

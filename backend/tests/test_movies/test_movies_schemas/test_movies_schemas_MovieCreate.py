@@ -1,8 +1,10 @@
 """
 Tests for MovieCreate schema using multiple testing methodologies.
 """
+
 import pytest
 from pydantic import ValidationError
+
 from schemas.movies import MovieCreate
 
 
@@ -15,7 +17,7 @@ class TestMovieCreateSchema:
             "movie_id": "tt0111161",
             "title": "The Shawshank Redemption",
             "genre": "Drama",
-            "release_year": 1994
+            "release_year": 1994,
         }
 
         movie = MovieCreate(**data)
@@ -29,13 +31,16 @@ class TestMovieCreateSchema:
         movie = MovieCreate(title="Test Movie")
         assert movie.movie_id is None
 
-    @pytest.mark.parametrize("movie_id_input,expected", [
-        (None, None),  # No ID provided
-        ("tt0111161", "tt0111161"),  # Normal ID
-        ("  tt0111161  ", "tt0111161"),  # ID with whitespace
-        ("", None),  # Empty string
-        ("   ", None),  # Whitespace only
-    ])
+    @pytest.mark.parametrize(
+        "movie_id_input,expected",
+        [
+            (None, None),  # No ID provided
+            ("tt0111161", "tt0111161"),  # Normal ID
+            ("  tt0111161  ", "tt0111161"),  # ID with whitespace
+            ("", None),  # Empty string
+            ("   ", None),  # Whitespace only
+        ],
+    )
     def test_movie_id_normalization(self, movie_id_input, expected):
         """Test movie_id field normalization with various inputs."""
         movie = MovieCreate(title="Test Movie", movie_id=movie_id_input)
@@ -47,7 +52,7 @@ class TestMovieCreateSchema:
             MovieCreate(
                 title="Test Movie",
                 movie_id="tt0111161",
-                invalid_field="This should not be allowed"
+                invalid_field="This should not be allowed",
             )
 
         error_str = str(exc_info.value)

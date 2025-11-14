@@ -1,13 +1,17 @@
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator, validator
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class MovieBase(BaseModel):
     """Base schema for movie data"""
+
     title: str = Field(..., min_length=1, max_length=500, description="Movie title")
     genre: Optional[str] = Field(None, description="Movie genre(s)")
-    release_year: Optional[int] = Field(None, ge=1888, le=2100, description="Release year")
+    release_year: Optional[int] = Field(
+        None, ge=1888, le=2100, description="Release year"
+    )
     rating: Optional[float] = Field(None, ge=0, le=10, description="Average rating")
     runtime: Optional[int] = Field(None, ge=1, le=999, description="Runtime in minutes")
     director: Optional[str] = Field(None, description="Movie director")
@@ -29,9 +33,9 @@ class MovieBase(BaseModel):
                 "director": "Frank Darabont",
                 "cast": "Tim Robbins, Morgan Freeman, Bob Gunton",
                 "plot": "Two imprisoned men bond over a number of years...",
-                "poster_url": "https://example.com/poster.jpg"
+                "poster_url": "https://example.com/poster.jpg",
             }
-        }
+        },
     )
 
     @field_validator("genre", "director", "cast", "plot", "poster_url", mode="before")
@@ -47,7 +51,10 @@ class MovieBase(BaseModel):
 
 class MovieCreate(MovieBase):
     """Schema for creating a new movie"""
-    movie_id: Optional[str] = Field(None, description="Custom movie ID (auto-generated if not provided)")
+
+    movie_id: Optional[str] = Field(
+        None, description="Custom movie ID (auto-generated if not provided)"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -55,7 +62,7 @@ class MovieCreate(MovieBase):
                 "movie_id": "tt0111161",
                 "title": "The Shawshank Redemption",
                 "genre": "Drama",
-                "release_year": 1994
+                "release_year": 1994,
             }
         }
     )
@@ -80,11 +87,12 @@ class MovieCreate(MovieBase):
 
 class MovieUpdate(BaseModel):
     """Schema for updating movie data"""
+
     title: Optional[str] = Field(None, min_length=1, max_length=500)
     genre: Optional[str] = Field(None)
     release_year: Optional[int] = Field(None, ge=1888, le=2100)
     rating: Optional[float] = Field(None, ge=0, le=10)
-    runtime: Optional[int] = Field(None, ge=1,le=999)
+    runtime: Optional[int] = Field(None, ge=1, le=999)
     director: Optional[str] = Field(None)
     cast: Optional[str] = Field(None)
     plot: Optional[str] = Field(None)
@@ -97,12 +105,14 @@ class MovieUpdate(BaseModel):
         json_schema_extra={
             "example": {
                 "rating": 9.5,
-                "poster_url": "https://updated-poster.com/image.jpg"
+                "poster_url": "https://updated-poster.com/image.jpg",
             }
-        }
+        },
     )
 
-    @field_validator("title", "genre", "director", "cast", "plot", "poster_url", mode="before")
+    @field_validator(
+        "title", "genre", "director", "cast", "plot", "poster_url", mode="before"
+    )
     @classmethod
     def normalize_string_fields(cls, v: Optional[str]) -> Optional[str]:
         """Normalize string fields"""
@@ -115,20 +125,33 @@ class MovieUpdate(BaseModel):
     @model_validator(mode="after")
     def ensure_at_least_one_field(self) -> "MovieUpdate":
         """Ensure at least one field is provided for update"""
-        if all(field is None for field in [
-            self.title, self.genre, self.release_year, self.rating,
-            self.runtime, self.director, self.cast, self.plot, self.poster_url
-        ]):
+        if all(
+            field is None
+            for field in [
+                self.title,
+                self.genre,
+                self.release_year,
+                self.rating,
+                self.runtime,
+                self.director,
+                self.cast,
+                self.plot,
+                self.poster_url,
+            ]
+        ):
             raise ValueError("At least one field must be provided for update")
         return self
 
 
 class MovieOut(MovieBase):
     """Schema for movie data returned by API"""
+
     movie_id: str
     created_at: datetime
     updated_at: datetime
-    review_count: Optional[int] = Field(0, description="Number of reviews for this movie")
+    review_count: Optional[int] = Field(
+        0, description="Number of reviews for this movie"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -145,7 +168,7 @@ class MovieOut(MovieBase):
                 "poster_url": "https://example.com/poster.jpg",
                 "created_at": "2024-01-01T12:00:00Z",
                 "updated_at": "2024-01-01T12:00:00Z",
-                "review_count": 2500000
+                "review_count": 2500000,
             }
         }
     )
@@ -153,11 +176,18 @@ class MovieOut(MovieBase):
 
 class MovieSearchFilters(BaseModel):
     """Schema for movie search filters"""
+
     title: Optional[str] = Field(None, description="Search in movie titles")
     genre: Optional[str] = Field(None, description="Filter by genre")
-    min_year: Optional[int] = Field(None, ge=1888, le=2100, description="Minimum release year")
-    max_year: Optional[int] = Field(None, ge=1888, le=2100, description="Maximum release year")
-    min_rating: Optional[float] = Field(None, ge=0, le=10, description="Minimum average rating")
+    min_year: Optional[int] = Field(
+        None, ge=1888, le=2100, description="Minimum release year"
+    )
+    max_year: Optional[int] = Field(
+        None, ge=1888, le=2100, description="Maximum release year"
+    )
+    min_rating: Optional[float] = Field(
+        None, ge=0, le=10, description="Minimum average rating"
+    )
     director: Optional[str] = Field(None, description="Filter by director")
 
     model_config = ConfigDict(
@@ -168,14 +198,15 @@ class MovieSearchFilters(BaseModel):
                 "genre": "Drama",
                 "min_year": 1990,
                 "max_year": 2000,
-                "min_rating": 8.5
+                "min_rating": 8.5,
             }
-        }
+        },
     )
 
 
 class MovieListResponse(BaseModel):
     """Schema for paginated movie list response"""
+
     items: List[MovieOut]
     total: int
     page: int
@@ -189,5 +220,5 @@ __all__ = [
     "MovieUpdate",
     "MovieOut",
     "MovieSearchFilters",
-    "MovieListResponse"
+    "MovieListResponse",
 ]

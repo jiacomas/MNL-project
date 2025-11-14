@@ -1,8 +1,11 @@
 """
 Tests for MovieListResponse schema using multiple testing methodologies.
 """
-import pytest
+
 from datetime import datetime, timezone
+
+import pytest
+
 from schemas.movies import MovieListResponse, MovieOut
 
 
@@ -17,7 +20,7 @@ class TestMovieListResponseSchema:
             "title": "Test Movie",
             "created_at": now,
             "updated_at": now,
-            "review_count": 0
+            "review_count": 0,
         }
 
         movie = MovieOut(**movie_data)
@@ -26,7 +29,7 @@ class TestMovieListResponseSchema:
             "total": 100,
             "page": 1,
             "page_size": 50,
-            "total_pages": 2
+            "total_pages": 2,
         }
 
         response = MovieListResponse(**response_data)
@@ -44,7 +47,7 @@ class TestMovieListResponseSchema:
             "total": 0,
             "page": 1,
             "page_size": 50,
-            "total_pages": 0
+            "total_pages": 0,
         }
 
         response = MovieListResponse(**response_data)
@@ -61,7 +64,7 @@ class TestMovieListResponseSchema:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             for i in range(1, 6)
         ]
@@ -71,7 +74,7 @@ class TestMovieListResponseSchema:
             "total": 100,
             "page": 2,
             "page_size": 5,
-            "total_pages": 20
+            "total_pages": 20,
         }
 
         response = MovieListResponse(**response_data)
@@ -81,31 +84,38 @@ class TestMovieListResponseSchema:
         assert response.page == 2
         assert response.total_pages == 20
 
-    @pytest.mark.parametrize("page,page_size,total,total_pages", [
-        (1, 1, 1, 1),  # Minimum values
-        (1, 50, 100, 2),  # Normal values
-        (10, 100, 1000, 10),  # Larger values
-        (1, 100, 0, 0),  # Zero total
-    ])
+    @pytest.mark.parametrize(
+        "page,page_size,total,total_pages",
+        [
+            (1, 1, 1, 1),  # Minimum values
+            (1, 50, 100, 2),  # Normal values
+            (10, 100, 1000, 10),  # Larger values
+            (1, 100, 0, 0),  # Zero total
+        ],
+    )
     def test_pagination_variations(self, page, page_size, total, total_pages):
         """Test various pagination scenarios."""
         now = datetime.now(timezone.utc)
-        items = [
-            MovieOut(
-                movie_id="tt0111161",
-                title="Test Movie",
-                created_at=now,
-                updated_at=now,
-                review_count=0
-            )
-        ] if total > 0 else []
+        items = (
+            [
+                MovieOut(
+                    movie_id="tt0111161",
+                    title="Test Movie",
+                    created_at=now,
+                    updated_at=now,
+                    review_count=0,
+                )
+            ]
+            if total > 0
+            else []
+        )
 
         response_data = {
             "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
-            "total_pages": total_pages
+            "total_pages": total_pages,
         }
 
         response = MovieListResponse(**response_data)
@@ -124,7 +134,7 @@ class TestMovieListResponseSchema:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             for i in range(item_count)
         ]
@@ -134,7 +144,7 @@ class TestMovieListResponseSchema:
             "total": item_count * 10,
             "page": 1,
             "page_size": 10,
-            "total_pages": max(1, (item_count * 10) // 10)
+            "total_pages": max(1, (item_count * 10) // 10),
         }
 
         response = MovieListResponse(**response_data)
@@ -150,17 +160,13 @@ class TestMovieListResponseSchema:
                 title=f"Movie {i}",
                 created_at=now,
                 updated_at=now,
-                review_count=i * 100
+                review_count=i * 100,
             )
             for i in range(100)
         ]
 
         response = MovieListResponse(
-            items=large_movie_list,
-            total=10000,
-            page=1,
-            page_size=100,
-            total_pages=100
+            items=large_movie_list, total=10000, page=1, page_size=100, total_pages=100
         )
 
         assert len(response.items) == 100

@@ -1,9 +1,18 @@
 """
 Integration tests for movie schemas working together.
 """
-import pytest
+
 from datetime import datetime, timezone
-from schemas.movies import MovieCreate, MovieUpdate, MovieOut, MovieSearchFilters, MovieListResponse
+
+import pytest
+
+from schemas.movies import (
+    MovieCreate,
+    MovieListResponse,
+    MovieOut,
+    MovieSearchFilters,
+    MovieUpdate,
+)
 
 
 @pytest.mark.integration
@@ -24,7 +33,7 @@ class TestMovieSchemasIntegration:
             "genre": "Drama",
             "release_year": 1994,
             "rating": 9.3,
-            "runtime": 142
+            "runtime": 142,
         }
         movie_create = MovieCreate(**create_data)
 
@@ -34,7 +43,7 @@ class TestMovieSchemasIntegration:
             **movie_create.model_dump(),
             "created_at": now,
             "updated_at": now,
-            "review_count": 2500000
+            "review_count": 2500000,
         }
         movie_out = MovieOut(**movie_out_data)
 
@@ -58,15 +67,12 @@ class TestMovieSchemasIntegration:
             "rating": 8.0,
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
-            "review_count": 1000
+            "review_count": 1000,
         }
         original_movie = MovieOut(**original_data)
 
         # Create update request
-        update_data = {
-            "title": "Updated Title",
-            "rating": 9.0
-        }
+        update_data = {"title": "Updated Title", "rating": 9.0}
         movie_update = MovieUpdate(**update_data)
 
         # Simulate applying update (as would happen in service layer)
@@ -93,7 +99,7 @@ class TestMovieSchemasIntegration:
             genre="Drama",
             min_year=1990,
             max_year=2000,
-            min_rating=8.0
+            min_rating=8.0,
         )
 
         # Create mock movies that match filters
@@ -107,17 +113,13 @@ class TestMovieSchemasIntegration:
                 rating=9.3,
                 created_at=now,
                 updated_at=now,
-                review_count=2500000
+                review_count=2500000,
             )
         ]
 
         # Create paginated list response
         list_response = MovieListResponse(
-            items=matching_movies,
-            total=1,
-            page=1,
-            page_size=10,
-            total_pages=1
+            items=matching_movies, total=1, page=1, page_size=10, total_pages=1
         )
 
         # Verify integration between search filters and response
@@ -145,22 +147,22 @@ class TestMovieSchemasIntegration:
                 "title": "The Shawshank Redemption",
                 "genre": "Drama",
                 "release_year": 1994,
-                "rating": 9.3
+                "rating": 9.3,
             },
             {
                 "movie_id": "tt0068646",
                 "title": "The Godfather",
                 "genre": "Crime",
                 "release_year": 1972,
-                "rating": 9.2
+                "rating": 9.2,
             },
             {
                 "movie_id": "tt0468569",
                 "title": "The Dark Knight",
                 "genre": "Action",
                 "release_year": 2008,
-                "rating": 9.0
-            }
+                "rating": 9.0,
+            },
         ]
 
         created_movies = [MovieCreate(**data) for data in movies_to_create]
@@ -173,23 +175,31 @@ class TestMovieSchemasIntegration:
                 **movie_create.model_dump(),
                 "created_at": now,
                 "updated_at": now,
-                "review_count": 1000000
+                "review_count": 1000000,
             }
             movie_out_list.append(MovieOut(**movie_out_data))
 
         # Step 3: Apply search filters
         search_filters = MovieSearchFilters(
-            min_year=1990,
-            max_year=2010,
-            min_rating=9.0
+            min_year=1990, max_year=2010, min_rating=9.0
         )
 
         # Step 4: Filter movies based on search criteria (simulating database query)
         filtered_movies = [
-            movie for movie in movie_out_list
-            if (search_filters.min_year is None or movie.release_year >= search_filters.min_year) and
-               (search_filters.max_year is None or movie.release_year <= search_filters.max_year) and
-               (search_filters.min_rating is None or movie.rating >= search_filters.min_rating)
+            movie
+            for movie in movie_out_list
+            if (
+                search_filters.min_year is None
+                or movie.release_year >= search_filters.min_year
+            )
+            and (
+                search_filters.max_year is None
+                or movie.release_year <= search_filters.max_year
+            )
+            and (
+                search_filters.min_rating is None
+                or movie.rating >= search_filters.min_rating
+            )
         ]
 
         # Step 5: Create paginated response
@@ -198,7 +208,7 @@ class TestMovieSchemasIntegration:
             total=len(filtered_movies),
             page=1,
             page_size=10,
-            total_pages=1
+            total_pages=1,
         )
 
         # Verify final results match expected business logic
