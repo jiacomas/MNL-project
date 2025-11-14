@@ -1,4 +1,3 @@
-# Reviews service
 from __future__ import annotations
 
 import uuid
@@ -14,7 +13,7 @@ _repo = CSVReviewRepo()
 
 
 def create_review(payload: ReviewCreate) -> ReviewOut:
-    '''Create a new review (one per user per movie)'''
+    """Create a new review (one per user per movie)."""
     existing = _repo.get_by_user(payload.movie_id, payload.user_id)
     if existing:
         raise HTTPException(
@@ -41,16 +40,34 @@ def list_reviews(
     cursor: Optional[int] = None,
     min_rating: Optional[int] = None,
 ) -> tuple[List[ReviewOut], Optional[int]]:
-    '''List reviews for a movie with pagination and optional filters.'''
+    """List reviews for a movie with pagination and optional filters."""
     return _repo.list_by_movie(
-        movie_id, limit=limit, cursor=cursor, min_rating=min_rating
+        movie_id,
+        limit=limit,
+        cursor=cursor,
+        min_rating=min_rating,
     )
 
 
+def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
+    """Helper so we always do the same 'not found' behaviour."""
+    review = _repo.get_by_id(movie_id, review_id)
+    if review is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found.",
+        )
+    return review
+
+
 def update_review(
-    movie_id: str, review_id: str, current_user_id: str, payload: ReviewUpdate
+    movie_id: str,
+    review_id: str,
+    current_user_id: str,
+    payload: ReviewUpdate,
 ) -> ReviewOut:
     '''Update an existing review only by user for a movie.'''
+    review_id = str(review_id)
     existing = _repo.get_by_id(movie_id, review_id)
     if not existing:
         raise HTTPException(
@@ -76,6 +93,7 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
     - current user is the author, OR
     TODO: - current user is admin (by config)
     '''
+    review_id = str(review_id)
     existing = _repo.get_by_id(movie_id, review_id)
     if not existing:
         raise HTTPException(
@@ -91,10 +109,5 @@ def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
 
 
 def get_user_review(movie_id: str, user_id: str) -> Optional[ReviewOut]:
-    '''Return a user's own review for a movie, or None if not found.'''
+    """Return a user's own review for a movie, or None if not found."""
     return _repo.get_by_user(movie_id, user_id)
-
-
-# .. note::
-#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-#    Core logic and subsequent modifications were implemented by the author(s).
