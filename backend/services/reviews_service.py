@@ -16,6 +16,7 @@ _repo = CSVReviewRepo()
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     """Return a review for a movie, or raise 404 with 'Review not found.'."""
     # Primary lookup
@@ -40,6 +41,7 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def create_review(payload: ReviewCreate) -> ReviewOut:
     """Create a new review (one per user per movie)."""
