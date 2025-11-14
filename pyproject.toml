@@ -1,3 +1,11 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
 [tool.black]
 line-length = 88
 target-version = ['py313']
@@ -9,7 +17,19 @@ known_first_party = ["app", "schemas", "repositories"]
 default_section = "THIRDPARTY"
 
 [tool.pytest.ini_options]
-pythonpath = "backend"
+pythonpath = ["."]
 testpaths = ["backend/tests"]
-addopts = "-q"
-markers = ["integration: tests needing network/external services"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-q",                    # Quiet mode
+    "-v",                    # Verbose (opcional, treu -q si vols)
+    "--strict-markers",      # Error si uses markers no definits
+    "--tb=short",           # Traceback més curt
+]
+markers = [
+    "integration: tests needing network/external services",
+    "unit: unit tests",
+    "slow: slow running tests",
+]
