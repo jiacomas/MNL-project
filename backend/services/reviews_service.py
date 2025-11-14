@@ -16,13 +16,12 @@ _repo = CSVReviewRepo()
 # Helpers
 # ---------------------------------------------------------------------------
 
-
 def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     """Return a review for a movie, or raise 404 with 'Review not found.'."""
-    # Primary lookup: repository helper
+    # Primary lookup
     review = _repo.get_by_id(movie_id, review_id)
 
-    # Fallback: scan all reviews for this movie (helps if repo indexing changes)
+    # Fallback: scan current movie reviews in case repo index differs by type
     if review is None:
         reviews, _ = _repo.list_by_movie(movie_id, limit=10_000)
         for candidate in reviews:
@@ -41,7 +40,6 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-
 
 def create_review(payload: ReviewCreate) -> ReviewOut:
     """Create a new review (one per user per movie)."""
@@ -80,17 +78,6 @@ def list_reviews(
     )
 
 
-def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
-    """Helper so we always do the same 'not found' behaviour."""
-    review = _repo.get_by_id(movie_id, review_id)
-    if review is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found.",
-        )
-    return review
-
-
 def update_review(
     movie_id: str,
     review_id: str,
@@ -101,7 +88,6 @@ def update_review(
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    # Authorization: only the author can update
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -118,14 +104,10 @@ def update_review(
 
 
 def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
-    """Delete a review.
-
-    Allowed if the current user is the author.
-    """
+    """Delete a review; only the author may delete."""
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    # Authorization: only the author can delete
     if existing.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
