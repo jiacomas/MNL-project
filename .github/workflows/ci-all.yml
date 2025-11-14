@@ -26,6 +26,11 @@ jobs:
     name: Run backend pytest suite
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: backend
+      MOVIE_DATA_PATH: ./data/movies_ci
+      KAGGLE_DATASET: sadmadlad/imdb-user-reviews
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,4 +58,5 @@ jobs:
 
       - name: Run pytest (skip review tests)
         run: |
+          mkdir -p "$MOVIE_DATA_PATH"
           pytest -m "not integration" -q --ignore=backend/tests/test_reviews_service.py
