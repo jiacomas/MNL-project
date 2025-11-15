@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Dict, List
 from uuid import UUID
 
-from schemas.bookmarks import BookmarkCreate, BookmarkOut
+from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
 # Configuration
 BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "data/bookmarks.json")

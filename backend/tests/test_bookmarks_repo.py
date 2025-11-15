@@ -12,8 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
-from repositories.bookmarks_repo import JSONBookmarkRepo
-from schemas.bookmarks import BookmarkCreate, BookmarkOut
+from backend.repositories.bookmarks_repo import JSONBookmarkRepo
+from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
 
 # Helpers
