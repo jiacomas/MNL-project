@@ -4,7 +4,7 @@ Admin router for syncing external metadata onto items/movies.
 
 from fastapi import APIRouter
 
-from ..services import external_sync_service
+from backend.services import external_sync_service
 
 router = APIRouter()
 

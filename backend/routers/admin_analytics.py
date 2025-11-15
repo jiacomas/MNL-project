@@ -43,10 +43,10 @@ def admin_search_reviews(
         None, description="Case-insensitive movie title search"
     ),
     sort: str = Query(
-        "date", regex="^(date|rating)$", description="Sort by 'date' or 'rating'"
+        "date", pattern="^(date|rating)$", description="Sort by 'date' or 'rating'"
     ),
     order: str = Query(
-        "desc", regex="^(asc|desc)$", description="Sort order: asc or desc"
+        "desc", pattern="^(asc|desc)$", description="Sort order: asc or desc"
     ),
     export: bool = Query(False, description="If true, return CSV file instead of JSON"),
 ):
