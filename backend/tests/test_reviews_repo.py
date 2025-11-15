@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from schemas.reviews import ReviewOut  # Import necessary schema
+from backend.schemas.reviews import ReviewOut  # Import necessary schema
 
 # --- Helper Functions & Fixtures ---
 
@@ -19,7 +19,7 @@ def movies_dir(tmp_path, monkeypatch):
     # Temporarily set MOVIE_DATA_PATH to this directory
     monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
     # Reload the reviews_repo module to pick up the new path
-    from repositories import reviews_repo as repo_mod
+    from backend.repositories import reviews_repo as repo_mod
 
     importlib.reload(repo_mod)
     # return both the temp dir and the reloaded module

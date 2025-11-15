@@ -16,3 +16,4 @@ backend/data
 
 # Environment configuration
 .env
+data/
