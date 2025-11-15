@@ -6,34 +6,36 @@ import os
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List
 
 from repositories.reviews_repo import CSVReviewRepo
 
-# Reuse repository logic for reading review CSVs
+# Shared review repository (for reading review CSVs)
 _repo = CSVReviewRepo()
 
 # ---------------------------------------------------------------------------
-# JSON helpers for platform-wide stats
+# File locations for analytics JSON data
+# These are patched in tests with monkeypatch.setattr(...)
 # ---------------------------------------------------------------------------
 
-# Default locations – tests monkeypatch these to point at temporary files
-DATA_ROOT = Path(os.getenv("MOVIE_DATA_PATH", "data"))
+USERS_FILE: Path = Path(os.environ.get("USERS_FILE", "data/users.json"))
+REVIEWS_FILE: Path = Path(os.environ.get("REVIEWS_FILE", "data/reviews.json"))
+BOOKMARKS_FILE: Path = Path(os.environ.get("BOOKMARKS_FILE", "data/bookmarks.json"))
+PENALTIES_FILE: Path = Path(os.environ.get("PENALTIES_FILE", "data/penalties.json"))
+ITEMS_FILE: Path = Path(os.environ.get("ITEMS_FILE", "data/items.json"))
+EXPORT_DIR: Path = Path(os.environ.get("EXPORT_DIR", "data/exports"))
 
-USERS_FILE: Path = DATA_ROOT / "users.json"
-REVIEWS_FILE: Path = DATA_ROOT / "reviews.json"
-BOOKMARKS_FILE: Path = DATA_ROOT / "bookmarks.json"
-PENALTIES_FILE: Path = DATA_ROOT / "penalties.json"
-ITEMS_FILE: Path = DATA_ROOT / "items.json"
-EXPORT_DIR: Path = DATA_ROOT / "exports"
+
+# ---------------------------------------------------------------------------
+# JSON helpers + core stats
+# ---------------------------------------------------------------------------
 
 
 def _read_json_list(path: Path) -> List[Dict[str, Any]]:
     """Read a JSON file and always return a list of dicts.
 
-    * Missing files -> [].
-    * If the JSON root is a dict, it is wrapped in a one-element list.
-    * If the JSON has a top-level "items" / "users" list, that list is returned.
+    The test suite writes simple JSON arrays; this helper also tolerates
+    slightly different shapes (single object, or dicts with "items"/"users").
     """
     if not path.exists():
         return []
@@ -45,132 +47,148 @@ def _read_json_list(path: Path) -> List[Dict[str, Any]]:
         return list(data)
 
     if isinstance(data, dict):
-        if "items" in data and isinstance(data["items"], list):
+        if "items" in data:
             return list(data["items"])
-        if "users" in data and isinstance(data["users"], list):
+        if "users" in data:
             return list(data["users"])
 
+    # Fallback – wrap a single object
     return [data]
 
 
-def _compute_top_genres(
-    items: Iterable[Dict[str, Any]],
-    reviews: Iterable[Dict[str, Any]],
-) -> List[Tuple[str, int]]:
-    """Return a list of (genre, count) sorted by popularity.
-
-    A movie contributes +1 to each of its genres if it has at least one review.
-    """
-    # Movie ids that have at least one review
-    reviewed_movie_ids = {r.get("movie_id") for r in reviews}
-
-    genre_counts: Counter[str] = Counter()
-    for movie in items:
-        movie_id = movie.get("id")
-        if movie_id not in reviewed_movie_ids:
-            continue
-        for g in movie.get("genres", []):
-            genre_counts[str(g)] += 1
-
-    # Sort by count desc, then genre name asc for deterministic order
-    return sorted(
-        genre_counts.items(),
-        key=lambda gc: (-gc[1], gc[0].lower()),
-    )
-
-
 def compute_stats_and_write_csv() -> Path:
-    """Aggregate high-level platform stats and write them to a CSV file.
+    """Compute platform stats and write them to a CSV file.
 
-    The CSV has two logical sections:
+    Layout (matches the tests):
 
-    1) Metric summary:
-
-        metric,value
-        users_count,2
-        user_total,2
-        user_active,1
-        user_locked,1
-        reviews_count,1
-        bookmarks_count,1
-        penalties_count,1
-        generated_at,2025-...
-
-    2) Top genres table (if any genres are present):
-
-        top_genre_rank,genre,count
-        1,Action,10
-        2,Adventure,7
-        ...
-
-    The path to the created CSV file is returned.
+    - First line: "metric,value"
+    - Metric rows (users, reviews, bookmarks, penalties, etc.)
+    - Header row for top genres: "top_genre_rank,genre,count"
+    - One row per top genre
+    - Final row: "generated_at,<ISO-8601 timestamp>"
     """
-    users = _read_json_list(Path(USERS_FILE))
-    reviews = _read_json_list(Path(REVIEWS_FILE))
-    bookmarks = _read_json_list(Path(BOOKMARKS_FILE))
-    penalties = _read_json_list(Path(PENALTIES_FILE))
-    items = _read_json_list(Path(ITEMS_FILE))
+    users = _read_json_list(USERS_FILE)
+    reviews = _read_json_list(REVIEWS_FILE)
+    bookmarks = _read_json_list(BOOKMARKS_FILE)
+    penalties = _read_json_list(PENALTIES_FILE)
+    items = _read_json_list(ITEMS_FILE)
 
-    total_users = len(users)
-    active_users = sum(1 for u in users if not u.get("is_locked"))
-    locked_users = sum(1 for u in users if u.get("is_locked"))
+    # Basic user / activity counts
+    user_total = len(users)
+    user_active = sum(1 for u in users if not u.get("is_locked"))
+    user_locked = sum(1 for u in users if u.get("is_locked"))
 
-    metrics: List[Tuple[str, Any]] = [
-        ("users_count", total_users),
-        ("user_total", total_users),
-        ("user_active", active_users),
-        ("user_locked", locked_users),
-        ("reviews_count", len(reviews)),
-        ("bookmarks_count", len(bookmarks)),
-        ("penalties_count", len(penalties)),
+    reviews_count = len(reviews)
+    bookmarks_count = len(bookmarks)
+    penalties_count = len(penalties)
+
+    metrics = [
+        ("users_count", str(user_total)),
+        ("user_total", str(user_total)),
+        ("user_active", str(user_active)),
+        ("user_locked", str(user_locked)),
+        ("reviews_count", str(reviews_count)),
+        ("bookmarks_count", str(bookmarks_count)),
+        ("penalties_count", str(penalties_count)),
     ]
 
-    top_genres = _compute_top_genres(items, reviews)
+    # Top genres: count how often genres appear for reviewed movies
+    genres_by_item = {item.get("id"): item.get("genres", []) for item in items}
+    genre_counter: Counter[str] = Counter()
 
-    # Ensure export directory exists
-    export_dir = Path(EXPORT_DIR)
-    export_dir.mkdir(parents=True, exist_ok=True)
+    for r in reviews:
+        movie_id = r.get("movie_id")
+        for g in genres_by_item.get(movie_id, []):
+            if g:
+                genre_counter[g] += 1
 
-    out_path = export_dir / f"platform_stats_{int(datetime.now(timezone.utc).timestamp())}.csv"
+    top_genres = list(genre_counter.most_common())
+
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = EXPORT_DIR / "analytics_export.csv"
+
+    now = datetime.now(timezone.utc)
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
-        # Section 1: metrics
+        # Metrics section
         writer.writerow(["metric", "value"])
         for name, value in metrics:
             writer.writerow([name, value])
 
-        # generated_at row
-        writer.writerow(
-            ["generated_at", datetime.now(timezone.utc).isoformat()],
-        )
+        # Top-genres section header that the test checks for
+        writer.writerow(["top_genre_rank", "genre", "count"])
+        for idx, (genre, count) in enumerate(top_genres, start=1):
+            writer.writerow([idx, genre, count])
 
-        # Section 2: top genres, only if we have any
-        if top_genres:
-            writer.writerow([])  # blank line as separator
-            writer.writerow(["top_genre_rank", "genre", "count"])
-            for rank, (genre, count) in enumerate(top_genres, start=1):
-                writer.writerow([rank, genre, count])
+        # Footer row with generation timestamp
+        writer.writerow(["generated_at", now.isoformat()])
 
     return out_path
 
 
 # ---------------------------------------------------------------------------
-# Admin review search helpers
+# Review search helpers used by the admin analytics endpoints
 # ---------------------------------------------------------------------------
 
 
-def _discover_movie_root() -> Path:
-    """Return the directory that contains per-movie CSV data.
+def _discover_movie_root() -> str:
+    """Return the directory where per-movie review CSVs live."""
+    # The project normally uses MOVIE_DATA_PATH; fall back to data/movies.
+    env_root = os.environ.get("MOVIE_DATA_PATH")
+    if env_root:
+        return env_root
+    return "data/movies"
 
-    We reuse the BASE_PATH constant from `repositories.reviews_repo` so that
-    tests can control the location via their usual fixtures.
+
+def _iter_matching_movie_ids(root: str, normalized_q: str) -> Iterable[str]:
+    """Yield movie ids under *root* whose folder name matches the query."""
+    if not os.path.isdir(root):
+        return []
+
+    for entry in sorted(os.listdir(root)):
+        if normalized_q and normalized_q not in entry.lower():
+            continue
+        yield entry
+
+
+def _load_review_rows_for_movie(movie_id: str) -> List[Dict[str, Any]]:
+    """Return review rows for a single movie as plain dicts.
+
+    Any problems reading the CSV for a movie are treated as “no data”.
     """
-    from repositories import reviews_repo
+    try:
+        reviews, _ = _repo.list_by_movie(movie_id=movie_id, limit=1_000_000, cursor=0)
+    except Exception:
+        return []
 
-    base = getattr(reviews_repo, "BASE_PATH", "data/movies")
-    return Path(base)
+    rows: List[Dict[str, Any]] = []
+    for r in reviews:
+        rows.append(
+            {
+                "id": r.id,
+                "movie_title": movie_id,
+                "rating": r.rating,
+                "created_at": r.created_at,
+                "user_id": r.user_id,
+            }
+        )
+    return rows
+
+
+def _sort_review_rows(
+    rows: List[Dict[str, Any]],
+    sort_by: str,
+    order: str,
+) -> List[Dict[str, Any]]:
+    """Sort review rows by rating or created_at according to the tests."""
+    reverse = order != "asc"
+    if sort_by == "rating":
+        rows.sort(key=lambda x: (x.get("rating") or 0), reverse=reverse)
+    else:
+        rows.sort(key=lambda x: x.get("created_at") or 0, reverse=reverse)
+    return rows
 
 
 def search_reviews_by_title(
@@ -178,115 +196,46 @@ def search_reviews_by_title(
     sort_by: str = "date",
     order: str = "desc",
 ) -> List[Dict[str, Any]]:
-    """Search all reviews, filtered by (partial, case-insensitive) movie title.
+    """Search reviews by (partial, case-insensitive) movie title.
 
-    Returns a list of dicts with at least:
+    Returns a list of dicts with keys:
+    id, movie_title, rating, created_at, user_id.
 
-    * id
-    * movie_title
-    * rating
-    * created_at
-    * user_id
+    Behaviour matches the admin analytics tests:
+    - substring, case-insensitive matching on folder / movie id
+    - optional sorting by date or rating
     """
     root = _discover_movie_root()
-    q = (title_query or "").strip().lower()
+    normalized_q = (title_query or "").strip().lower()
 
-    results: List[Dict[str, Any]] = []
+    rows: List[Dict[str, Any]] = []
 
-    if not root.exists() or not root.is_dir():
-        return results
+    for movie_id in _iter_matching_movie_ids(root, normalized_q):
+        rows.extend(_load_review_rows_for_movie(movie_id))
 
-    for movie_dir in sorted(os.listdir(root)):
-        # movie_dir is the movie id / title slug
-        if q and q not in movie_dir.lower():
-            continue
-
-        movie_id = movie_dir
-
-        try:
-            reviews, _ = _repo.list_by_movie(movie_id=movie_id, limit=1_000_000)
-        except Exception:
-            # If a movie has no reviews.csv yet, skip it.
-            continue
-
-        for r in reviews:
-            created_at = getattr(r, "created_at", None)
-            results.append(
-                {
-                    "id": r.id,
-                    "movie_title": movie_id,
-                    "rating": r.rating,
-                    "created_at": created_at,
-                    "user_id": r.user_id,
-                }
-            )
-
-    reverse = order != "asc"
-
-    def _safe_created_at(row: Dict[str, Any]) -> datetime:
-        value = row.get("created_at")
-        if isinstance(value, datetime):
-            return value
-        if isinstance(value, str):
-            try:
-                return datetime.fromisoformat(value)
-            except ValueError:
-                pass
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    if sort_by == "rating":
-        results.sort(
-            key=lambda row: (row.get("rating") or 0, _safe_created_at(row)),
-            reverse=reverse,
-        )
-    else:
-        # default: date
-        results.sort(
-            key=lambda row: (_safe_created_at(row), row.get("rating") or 0),
-            reverse=reverse,
-        )
-
-    return results
+    return _sort_review_rows(rows, sort_by, order)
 
 
-def write_reviews_csv(
-    rows: List[Dict[str, Any]],
-    out_dir: Optional[Path] = None,
-) -> Path:
-    """Write review rows (as returned by :func:`search_reviews_by_title`) to CSV.
-
-    If *out_dir* is provided, the file is created inside that directory; otherwise
-    an ``exports`` directory next to the movie data is used.
-
-    The CSV schema is:
-
-        id,movie_title,rating,created_at,user_id
-    """
-    if out_dir is None:
-        out_dir = _discover_movie_root() / "exports"
-    else:
-        out_dir = Path(out_dir)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    out_path = out_dir / "reviews_export.csv"
+def write_reviews_csv(rows: List[Dict[str, Any]], out_path: Path) -> Path:
+    """Write search results to a CSV for admin download."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["id", "movie_title", "rating", "created_at", "user_id"])
-        for row in rows:
-            created = row.get("created_at")
+        for r in rows:
+            created = r.get("created_at")
             if isinstance(created, datetime):
                 created_s = created.isoformat()
             else:
-                created_s = str(created) if created is not None else ""
+                created_s = str(created)
             writer.writerow(
                 [
-                    row.get("id"),
-                    row.get("movie_title"),
-                    row.get("rating"),
+                    r.get("id"),
+                    r.get("movie_title"),
+                    r.get("rating"),
                     created_s,
-                    row.get("user_id"),
+                    r.get("user_id"),
                 ]
             )
 
