@@ -1,243 +1,157 @@
-# Analytics service
 from __future__ import annotations
 
 import csv
+import json
 import os
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from fastapi import HTTPException, status
+# ---------------------------------------------------------------------------
+# File locations (tests monkeypatch these)
+# ---------------------------------------------------------------------------
 
-from backend.repositories.reviews_repo import CSVReviewRepo
-from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+# Base directory for movie/platform data; GitHub Actions sets MOVIE_DATA_PATH
+MOVIE_DATA_PATH = Path(os.getenv("MOVIE_DATA_PATH", "data/movies"))
 
-_repo = CSVReviewRepo()
-
-
-def create_review(payload: ReviewCreate) -> ReviewOut:
-    """Create a new review (one per user per movie)."""
-    existing = _repo.get_by_user(payload.movie_id, payload.user_id)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User has already reviewed this movie. Use update instead.",
-        )
-
-    now = datetime.now(timezone.utc)
-    review = ReviewOut(
-        id=str(uuid.uuid4()),
-        user_id=payload.user_id,
-        movie_id=payload.movie_id,
-        rating=payload.rating,
-        comment=payload.comment,
-        created_at=now,
-        updated_at=now,
-    )
-    return _repo.create(review)
+USERS_FILE = MOVIE_DATA_PATH / "users.json"
+REVIEWS_FILE = MOVIE_DATA_PATH / "reviews.json"
+BOOKMARKS_FILE = MOVIE_DATA_PATH / "bookmarks.json"
+PENALTIES_FILE = MOVIE_DATA_PATH / "penalties.json"
+ITEMS_FILE = MOVIE_DATA_PATH / "items.json"
+EXPORT_DIR = MOVIE_DATA_PATH / "exports"
 
 
-def list_reviews(
-    movie_id: str,
-    limit: int = 50,
-    cursor: Optional[int] = None,
-    min_rating: Optional[int] = None,
-) -> tuple[List[ReviewOut], Optional[int]]:
-    """List reviews for a movie with pagination and optional filters."""
-    return _repo.list_by_movie(
-        movie_id,
-        limit=limit,
-        cursor=cursor,
-        min_rating=min_rating,
-    )
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-def update_review(
-    movie_id: str,
-    review_id: str,
-    current_user_id: str,
-    payload: ReviewUpdate,
-) -> ReviewOut:
-    """Update an existing review; only the author may update."""
-    existing = _repo.get_by_id(movie_id, review_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Review not found.",
-        )
+def _load_json_list(path: Path) -> List[Dict[str, Any]]:
+    """Load a JSON file and always return a list of dicts.
 
-    if existing.user_id != current_user_id:
-        # Review exists but belongs to someone else -> 403
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this review.",
-        )
-
-    updated = ReviewOut(
-        # keep immutable fields from existing
-        **existing.model_dump(exclude={"rating", "comment", "updated_at"}),
-        rating=payload.rating if payload.rating is not None else existing.rating,
-        comment=payload.comment if payload.comment is not None else existing.comment,
-        updated_at=datetime.now(timezone.utc),
-    )
-    return _repo.update(updated)
-
-
-def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
-    """Delete a review.
-
-    Rules (what the tests expect):
-    * If the review does not exist -> 404.
-    * If the review exists but current_user_id is not the author -> 403.
-    * If the review exists and user is the author -> delete it.
+    Handles shapes like:
+    - [] / [{...}]
+    - {"items": [...]}, {"users": [...]}, etc.
+    - single dict -> wrapped in a list
+    - missing file -> []
     """
     if not path.exists():
         return []
 
-    with path.open(encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
     if isinstance(data, list):
         return list(data)
 
     if isinstance(data, dict):
-        if "items" in data:
-            return list(data["items"])
-        if "users" in data:
-            return list(data["users"])
+        for key in ("items", "users", "reviews", "bookmarks", "penalties"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return list(value)
+        return [data]
 
-    # Fallback – wrap in list if it’s a single object
-    return [data]
-
-
-# ---------------------------------------------------------------------------
-# Core stats + CSV export
-# ---------------------------------------------------------------------------
+    return []
 
 
-def _discover_movie_root() -> str:
-    """Discover where movie data lives on disk.
-
-    Tries the repo's configured BASE_PATH first (relative to working dir),
-    then falls back to the sibling `../data` directory commonly used in this repo.
-    """
-    # try repo default
-    try:
-        from repositories import reviews_repo
-
-        candidate = reviews_repo.BASE_PATH
-    except Exception:
-        candidate = "data/movies"
-
-    # possible absolute/relative locations to check
-    candidates = [candidate]
-    # relative to this services package -> backend/services/../data
-    services_dir = Path(__file__).resolve().parent
-    candidates.append(str((services_dir.parent / "data")))
-    # also try working directory base
-    candidates.append(str(Path.cwd() / candidate))
-
-    for p in candidates:
-        if os.path.exists(p) and os.path.isdir(p):
-            return p
-
-    # default to candidate even if missing (caller should handle missing)
-    return candidate
-
-
-def search_reviews_by_title(
-    title_query: str,
-    sort_by: str = "date",
-    order: str = "desc",
+def _top_genres_from_bookmarks(
+    items: List[Dict[str, Any]],
+    bookmarks: List[Dict[str, Any]],
+    limit: int = 3,
 ) -> List[Dict[str, Any]]:
-    """Search reviews by movie title (case-insensitive).
+    """Compute top genres by bookmark count."""
+    # Map item_id -> list[str] genres
+    item_genres: Dict[str, List[str]] = {}
+    for item in items:
+        item_id = str(item.get("id"))
+        genres = item.get("genres") or []
+        if isinstance(genres, str):
+            genres = [g.strip() for g in genres.split(",") if g.strip()]
+        item_genres[item_id] = list(genres)
 
-    Returns a list of dicts with fields: id, movie_title, rating, created_at, user_id.
-    sort_by: 'date' or 'rating'. order: 'asc' or 'desc'.
+    genre_counts: Dict[str, int] = {}
+    for bm in bookmarks:
+        item_id = str(bm.get("item_id") or bm.get("movie_id"))
+        for g in item_genres.get(item_id, []):
+            genre_counts[g] = genre_counts.get(g, 0) + 1
+
+    sorted_genres = sorted(
+        genre_counts.items(),
+        key=lambda kv: (-kv[1], kv[0]),
+    )
+
+    top: List[Dict[str, Any]] = []
+    for name, count in sorted_genres[:limit]:
+        top.append({"genre": name, "count": count})
+    return top
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def compute_stats_and_write_csv() -> Path:
+    """Compute platform stats and write them to a CSV file.
+
+    CSV layout expected by tests:
+
+        metric,value
+        users_count,<int>
+        user_total,<int>
+        user_active,<int>
+        user_locked,<int>
+        reviews_count,<int>
+        bookmarks_count,<int>
+        penalties_count,<int>
+        generated_at,<ISO UTC>
+
+        top_genre_rank,genre,count
+        1,<name>,<count>
+        2,<name>,<count>
+        ...
     """
-    root = _discover_movie_root()
-    normalized_q = (title_query or "").strip().lower()
+    users = _load_json_list(USERS_FILE)
+    reviews = _load_json_list(REVIEWS_FILE)
+    bookmarks = _load_json_list(BOOKMARKS_FILE)
+    penalties = _load_json_list(PENALTIES_FILE)
+    items = _load_json_list(ITEMS_FILE)
 
-    results: List[Dict[str, Any]] = []
+    users_count = len(users)
+    user_locked = sum(1 for u in users if bool(u.get("is_locked")))
+    user_active = users_count - user_locked
 
-    if not os.path.isdir(root):
-        return results
+    reviews_count = len(reviews)
+    bookmarks_count = len(bookmarks)
+    penalties_count = len(penalties)
 
-    for entry in sorted(os.listdir(root)):
-        # entry is movie directory name
-        if normalized_q and normalized_q not in entry.lower():
-            continue
+    top_genres = _top_genres_from_bookmarks(items, bookmarks, limit=3)
 
-        movie_id = entry
-        # pull all reviews for the movie (pass large limit to get all rows)
-        try:
-            reviews, _ = _repo.list_by_movie(movie_id=movie_id, limit=1000000, cursor=0)
-        except Exception:
-            # skip movies with missing/invalid CSV
-            continue
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = EXPORT_DIR / "platform_stats.csv"
+    generated_at = datetime.now(timezone.utc).isoformat()
 
-        for r in reviews:
-            results.append(
-                {
-                    "id": r.id,
-                    "movie_title": movie_id,
-                    "rating": r.rating,
-                    "created_at": r.created_at,
-                    "user_id": r.user_id,
-                }
-            )
-
-    # sort
-    reverse = order != "asc"
-    if sort_by == "rating":
-        results.sort(key=lambda x: (x.get("rating") or 0), reverse=reverse)
-    else:
-        # default: sort by date
-        results.sort(key=lambda x: x.get("created_at") or 0, reverse=reverse)
-
-    return results
-
-
-def write_reviews_csv(
-    rows: List[Dict[str, Any]], filename: Optional[str] = None
-) -> Path:
-    """Write given review rows to a CSV file and return the Path.
-
-    The CSV will include headers: id,movie_title,rating,created_at,user_id
-    """
-    out_dir = Path(_discover_movie_root()) / "exports"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    if filename:
-        out_path = out_dir / filename
-    else:
-        out_path = (
-            out_dir
-            / f"reviews_export_{int(datetime.now(timezone.utc).timestamp())}.csv"
-        )
-
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
+    with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["id", "movie_title", "rating", "created_at", "user_id"])
-        for r in rows:
-            created = r.get("created_at")
-            if isinstance(created, datetime):
-                created_s = created.isoformat()
-            else:
-                created_s = str(created)
-            writer.writerow(
-                [
-                    r.get("id"),
-                    r.get("movie_title"),
-                    r.get("rating"),
-                    created_s,
-                    r.get("user_id"),
-                ]
-            )
+
+        # --- metrics section ---
+        writer.writerow(["metric", "value"])
+        writer.writerow(["users_count", users_count])
+        writer.writerow(["user_total", users_count])  # test checks for this
+        writer.writerow(["user_active", user_active])
+        writer.writerow(["user_locked", user_locked])
+        writer.writerow(["reviews_count", reviews_count])
+        writer.writerow(["bookmarks_count", bookmarks_count])
+        writer.writerow(["penalties_count", penalties_count])
+        writer.writerow(["generated_at", generated_at])
+
+        # blank line between sections (nice for humans; tests don't mind)
+        writer.writerow([])
+
+        # --- top genres section ---
+        writer.writerow(["top_genre_rank", "genre", "count"])
+        for idx, tg in enumerate(top_genres, start=1):
+            writer.writerow([idx, tg["genre"], tg["count"]])
 
     return out_path
-
-
-# .. note::
-#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-#    Core logic and subsequent modifications were implemented by the author(s).
