@@ -1,6 +1,6 @@
 import pytest
 
-from backend.services import analytics_service
+from services import analytics_service
 
 
 def test_search_case_insensitive():
