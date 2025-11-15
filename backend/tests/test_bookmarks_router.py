@@ -4,7 +4,6 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.repositories.bookmarks_repo import JSONBookmarkRepo
 
 client = TestClient(app)
 
@@ -17,7 +16,7 @@ def setup_tmp_repo(tmp_path, monkeypatch):
     monkeypatch.setenv("BOOKMARKS_PATH", str(fake_path))
     monkeypatch.setenv("BOOKMARKS_EXPORT_DIR", str(export_dir))
 
-    return JSONBookmarkRepo(str(fake_path))
+    return fake_path
 
 
 def test_create_bookmark(tmp_path, monkeypatch):
