@@ -75,11 +75,13 @@ class JSONBookmarkRepo:
         dirpath = os.path.dirname(self.storage_path) or "."
         os.makedirs(dirpath, exist_ok=True)
 
+        serialized = [_serialize_for_json(b) for b in bookmarks]
+
         tmp_path = self.storage_path + ".tmp"
         try:
             # Write to a temp file first
             with open(tmp_path, 'w', encoding="utf-8") as f:
-                json.dump(bookmarks, f, ensure_ascii=False, indent=2)
+                json.dump(serialized, f, ensure_ascii=False, indent=2)
                 f.flush()  # flush internal buffer
                 os.fsync(f.fileno())  # flush to disk
 
@@ -113,9 +115,9 @@ class JSONBookmarkRepo:
         }
 
         data = self._load()
-        data.append(_serialize_for_json(payload))  # UUID will be stringify
+        data.append(payload)  # raw python objects, no serialization here
         self._save(data)
-        return BookmarkOut.model_validate(payload)  # return normalized object
+        return BookmarkOut.model_validate(payload)
 
     def get_by_user(self, user_id: str) -> List[BookmarkOut]:
         '''Retrieve all bookmarks for a specific user.'''
@@ -127,20 +129,15 @@ class JSONBookmarkRepo:
 
     def delete(self, bookmark_id: str) -> bool:
         '''Delete a bookmark by its ID. Returns True if deleted, False if not found.'''
+        if isinstance(bookmark_id, UUID):
+            bookmark_id = str(bookmark_id)
+
         data = self._load()
-        now = datetime.now(timezone.utc)
+        new_data = [b for b in data if b.get("id") != bookmark_id]
 
-        new_data = []
-        deleted = False
-        for b in data:
-            if b.get("id") == bookmark_id:
-                b["updated_At"] = now.isoformat()
-                deleted = True
-                continue
-            new_data.append(b)
+        if len(new_data) == len(data):
+            return False
 
-        if not deleted:
-            return False  # Not found
         self._save(new_data)
         return True
 
@@ -151,9 +148,9 @@ class JSONBookmarkRepo:
         if not data:
             raise ValueError("No bookmarks available for export.")
 
-        rows = [_serialize_for_json(b) for b in data]
-
+        rows = data
         os.makedirs(export_dir, exist_ok=True)
+
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         export_path = os.path.join(export_dir, f"bookmarks_export_{timestamp}.csv")
         tmp_path = export_path + ".tmp"
