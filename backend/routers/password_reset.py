@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from services import password_reset_service as svc
 
 from schemas.password_reset import (
-    PasswordResetRequest,
-    PasswordResetLinkOut,
     PasswordResetConfirm,
+    PasswordResetLinkOut,
+    PasswordResetRequest,
 )
-from services import password_reset_service as svc
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

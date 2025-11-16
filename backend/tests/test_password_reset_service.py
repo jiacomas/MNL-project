@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
-
-from repositories.users_repo import User, UsersRepo
-from repositories.reset_tokens_repo import ResetTokenRepo
 from services import password_reset_service as svc
+
+from repositories.reset_tokens_repo import ResetTokenRepo
+from repositories.users_repo import User, UsersRepo
 
 
 @pytest.fixture

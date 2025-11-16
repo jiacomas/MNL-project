@@ -7,9 +7,8 @@ from typing import Optional
 
 from fastapi import HTTPException, status
 
-from repositories.users_repo import User, UsersRepo
 from repositories.reset_tokens_repo import ResetToken, ResetTokenRepo
-
+from repositories.users_repo import User, UsersRepo
 
 # ----------------------------------------------------------------------------
 # Simple password hashing helpers
@@ -77,7 +76,9 @@ def _validate_new_password(password: str) -> None:
 # ----------------------------------------------------------------------------
 
 
-def request_password_reset(email: str, base_url: str = "https://example.com") -> PasswordResetRequestResult:
+def request_password_reset(
+    email: str, base_url: str = "https://example.com"
+) -> PasswordResetRequestResult:
     user = _users.get_by_email(email)
     if user is None:
         raise HTTPException(
