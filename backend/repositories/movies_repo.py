@@ -23,40 +23,53 @@ def _ensure_data_dir() -> None:
     os.makedirs(EXTERNAL_METADATA_DIR, exist_ok=True)
 
 
+def _convert_field_type(key: str, value: str) -> Any:
+    """Convert field value to appropriate type based on key"""
+    if not value:
+        return None
+
+    if key in ["release_year", "runtime"]:
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
+    elif key == "rating":
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+    else:
+        return value
+
+
+def _parse_date_field(date_str: Any) -> datetime:
+    """Parse date string to datetime object with proper error handling"""
+    if not date_str:
+        return datetime.now(timezone.utc)
+
+    if isinstance(date_str, str) and "T" in date_str:
+        try:
+            # ISO format with timezone
+            if date_str.endswith("Z"):
+                date_str = date_str[:-1] + "+00:00"
+            return datetime.fromisoformat(date_str)
+        except (ValueError, TypeError):
+            return datetime.now(timezone.utc)
+    else:
+        return datetime.now(timezone.utc)
+
+
 def _process_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """Process a single CSV row with proper type conversion and error handling"""
     movie_data = {}
-    for key, value in row.items():
-        if key in ["release_year", "runtime"] and value:
-            try:
-                movie_data[key] = int(value)
-            except (ValueError, TypeError):
-                movie_data[key] = None
-        elif key == "rating" and value:
-            try:
-                movie_data[key] = float(value)
-            except (ValueError, TypeError):
-                movie_data[key] = None
-        else:
-            movie_data[key] = value if value != "" else None
 
-    # Parse datetime fields
+    # Process regular fields
+    for key, value in row.items():
+        movie_data[key] = _convert_field_type(key, value)
+
+    # Process date fields
     for date_field in ["created_at", "updated_at"]:
-        date_str = movie_data.get(date_field)
-        if date_str:
-            try:
-                if isinstance(date_str, str) and "T" in date_str:
-                    # ISO format with timezone
-                    if date_str.endswith("Z"):
-                        date_str = date_str[:-1] + "+00:00"
-                    movie_data[date_field] = datetime.fromisoformat(date_str)
-                else:
-                    # Fallback to current time
-                    movie_data[date_field] = datetime.now(timezone.utc)
-            except (ValueError, TypeError):
-                movie_data[date_field] = datetime.now(timezone.utc)
-        else:
-            movie_data[date_field] = datetime.now(timezone.utc)
+        movie_data[date_field] = _parse_date_field(movie_data.get(date_field))
 
     return movie_data
 
@@ -128,7 +141,7 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
             csv_movie = movie.copy()
             for date_field in ["created_at", "updated_at"]:
                 if date_field in csv_movie and isinstance(
-                    csv_movie[date_field], datetime
+                        csv_movie[date_field], datetime
                 ):
                     csv_movie[date_field] = csv_movie[date_field].isoformat()
             writer.writerow(csv_movie)
@@ -199,8 +212,8 @@ def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
     # Ensure datetime objects are timezone-aware
     for date_field in ["created_at", "updated_at"]:
         if (
-            isinstance(result[date_field], datetime)
-            and result[date_field].tzinfo is None
+                isinstance(result[date_field], datetime)
+                and result[date_field].tzinfo is None
         ):
             result[date_field] = result[date_field].replace(tzinfo=timezone.utc)
 
@@ -235,14 +248,14 @@ def _dict_to_movie_dict(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _apply_movie_filters(
-    movie: Dict[str, Any],
-    title: Optional[str] = None,
-    genre: Optional[str] = None,
-    min_year: Optional[int] = None,
-    max_year: Optional[int] = None,
-    min_rating: Optional[float] = None,
-    max_rating: Optional[float] = None,
-    director: Optional[str] = None,
+        movie: Dict[str, Any],
+        title: Optional[str] = None,
+        genre: Optional[str] = None,
+        min_year: Optional[int] = None,
+        max_year: Optional[int] = None,
+        min_rating: Optional[float] = None,
+        max_rating: Optional[float] = None,
+        director: Optional[str] = None,
 ) -> bool:
     """Apply search filters to a single movie"""
     if title and title.lower() not in (movie.get("title") or "").lower():
@@ -294,11 +307,11 @@ class MovieRepository:
             _save_movies_to_csv(movies)
 
     def get_all(
-        self,
-        skip: int = 0,
-        limit: int = 50,
-        sort_by: Optional[str] = None,
-        sort_desc: bool = False,
+            self,
+            skip: int = 0,
+            limit: int = 50,
+            sort_by: Optional[str] = None,
+            sort_desc: bool = False,
     ) -> Tuple[List[MovieOut], int]:
         """Get all movies with pagination and sorting"""
         try:
@@ -321,7 +334,7 @@ class MovieRepository:
             movies_data.sort(key=get_sort_key, reverse=sort_desc)
 
         # Apply pagination
-        paginated_data = movies_data[skip : skip + limit]
+        paginated_data = movies_data[skip:skip + limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -336,16 +349,16 @@ class MovieRepository:
         return movies, total
 
     def search(
-        self,
-        title: Optional[str] = None,
-        genre: Optional[str] = None,
-        min_year: Optional[int] = None,
-        max_year: Optional[int] = None,
-        min_rating: Optional[float] = None,
-        max_rating: Optional[float] = None,
-        director: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 50,
+            self,
+            title: Optional[str] = None,
+            genre: Optional[str] = None,
+            min_year: Optional[int] = None,
+            max_year: Optional[int] = None,
+            min_rating: Optional[float] = None,
+            max_rating: Optional[float] = None,
+            director: Optional[str] = None,
+            skip: int = 0,
+            limit: int = 50,
     ) -> Tuple[List[MovieOut], int]:
         """Search movies with filters"""
         movies_data = self._load_movies()
@@ -353,19 +366,19 @@ class MovieRepository:
         filtered_movies = []
         for movie in movies_data:
             if _apply_movie_filters(
-                movie,
-                title=title,
-                genre=genre,
-                min_year=min_year,
-                max_year=max_year,
-                min_rating=min_rating,
-                max_rating=max_rating,
-                director=director,
+                    movie,
+                    title=title,
+                    genre=genre,
+                    min_year=min_year,
+                    max_year=max_year,
+                    min_rating=min_rating,
+                    max_rating=max_rating,
+                    director=director,
             ):
                 filtered_movies.append(movie)
 
         total = len(filtered_movies)
-        paginated_data = filtered_movies[skip : skip + limit]
+        paginated_data = filtered_movies[skip:skip + limit]
 
         movies = []
         for movie_data in paginated_data:
