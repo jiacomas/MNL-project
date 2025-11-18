@@ -4,9 +4,9 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Path, Query, status
-from services import reviews_service as svc
 
-from schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+from backend.services import reviews_service as svc
 
 # TODO: import auth and get current user from the app dependency file
 # Build a temporary fallback for local dev without auth
