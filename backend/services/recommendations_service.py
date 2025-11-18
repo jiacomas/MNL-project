@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Set
 
 from fastapi import HTTPException, status
 
-from schemas.recommendations import RecommendationOut
+from backend.schemas.recommendations import RecommendationOut
 
 # These are monkey-patched in tests
 ITEMS_FILE: Path = Path(os.getenv("ITEMS_FILE", "data/items.json"))

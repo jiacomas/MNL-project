@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
-from services import recommendations_service as rec_mod
+
+from backend.services import recommendations_service as rec_mod
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:
