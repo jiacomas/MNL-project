@@ -2,12 +2,14 @@
 Unit tests for UsersService using mocks
 """
 
-import hashlib
 import unittest
 from unittest.mock import Mock, patch
 
 from backend.repositories.users_repo import UserRepository
 from backend.schemas.users import Admin, Customers
+
+# import global salted hashing
+from backend.services.password_reset_service import verify_password as global_verify
 from backend.services.users_service import UsersService
 
 
@@ -25,9 +27,9 @@ class TestUsersService(unittest.TestCase):
         """Test password hashing"""
         password = "test123"
         hashed = self.service.hash_password(password)
-        expected = hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-        self.assertEqual(hashed, expected)
+        self.assertIn("$", hashed)  # must contain salt
+        self.assertEqual(len(hashed.split("$")), 2)
 
     def test_hash_password_consistency(self):
         """Test that password hashing is consistent"""
@@ -35,7 +37,9 @@ class TestUsersService(unittest.TestCase):
         hash1 = self.service.hash_password(password)
         hash2 = self.service.hash_password(password)
 
-        self.assertEqual(hash1, hash2)
+        self.assertNotEqual(hash1, hash2)  # salted hashes differ
+        self.assertTrue(global_verify(password, hash1))
+        self.assertTrue(global_verify(password, hash2))
 
     def test_check_password_valid(self):
         """Test valid password verification"""
@@ -308,7 +312,7 @@ class TestUsersService(unittest.TestCase):
         )
 
         self.assertNotEqual(admin.passwordHash, plain_password)
-        self.assertEqual(admin.passwordHash, self.service.hash_password(plain_password))
+        self.assertTrue(global_verify(plain_password, admin.passwordHash))
 
 
 if __name__ == '__main__':

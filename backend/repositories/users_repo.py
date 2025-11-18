@@ -41,7 +41,7 @@ def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
             return [_to_serializable(v) for v in obj]
         # pydantic models / dataclasses / objects with dict-like API
         if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
-            return _to_serializable(obj.model_dump())
+            return _to_serializable(obj.dict())
         if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
             return _to_serializable(obj.to_dict())
         if hasattr(obj, "__dict__"):
@@ -76,17 +76,32 @@ class UserRepository:
         return any(user for user in self.users if user.username == username)
 
     def get_user_by_username(self, username: str) -> User | None:
-        # First search in in-memory users (covers tests that append to self.users)
         for user in self.users:
             if user.username == username:
                 return user
-
-        # If in-memory list is empty, fallback to file loading (needed for mocked load_all)
-        loaded = load_all(self.file_path)
-        if loaded:
-            self.users = loaded  # sync memory with loaded data
-            for user in self.users:
-                if user.username == username:
-                    return user
-
         return None
+
+    def add_user(self, user: User) -> None:
+        """Add a new user instance."""
+        self.users.append(user)
+        self.save()
+
+    def get_by_id(self, user_id: str) -> User | None:
+        """Retrieve a user by user_id."""
+        for user in self.users:
+            if user.user_id == user_id:
+                return user
+        return None
+
+    def get_by_email(self, email: str) -> User | None:
+        for user in self.users:
+            if user.email == email:
+                return user
+        return None
+
+    def update_password_hash(self, user_id: str, new_hash: str) -> None:
+        for user in self.users:
+            if user.user_id == user_id:
+                user.passwordHash = new_hash
+                self.save()
+                return

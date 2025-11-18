@@ -1,9 +1,12 @@
-import hashlib
 import uuid
 from typing import Any, Optional
 
 from backend.repositories.users_repo import UserRepository
 from backend.schemas.users import Admin, Customers, User
+
+# import system-wide hashing used in reset service
+from backend.services.password_reset_service import hash_password as global_hash
+from backend.services.password_reset_service import verify_password as global_verify
 
 
 class UsersService:
@@ -21,8 +24,8 @@ class UsersService:
         self.repo = repo
 
     def hash_password(self, password: str) -> str:
-        """Return a SHA-256 hex digest for the given password."""
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+        """Use the SAME salted hashing scheme as password_reset_service."""
+        return global_hash(password)
 
     def check_password(self, username: str, password: str) -> bool:
         """Verify that the provided password matches the stored password hash.
@@ -35,7 +38,7 @@ class UsersService:
         stored = getattr(user, "passwordHash", None)
         if not stored:
             return False
-        return stored == self.hash_password(password)
+        return global_verify(password, stored)
 
     def create_user(
         self,
