@@ -13,6 +13,8 @@ __pycache__/
 
 # Project data
 backend/data/
+data/
 
 # Environment configuration
 .env
+mnl_backend.egg-info/
