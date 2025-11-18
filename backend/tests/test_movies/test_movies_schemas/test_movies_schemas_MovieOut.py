@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from schemas.movies import MovieOut
+from backend.schemas.movies import MovieOut
 
 
 class TestMovieOutSchema:

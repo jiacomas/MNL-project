@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from schemas.movies import MovieBase, MovieListResponse, MovieOut
+from backend.schemas.movies import MovieBase, MovieListResponse, MovieOut
 
 
 class TestMovieSchemasEdgeCases:

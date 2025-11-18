@@ -5,7 +5,7 @@ Tests for MovieSearchFilters schema using multiple testing methodologies.
 import pytest
 from pydantic import ValidationError
 
-from schemas.movies import MovieSearchFilters
+from backend.schemas.movies import MovieSearchFilters
 
 
 class TestMovieSearchFiltersSchema:

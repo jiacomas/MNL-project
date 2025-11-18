@@ -5,7 +5,7 @@ Tests for MovieCreate schema using multiple testing methodologies.
 import pytest
 from pydantic import ValidationError
 
-from schemas.movies import MovieCreate
+from backend.schemas.movies import MovieCreate
 
 
 class TestMovieCreateSchema:

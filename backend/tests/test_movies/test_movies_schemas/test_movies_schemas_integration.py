@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from schemas.movies import (
+from backend.schemas.movies import (
     MovieCreate,
     MovieListResponse,
     MovieOut,

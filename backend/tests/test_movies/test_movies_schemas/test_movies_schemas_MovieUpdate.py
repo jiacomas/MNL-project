@@ -5,7 +5,7 @@ Tests for MovieUpdate schema using multiple testing methodologies.
 import pytest
 from pydantic import ValidationError
 
-from schemas.movies import MovieUpdate
+from backend.schemas.movies import MovieUpdate
 
 
 class TestMovieUpdateSchema:
