@@ -18,7 +18,7 @@ router = APIRouter(
 
 def get_bookmarks_service() -> BookmarkService:
     '''Provide BookmarkService with a repo using BOOKMARKS_PATH.'''
-    storage_path = os.getenv("BOOKMARKS_PATH", "data/bookmarks.json")
+    storage_path = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
     repo = JSONBookmarkRepo(storage_path=storage_path)
     return BookmarkService(repo)
 
