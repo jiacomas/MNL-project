@@ -3,15 +3,14 @@ from __future__ import annotations
 import hashlib
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 from fastapi import HTTPException, status
 
-from repositories.reset_tokens_repo import ResetToken, ResetTokenRepo
-from repositories.users_repo import User, UsersRepo
+from backend.repositories.reset_tokens_repo import ResetToken, ResetTokenRepo
+from backend.repositories.users_repo import User, UserRepository
 
 # ----------------------------------------------------------------------------
-# Simple password hashing helpers
+# Password hashing
 # ----------------------------------------------------------------------------
 
 
@@ -23,7 +22,6 @@ def _hash_with_salt(password: str, salt: bytes) -> str:
 
 
 def hash_password(password: str) -> str:
-    """Hash password with random salt: 'salt_hex$hash_hex'."""
     salt = os.urandom(16)
     salt_hex = salt.hex()
     hash_hex = _hash_with_salt(password, salt)
@@ -35,16 +33,14 @@ def verify_password(password: str, stored: str) -> bool:
         salt_hex, hash_hex = stored.split("$", 1)
     except ValueError:
         return False
+
     salt = bytes.fromhex(salt_hex)
     candidate = _hash_with_salt(password, salt)
     return candidate == hash_hex
 
 
-# ----------------------------------------------------------------------------
-# Repositories (for now, module-level singletons are fine)
-# ----------------------------------------------------------------------------
-
-_users = UsersRepo()
+# Module-level repos
+_users = UserRepository()
 _tokens = ResetTokenRepo()
 
 
@@ -55,14 +51,17 @@ class PasswordResetRequestResult:
     reset_link: str
 
 
+# ----------------------------------------------------------------------------
+# Password rules
+# ----------------------------------------------------------------------------
+
+
 def _validate_new_password(password: str) -> None:
-    """Minimum rules: ≥ 8 chars, at least one digit."""
     if len(password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters long.",
         )
-
     if not any(ch.isdigit() for ch in password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -71,8 +70,7 @@ def _validate_new_password(password: str) -> None:
 
 
 # ----------------------------------------------------------------------------
-# 1) User provides registered email → generate token.
-# 2) Instead of email, we return a temporary reset link.
+# Request password reset
 # ----------------------------------------------------------------------------
 
 
@@ -86,15 +84,19 @@ def request_password_reset(
             detail="Email not found.",
         )
 
-    token = _tokens.create_for_user(user.id)
+    token = _tokens.create_for_user(user.user_id)
+
     reset_link = f"{base_url.rstrip('/')}/reset-password/{token.id}"
-    return PasswordResetRequestResult(user=user, token=token, reset_link=reset_link)
+
+    return PasswordResetRequestResult(
+        user=user,
+        token=token,
+        reset_link=reset_link,
+    )
 
 
 # ----------------------------------------------------------------------------
-# 3) Token must be valid, not expired, not used.
-# 4) User sets new password meeting rules.
-# 5) On success old password is replaced (hashed) and token invalidated.
+# Reset password using token
 # ----------------------------------------------------------------------------
 
 
@@ -120,16 +122,16 @@ def reset_password(token_id: str, new_password: str) -> None:
 
     _validate_new_password(new_password)
 
-    user: Optional[User] = _users.get_by_id(token.user_id)
+    user = _users.get_by_id(token.user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token refers to unknown user.",
         )
 
-    # Replace password hash
+    # Update passwordHash on user
     new_hash = hash_password(new_password)
-    _users.update_password_hash(user.id, new_hash)
+    _users.update_password_hash(user.user_id, new_hash)
 
-    # Invalidate the token
+    # Mark token as used
     _tokens.mark_used(token_id)
