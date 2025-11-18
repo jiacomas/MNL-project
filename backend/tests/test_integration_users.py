@@ -28,7 +28,7 @@ class TestUserManagementIntegration(unittest.TestCase):
         mock_load.return_value = []
         mock_uuid.return_value.hex = "generated_id"
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Create admin through service
@@ -54,7 +54,7 @@ class TestUserManagementIntegration(unittest.TestCase):
         mock_load.return_value = []
         mock_uuid.return_value.hex = "generated_id"
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Create customer
@@ -81,7 +81,7 @@ class TestUserManagementIntegration(unittest.TestCase):
         mock_load.return_value = []
         mock_uuid.return_value.hex = "generated_id"
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Create various users
@@ -129,7 +129,7 @@ class TestUserManagementIntegration(unittest.TestCase):
         )
         mock_load.return_value = [admin]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Edit user through service
@@ -165,7 +165,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [admin, customer]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         self.assertEqual(len(repo.users), 2)
 
         # Remove customer
@@ -178,7 +178,7 @@ class TestUserManagementIntegration(unittest.TestCase):
     @patch('backend.repositories.users_repo.load_all')
     def test_authentication_workflow_with_service(self, mock_load):
         """Integration test: complete authentication flow through service"""
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         password = "mySecretPass123"
@@ -216,7 +216,7 @@ class TestUserManagementIntegration(unittest.TestCase):
         mock_load.return_value = []
         mock_uuid.return_value.hex = "generated_id"
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Create first user
@@ -247,7 +247,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [admin]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Update password through direct manipulation (as in edit functions)
@@ -279,7 +279,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [customer]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
 
         # Add bookmarks
         user = repo.get_user_by_username("customer1")
@@ -307,7 +307,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [customer]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Increment penalties through service
@@ -336,7 +336,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [admin]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Update user type
@@ -362,7 +362,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
         mock_load.return_value = [admin]
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         # Initially not locked
@@ -385,13 +385,15 @@ class TestUserManagementIntegration(unittest.TestCase):
         mock_load.return_value = []
         mock_uuid.return_value.hex = "generated_id"
 
-        repo = UserRepository("test_path.json")
+        repo = UserRepository()
         service = UsersService(repo)
 
         service.create_user("admin1", "admin@test.com", "pass", user_type="admin")
 
         # Service should trigger repo.save() which calls save_all
-        mock_save_all.assert_called_once_with(repo.users, path="test_path.json")
+        mock_save_all.assert_called_once_with(
+            repo.users, path="backend/data/users.json"
+        )
 
 
 if __name__ == '__main__':
