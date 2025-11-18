@@ -178,11 +178,8 @@ class TestUserManagementIntegration(unittest.TestCase):
     @patch('backend.repositories.users_repo.load_all')
     def test_authentication_workflow_with_service(self, mock_load):
         """Integration test: complete authentication flow through service"""
-        repo = UserRepository()
-        service = UsersService(repo)
-
         password = "mySecretPass123"
-        hashed = service.hash_password(password)  # SHA256 of password
+        hashed = UsersService(UserRepository()).hash_password(password)
 
         admin = Admin(
             user_id="123",
@@ -195,6 +192,9 @@ class TestUserManagementIntegration(unittest.TestCase):
         )
 
         mock_load.return_value = [admin]
+
+        repo = UserRepository()
+        service = UsersService(repo)
 
         # Verify correct authentication
         self.assertTrue(service.check_password("admin1", password))
