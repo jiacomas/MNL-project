@@ -18,6 +18,6 @@ class Admin(User):
 
 
 class Customers(User):
-    customer_id: str
-    penalties: str
+    customer_id: str | None = None
+    penalties: str = ""
     bookmarks: List[str] = []
