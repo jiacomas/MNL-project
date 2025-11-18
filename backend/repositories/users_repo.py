@@ -1,42 +1,92 @@
-from __future__ import annotations
+import json
+import os
+import uuid
+from typing import Any, Dict, List
 
-from dataclasses import dataclass
-from typing import Dict, Optional
+from backend.schemas.users import Admin, Customers, User
 
-
-@dataclass
-class User:
-    id: str
-    email: str
-    password_hash: str
+DATA_PATH = "backend/data/users.json"
 
 
-class UsersRepo:
-    """Simple in-memory user store.
+def load_all(path: str = DATA_PATH) -> List[User]:
+    users = []
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        for item in data:
+            if item.get("user_type") == "admin":
+                users.append(Admin(**item))
+            elif item.get("user_type") == "customer":
+                users.append(Customers(**item))
+            else:
+                raise ValueError(f"Unknown user type: {item.get('user_type')}")
+    return users
 
-    In a real project it needs to be hook up to the DB instead.
-    """
 
-    def __init__(self) -> None:
-        self._by_id: Dict[str, User] = {}
-        self._by_email: Dict[str, User] = {}
+def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
+    # ensure directory exists
+    dirpath = os.path.dirname(path)
+    if dirpath:
+        os.makedirs(dirpath, exist_ok=True)
 
-    # ------------------------------------------------------------------
-    # Helper used in tests / seeding
-    # ------------------------------------------------------------------
-    def add_user(self, user: User) -> None:
-        self._by_id[user.id] = user
-        self._by_email[user.email.lower()] = user
+    def _to_serializable(obj):
+        if obj is None:
+            return None
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, dict):
+            return {k: _to_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_to_serializable(v) for v in obj]
+        # pydantic models / dataclasses / objects with dict-like API
+        if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+            return _to_serializable(obj.model_dump())
+        if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+            return _to_serializable(obj.to_dict())
+        if hasattr(obj, "__dict__"):
+            return _to_serializable(
+                {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+            )
+        # fallback to string representation
+        return str(obj)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-    def get_by_email(self, email: str) -> Optional[User]:
-        return self._by_email.get(email.lower())
+    serializable_items = [_to_serializable(item) for item in items]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(serializable_items, f, ensure_ascii=False, indent=2)
 
-    def get_by_id(self, user_id: str) -> Optional[User]:
-        return self._by_id.get(user_id)
 
-    def update_password_hash(self, user_id: str, new_hash: str) -> None:
-        user = self._by_id[user_id]
-        user.password_hash = new_hash
+class UserRepository:
+    def __init__(self, file_path: str = DATA_PATH):
+        self.users = load_all(file_path)
+        # remember where this repository loads/saves data so services can persist
+        self.file_path = file_path
+
+    def new_user_id(self) -> str:
+        return uuid.uuid4().hex
+
+    def save(self) -> None:
+        """Persist current users list to the configured data file."""
+        save_all(self.users, path=self.file_path)
+
+    def user_exists(self, user_id: str):
+        return any(user for user in self.users if user.user_id == user_id)
+
+    def username_exists(self, username: str) -> bool:
+        return any(user for user in self.users if user.username == username)
+
+    def get_user_by_username(self, username: str) -> User | None:
+        # First search in in-memory users (covers tests that append to self.users)
+        for user in self.users:
+            if user.username == username:
+                return user
+
+        # If in-memory list is empty, fallback to file loading (needed for mocked load_all)
+        loaded = load_all(self.file_path)
+        if loaded:
+            self.users = loaded  # sync memory with loaded data
+            for user in self.users:
+                if user.username == username:
+                    return user
+
+        return None

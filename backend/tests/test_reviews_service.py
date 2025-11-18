@@ -5,7 +5,10 @@ import importlib
 import pytest
 from fastapi import HTTPException
 
-from schemas.reviews import ReviewCreate, ReviewUpdate  # Import necessary schemas
+from backend.schemas.reviews import (  # Import necessary schemas
+    ReviewCreate,
+    ReviewUpdate,
+)
 
 
 @pytest.fixture(scope="function")
@@ -16,9 +19,8 @@ def svc(monkeypatch, tmp_path):
     monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
 
     # Import modules first
-    from services import reviews_service as svc_mod
-
-    from repositories import reviews_repo as repo_mod
+    from backend.repositories import reviews_repo as repo_mod
+    from backend.services import reviews_service as svc_mod
 
     # Explicitly reload modules
     importlib.reload(repo_mod)
@@ -92,7 +94,7 @@ def created_review(svc):
 def test_create_duplicate_blocked(svc):
     svc_mod, movie_id = svc
 
-    from schemas.reviews import ReviewCreate
+    from backend.schemas.reviews import ReviewCreate
 
     # u1 already has a review
     payload = ReviewCreate(user_id="u1", movie_id=movie_id, rating=8, comment="dup")
