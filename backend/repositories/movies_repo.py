@@ -141,7 +141,7 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
             csv_movie = movie.copy()
             for date_field in ["created_at", "updated_at"]:
                 if date_field in csv_movie and isinstance(
-                        csv_movie[date_field], datetime
+                    csv_movie[date_field], datetime
                 ):
                     csv_movie[date_field] = csv_movie[date_field].isoformat()
             writer.writerow(csv_movie)
@@ -182,7 +182,9 @@ def _save_movies_to_json(movies: List[Dict[str, Any]]) -> None:
     for movie in movies:
         json_movie = movie.copy()
         for date_field in ["created_at", "updated_at"]:
-            if date_field in json_movie and isinstance(json_movie[date_field], datetime):
+            if date_field in json_movie and isinstance(
+                json_movie[date_field], datetime
+            ):
                 json_movie[date_field] = json_movie[date_field].isoformat()
         movies_for_json.append(json_movie)
 
@@ -212,8 +214,8 @@ def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
     # Ensure datetime objects are timezone-aware
     for date_field in ["created_at", "updated_at"]:
         if (
-                isinstance(result[date_field], datetime)
-                and result[date_field].tzinfo is None
+            isinstance(result[date_field], datetime)
+            and result[date_field].tzinfo is None
         ):
             result[date_field] = result[date_field].replace(tzinfo=timezone.utc)
 
@@ -248,14 +250,14 @@ def _dict_to_movie_dict(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _apply_movie_filters(
-        movie: Dict[str, Any],
-        title: Optional[str] = None,
-        genre: Optional[str] = None,
-        min_year: Optional[int] = None,
-        max_year: Optional[int] = None,
-        min_rating: Optional[float] = None,
-        max_rating: Optional[float] = None,
-        director: Optional[str] = None,
+    movie: Dict[str, Any],
+    title: Optional[str] = None,
+    genre: Optional[str] = None,
+    min_year: Optional[int] = None,
+    max_year: Optional[int] = None,
+    min_rating: Optional[float] = None,
+    max_rating: Optional[float] = None,
+    director: Optional[str] = None,
 ) -> bool:
     """Apply search filters to a single movie"""
     if title and title.lower() not in (movie.get("title") or "").lower():
@@ -307,11 +309,11 @@ class MovieRepository:
             _save_movies_to_csv(movies)
 
     def get_all(
-            self,
-            skip: int = 0,
-            limit: int = 50,
-            sort_by: Optional[str] = None,
-            sort_desc: bool = False,
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        sort_by: Optional[str] = None,
+        sort_desc: bool = False,
     ) -> Tuple[List[MovieOut], int]:
         """Get all movies with pagination and sorting"""
         try:
@@ -334,7 +336,7 @@ class MovieRepository:
             movies_data.sort(key=get_sort_key, reverse=sort_desc)
 
         # Apply pagination
-        paginated_data=movies_data[skip:skip+limit]
+        paginated_data = movies_data[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -349,16 +351,16 @@ class MovieRepository:
         return movies, total
 
     def search(
-            self,
-            title: Optional[str] = None,
-            genre: Optional[str] = None,
-            min_year: Optional[int] = None,
-            max_year: Optional[int] = None,
-            min_rating: Optional[float] = None,
-            max_rating: Optional[float] = None,
-            director: Optional[str] = None,
-            skip: int = 0,
-            limit: int = 50,
+        self,
+        title: Optional[str] = None,
+        genre: Optional[str] = None,
+        min_year: Optional[int] = None,
+        max_year: Optional[int] = None,
+        min_rating: Optional[float] = None,
+        max_rating: Optional[float] = None,
+        director: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> Tuple[List[MovieOut], int]:
         """Search movies with filters"""
         movies_data = self._load_movies()
@@ -366,19 +368,19 @@ class MovieRepository:
         filtered_movies = []
         for movie in movies_data:
             if _apply_movie_filters(
-                    movie,
-                    title=title,
-                    genre=genre,
-                    min_year=min_year,
-                    max_year=max_year,
-                    min_rating=min_rating,
-                    max_rating=max_rating,
-                    director=director,
+                movie,
+                title=title,
+                genre=genre,
+                min_year=min_year,
+                max_year=max_year,
+                min_rating=min_rating,
+                max_rating=max_rating,
+                director=director,
             ):
                 filtered_movies.append(movie)
 
         total = len(filtered_movies)
-        paginated_data=filtered_movies[skip:skip+limit]
+        paginated_data = filtered_movies[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
