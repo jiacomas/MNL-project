@@ -334,7 +334,7 @@ class MovieRepository:
             movies_data.sort(key=get_sort_key, reverse=sort_desc)
 
         # Apply pagination
-        paginated_data = movies_data[skip:skip+limit]
+        paginated_data=movies_data[skip:skip+limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -378,7 +378,7 @@ class MovieRepository:
                 filtered_movies.append(movie)
 
         total = len(filtered_movies)
-        paginated_data = filtered_movies[skip:skip+limit]
+        paginated_data=filtered_movies[skip:skip+limit]
 
         movies = []
         for movie_data in paginated_data:
