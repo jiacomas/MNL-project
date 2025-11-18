@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
-
 from services import recommendations_service as rec_mod
 
 

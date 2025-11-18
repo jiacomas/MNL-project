@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from services import recommendations_service as svc
 
 from schemas.recommendations import RecommendationOut
-from services import recommendations_service as svc
 
 router = APIRouter(prefix="/users", tags=["recommendations"])
 
