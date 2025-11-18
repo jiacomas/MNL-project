@@ -11,8 +11,8 @@ from uuid import UUID
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
 # Configuration
-BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "data/bookmarks.json")
-BOOKMARKS_EXPORT_DIR = os.getenv("BOOKMARKS_EXPORT_DIR", "data/exports")
+BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
+BOOKMARKS_EXPORT_DIR = os.getenv("BOOKMARKS_EXPORT_DIR", "backend/data/exports")
 
 
 # Helpers
