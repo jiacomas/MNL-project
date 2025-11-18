@@ -1,13 +1,19 @@
 """
 Consolidated basic schema tests for all movie schemas.
 """
+
 from datetime import datetime, timezone
+
 import pytest
 from pydantic import ValidationError
 
 from backend.schemas.movies import (
-    MovieBase, MovieCreate, MovieUpdate, MovieOut,
-    MovieSearchFilters, MovieListResponse
+    MovieBase,
+    MovieCreate,
+    MovieListResponse,
+    MovieOut,
+    MovieSearchFilters,
+    MovieUpdate,
 )
 
 
