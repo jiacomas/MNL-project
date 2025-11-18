@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from services import analytics_service as analytics
+from backend.services import analytics_service as analytics
 
 
 def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
