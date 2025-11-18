@@ -12,13 +12,15 @@ app = FastAPI()
 
 
 @app.get("/health")
-def health():
+def health() -> dict[str, str]:
     """Return a simple status message to indicate the API is running."""
     return {"status": "ok"}
 
 
+# Admin routers
 app.include_router(admin_analytics.router)
 app.include_router(admin_sync.router)
-# Don't do this in production; just for demo purposes
+
+# Reviews router (demo)
 app.include_router(reviews_router)
 app.include_router(bookmarks_router)
