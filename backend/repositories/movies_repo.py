@@ -23,6 +23,44 @@ def _ensure_data_dir() -> None:
     os.makedirs(EXTERNAL_METADATA_DIR, exist_ok=True)
 
 
+def _process_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Process a single CSV row with proper type conversion and error handling"""
+    movie_data = {}
+    for key, value in row.items():
+        if key in ["release_year", "runtime"] and value:
+            try:
+                movie_data[key] = int(value)
+            except (ValueError, TypeError):
+                movie_data[key] = None
+        elif key == "rating" and value:
+            try:
+                movie_data[key] = float(value)
+            except (ValueError, TypeError):
+                movie_data[key] = None
+        else:
+            movie_data[key] = value if value != "" else None
+
+    # Parse datetime fields
+    for date_field in ["created_at", "updated_at"]:
+        date_str = movie_data.get(date_field)
+        if date_str:
+            try:
+                if isinstance(date_str, str) and "T" in date_str:
+                    # ISO format with timezone
+                    if date_str.endswith("Z"):
+                        date_str = date_str[:-1] + "+00:00"
+                    movie_data[date_field] = datetime.fromisoformat(date_str)
+                else:
+                    # Fallback to current time
+                    movie_data[date_field] = datetime.now(timezone.utc)
+            except (ValueError, TypeError):
+                movie_data[date_field] = datetime.now(timezone.utc)
+        else:
+            movie_data[date_field] = datetime.now(timezone.utc)
+
+    return movie_data
+
+
 def _load_movies_from_csv() -> List[Dict[str, Any]]:
     """Load movies from CSV file with enhanced error handling"""
     if not os.path.exists(MOVIES_CSV_PATH):
@@ -30,7 +68,7 @@ def _load_movies_from_csv() -> List[Dict[str, Any]]:
 
     movies = []
     try:
-        with open(MOVIES_CSV_PATH, 'r', encoding='utf-8') as csvfile:
+        with open(MOVIES_CSV_PATH, "r", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
 
             # Check if we have the expected structure
@@ -39,44 +77,8 @@ def _load_movies_from_csv() -> List[Dict[str, Any]]:
 
             for row_num, row in enumerate(reader, start=1):
                 try:
-                    # Convert numeric fields with better error handling
-                    movie_data = {}
-                    for key, value in row.items():
-                        if key in ['release_year', 'runtime'] and value:
-                            try:
-                                movie_data[key] = int(value)
-                            except (ValueError, TypeError):
-                                movie_data[key] = None
-                        elif key == 'rating' and value:
-                            try:
-                                movie_data[key] = float(value)
-                            except (ValueError, TypeError):
-                                movie_data[key] = None
-                        else:
-                            movie_data[key] = value if value != '' else None
-
-                    # Parse datetime fields
-                    for date_field in ['created_at', 'updated_at']:
-                        date_str = movie_data.get(date_field)
-                        if date_str:
-                            try:
-                                if isinstance(date_str, str) and 'T' in date_str:
-                                    # ISO format with timezone
-                                    if date_str.endswith('Z'):
-                                        date_str = date_str[:-1] + '+00:00'
-                                    movie_data[date_field] = datetime.fromisoformat(
-                                        date_str
-                                    )
-                                else:
-                                    # Fallback to current time
-                                    movie_data[date_field] = datetime.now(timezone.utc)
-                            except (ValueError, TypeError):
-                                movie_data[date_field] = datetime.now(timezone.utc)
-                        else:
-                            movie_data[date_field] = datetime.now(timezone.utc)
-
-                    movies.append(movie_data)
-
+                    processed_row = _process_csv_row(row)
+                    movies.append(processed_row)
                 except Exception as e:
                     # Log the error but continue with other rows
                     print(f"Error processing row {row_num}: {e}")
@@ -97,20 +99,20 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
     if not movies:
         # Create empty file with headers if no movies
         fieldnames = [
-            'movie_id',
-            'title',
-            'genre',
-            'release_year',
-            'rating',
-            'runtime',
-            'director',
-            'cast',
-            'plot',
-            'poster_url',
-            'created_at',
-            'updated_at',
+            "movie_id",
+            "title",
+            "genre",
+            "release_year",
+            "rating",
+            "runtime",
+            "director",
+            "cast",
+            "plot",
+            "poster_url",
+            "created_at",
+            "updated_at",
         ]
-        with open(MOVIES_CSV_PATH, 'w', encoding='utf-8', newline='') as csvfile:
+        with open(MOVIES_CSV_PATH, "w", encoding="utf-8", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
         return
@@ -118,13 +120,13 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
     # Use keys from first movie as fieldnames
     fieldnames = list(movies[0].keys())
 
-    with open(MOVIES_CSV_PATH, 'w', encoding='utf-8', newline='') as csvfile:
+    with open(MOVIES_CSV_PATH, "w", encoding="utf-8", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for movie in movies:
             # Convert datetime objects to ISO format strings for CSV storage
             csv_movie = movie.copy()
-            for date_field in ['created_at', 'updated_at']:
+            for date_field in ["created_at", "updated_at"]:
                 if date_field in csv_movie and isinstance(
                     csv_movie[date_field], datetime
                 ):
@@ -138,17 +140,17 @@ def _load_movies_from_json() -> List[Dict[str, Any]]:
         return []
 
     try:
-        with open(MOVIES_JSON_PATH, 'r', encoding='utf-8') as f:
+        with open(MOVIES_JSON_PATH, "r", encoding="utf-8") as f:
             movies_data = json.load(f)
 
         # Convert string dates back to datetime objects
         for movie in movies_data:
-            for date_field in ['created_at', 'updated_at']:
+            for date_field in ["created_at", "updated_at"]:
                 if date_field in movie and isinstance(movie[date_field], str):
                     try:
                         date_str = movie[date_field]
-                        if date_str.endswith('Z'):
-                            date_str = date_str[:-1] + '+00:00'
+                        if date_str.endswith("Z"):
+                            date_str = date_str[:-1] + "+00:00"
                         movie[date_field] = datetime.fromisoformat(date_str)
                     except (ValueError, TypeError):
                         movie[date_field] = datetime.now(timezone.utc)
@@ -166,14 +168,12 @@ def _save_movies_to_json(movies: List[Dict[str, Any]]) -> None:
     movies_for_json = []
     for movie in movies:
         json_movie = movie.copy()
-        for date_field in ['created_at', 'updated_at']:
-            if date_field in json_movie and isinstance(
-                json_movie[date_field], datetime
-            ):
+        for date_field in ["created_at", "updated_at"]:
+            if date_field in json_movie and isinstance(json_movie[date_field], datetime):
                 json_movie[date_field] = json_movie[date_field].isoformat()
         movies_for_json.append(json_movie)
 
-    with open(MOVIES_JSON_PATH, 'w', encoding='utf-8') as f:
+    with open(MOVIES_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(movies_for_json, f, ensure_ascii=False, indent=2)
 
 
@@ -197,7 +197,7 @@ def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Ensure datetime objects are timezone-aware
-    for date_field in ['created_at', 'updated_at']:
+    for date_field in ["created_at", "updated_at"]:
         if (
             isinstance(result[date_field], datetime)
             and result[date_field].tzinfo is None
@@ -227,11 +227,48 @@ def _dict_to_movie_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Ensure we don't have empty strings for optional fields
-    for field in ['genre', 'director', 'cast', 'plot', 'poster_url']:
+    for field in ["genre", "director", "cast", "plot", "poster_url"]:
         if result[field] == "":
             result[field] = None
 
     return result
+
+
+def _apply_movie_filters(
+    movie: Dict[str, Any],
+    title: Optional[str] = None,
+    genre: Optional[str] = None,
+    min_year: Optional[int] = None,
+    max_year: Optional[int] = None,
+    min_rating: Optional[float] = None,
+    max_rating: Optional[float] = None,
+    director: Optional[str] = None,
+) -> bool:
+    """Apply search filters to a single movie"""
+    if title and title.lower() not in (movie.get("title") or "").lower():
+        return False
+
+    if genre and genre.lower() not in (movie.get("genre") or "").lower():
+        return False
+
+    movie_year = movie.get("release_year") or 0
+    if min_year and movie_year < min_year:
+        return False
+
+    if max_year and movie_year > max_year:
+        return False
+
+    movie_rating = movie.get("rating") or 0
+    if min_rating and movie_rating < min_rating:
+        return False
+
+    if max_rating and movie_rating > max_rating:
+        return False
+
+    if director and director.lower() not in (movie.get("director") or "").lower():
+        return False
+
+    return True
 
 
 class MovieRepository:
@@ -278,13 +315,13 @@ class MovieRepository:
                 value = movie.get(sort_by)
                 if value is None:
                     # Put None values at the end
-                    return float('-inf') if not sort_desc else float('inf')
+                    return float("-inf") if not sort_desc else float("inf")
                 return value
 
             movies_data.sort(key=get_sort_key, reverse=sort_desc)
 
         # Apply pagination
-        paginated_data = movies_data[skip: skip + limit]
+        paginated_data = movies_data[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -315,37 +352,20 @@ class MovieRepository:
 
         filtered_movies = []
         for movie in movies_data:
-            # Apply filters
-            if title and title.lower() not in (movie.get("title") or "").lower():
-                continue
-
-            if genre and genre.lower() not in (movie.get("genre") or "").lower():
-                continue
-
-            movie_year = movie.get("release_year") or 0
-            if min_year and movie_year < min_year:
-                continue
-
-            if max_year and movie_year > max_year:
-                continue
-
-            movie_rating = movie.get("rating") or 0
-            if min_rating and movie_rating < min_rating:
-                continue
-
-            if max_rating and movie_rating > max_rating:
-                continue
-
-            if (
-                director
-                and director.lower() not in (movie.get("director") or "").lower()
+            if _apply_movie_filters(
+                movie,
+                title=title,
+                genre=genre,
+                min_year=min_year,
+                max_year=max_year,
+                min_rating=min_rating,
+                max_rating=max_rating,
+                director=director,
             ):
-                continue
-
-            filtered_movies.append(movie)
+                filtered_movies.append(movie)
 
         total = len(filtered_movies)
-        paginated_data = filtered_movies[skip: skip + limit]
+        paginated_data = filtered_movies[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
