@@ -94,7 +94,7 @@ def created_review(svc):
 def test_create_duplicate_blocked(svc):
     svc_mod, movie_id = svc
 
-    from schemas.reviews import ReviewCreate
+    from backend.schemas.reviews import ReviewCreate
 
     # u1 already has a review
     payload = ReviewCreate(user_id="u1", movie_id=movie_id, rating=8, comment="dup")

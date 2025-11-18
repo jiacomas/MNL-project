@@ -178,8 +178,11 @@ class TestUserManagementIntegration(unittest.TestCase):
     @patch('backend.repositories.users_repo.load_all')
     def test_authentication_workflow_with_service(self, mock_load):
         """Integration test: complete authentication flow through service"""
+        repo = UserRepository("test_path.json")
+        service = UsersService(repo)
+
         password = "mySecretPass123"
-        hashed = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"  # SHA256 of password
+        hashed = service.hash_password(password)  # SHA256 of password
 
         admin = Admin(
             user_id="123",
@@ -192,9 +195,6 @@ class TestUserManagementIntegration(unittest.TestCase):
         )
 
         mock_load.return_value = [admin]
-
-        repo = UserRepository("test_path.json")
-        service = UsersService(repo)
 
         # Verify correct authentication
         self.assertTrue(service.check_password("admin1", password))
@@ -230,7 +230,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
     @patch('backend.repositories.users_repo.save_all')
     @patch('backend.repositories.users_repo.load_all')
-    def test_password_update_workflow(self, mock_load):
+    def test_password_update_workflow(self, mock_load, mock_save_all):
         """Integration test: password update through repository"""
         password = "oldPass123"
         hashed = "hash_of_old_pass"
@@ -263,7 +263,7 @@ class TestUserManagementIntegration(unittest.TestCase):
 
     @patch('backend.repositories.users_repo.save_all')
     @patch('backend.repositories.users_repo.load_all')
-    def test_customer_bookmarks_workflow(self, mock_load):
+    def test_customer_bookmarks_workflow(self, mock_load, mock_save_all):
         """Integration test: customer bookmarks management"""
         customer = Customers(
             user_id="123",
