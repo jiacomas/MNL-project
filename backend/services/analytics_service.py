@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
-from repositories.reviews_repo import CSVReviewRepo
+from backend.repositories.reviews_repo import CSVReviewRepo
 
 # Shared review repository (for reading review CSVs)
 _repo = CSVReviewRepo()

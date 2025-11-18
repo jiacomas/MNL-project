@@ -5,6 +5,7 @@ pydantic
 python-jose
 passlib[bcrypt]
 httpx
+email-validator
 
 # Data handling
 kagglehub
