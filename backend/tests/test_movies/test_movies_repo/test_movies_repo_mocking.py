@@ -57,7 +57,7 @@ class TestMovieRepositoryMocking:
         """Test repository with mocked file operations"""
         with (
             patch.object(csv_repo, '_load_movies') as mock_load,
-            patch.object(csv_repo, '_save_movies') as mock_save,
+            patch.object(csv_repo, '_save_movies') as _,
         ):
             mock_load.return_value = [
                 {
@@ -85,7 +85,7 @@ class TestMovieRepositoryMocking:
             patch(
                 'backend.repositories.movies_repo._load_movies_from_csv'
             ) as mock_load,
-            patch('backend.repositories.movies_repo._save_movies_to_csv') as mock_save,
+            patch('backend.repositories.movies_repo._save_movies_to_csv') as _,
         ):
             mock_load.return_value = [
                 {
@@ -112,7 +112,7 @@ class TestMovieRepositoryMocking:
             patch(
                 'backend.repositories.movies_repo._load_movies_from_json'
             ) as mock_load,
-            patch('backend.repositories.movies_repo._save_movies_to_json') as mock_save,
+            patch('backend.repositories.movies_repo._save_movies_to_json') as _,
         ):
             mock_load.return_value = [
                 {

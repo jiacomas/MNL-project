@@ -326,7 +326,7 @@ class TestMoviesRepoEquivalenceBoundary:
     def test_movies_repo_single_item_database(self, csv_repo):
         """Test operations on database with exactly one item"""
         movie_create = MovieCreate(title="Single Movie")
-        created = csv_repo.create(movie_create)
+        csv_repo.create(movie_create)
 
         movies, total = csv_repo.get_all()
         assert total == 1
