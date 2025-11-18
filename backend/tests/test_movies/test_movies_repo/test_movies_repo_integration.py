@@ -2,6 +2,7 @@
 Integration tests for MovieRepository with actual file operations.
 Tests data persistence, cross-format compatibility, and concurrent access.
 """
+
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -32,8 +33,10 @@ class TestIntegrationMoviesRepository:
         """Integration test for complete CSV operations cycle"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=False)
 
             # Test 1: Empty repository
@@ -46,14 +49,14 @@ class TestIntegrationMoviesRepository:
                 title="Integration Test Movie 1",
                 genre="Drama",
                 release_year=2024,
-                rating=8.5
+                rating=8.5,
             )
 
             movie2 = MovieCreate(
                 title="Integration Test Movie 2",
                 genre="Comedy",
                 release_year=2023,
-                rating=7.8
+                rating=7.8,
             )
 
             created1 = repo.create(movie1)
@@ -90,8 +93,10 @@ class TestIntegrationMoviesRepository:
         """Integration test for complete JSON operations cycle"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=True)
 
             # Test empty repository
@@ -100,9 +105,7 @@ class TestIntegrationMoviesRepository:
 
             # Create and verify movie
             movie_create = MovieCreate(
-                title="JSON Integration Movie",
-                genre="Action",
-                release_year=2024
+                title="JSON Integration Movie", genre="Action", release_year=2024
             )
 
             created = repo.create(movie_create)
@@ -118,8 +121,10 @@ class TestIntegrationMoviesRepository:
         temp_dir, csv_path, json_path = temp_data_dir
 
         # Start with CSV repository
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
 
             csv_repo = MovieRepository(use_json=False)
 
@@ -164,14 +169,14 @@ class TestIntegrationMoviesRepository:
             """Helper function to create movies in a repository instance"""
             for i in range(count):
                 movie = MovieCreate(
-                    title=f"{prefix} Movie {i}",
-                    genre="Test",
-                    release_year=2000 + i
+                    title=f"{prefix} Movie {i}", genre="Test", release_year=2000 + i
                 )
                 repo_instance.create(movie)
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             # Simulate concurrent access by multiple repository instances
             repo1 = MovieRepository(use_json=False)
             repo2 = MovieRepository(use_json=False)
@@ -195,8 +200,10 @@ class TestIntegrationMoviesRepository:
         """Test repository performance with large dataset"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=False)
 
             # Create larger dataset
@@ -205,7 +212,7 @@ class TestIntegrationMoviesRepository:
                     title=f"Movie {i:03d}",
                     genre="Test",
                     release_year=2000 + (i % 25),
-                    rating=5.0 + (i % 5)
+                    rating=5.0 + (i % 5),
                 )
                 repo.create(movie)
 
@@ -225,8 +232,10 @@ class TestIntegrationMoviesRepository:
         """Test data consistency across multiple operations"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=False)
 
             # Create initial movie
@@ -234,7 +243,7 @@ class TestIntegrationMoviesRepository:
                 title="Consistency Test Movie",
                 genre="Drama",
                 release_year=2024,
-                rating=8.0
+                rating=8.0,
             )
             created = repo.create(movie_create)
             original_id = created.movie_id
@@ -244,7 +253,7 @@ class TestIntegrationMoviesRepository:
                 MovieUpdate(rating=8.5),
                 MovieUpdate(genre="Thriller"),
                 MovieUpdate(title="Updated Consistency Test Movie"),
-                MovieUpdate(rating=9.0, genre="Action")
+                MovieUpdate(rating=9.0, genre="Action"),
             ]
 
             for update in updates:
@@ -262,16 +271,35 @@ class TestIntegrationMoviesRepository:
         """Test that search functionality works with persisted data"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=False)
 
             # Create test data with specific characteristics
             test_movies = [
-                MovieCreate(title="Action Thriller", genre="Action, Thriller", release_year=2020, rating=8.0),
-                MovieCreate(title="Drama Story", genre="Drama", release_year=2019, rating=7.5),
-                MovieCreate(title="Comedy Special", genre="Comedy", release_year=2021, rating=6.5),
-                MovieCreate(title="Sci-Fi Adventure", genre="Sci-Fi, Action", release_year=2022, rating=8.8),
+                MovieCreate(
+                    title="Action Thriller",
+                    genre="Action, Thriller",
+                    release_year=2020,
+                    rating=8.0,
+                ),
+                MovieCreate(
+                    title="Drama Story", genre="Drama", release_year=2019, rating=7.5
+                ),
+                MovieCreate(
+                    title="Comedy Special",
+                    genre="Comedy",
+                    release_year=2021,
+                    rating=6.5,
+                ),
+                MovieCreate(
+                    title="Sci-Fi Adventure",
+                    genre="Sci-Fi, Action",
+                    release_year=2022,
+                    rating=8.8,
+                ),
             ]
 
             for movie in test_movies:
@@ -298,8 +326,10 @@ class TestIntegrationMoviesRepository:
         """Test that sorting works with persisted data"""
         temp_dir, csv_path, json_path = temp_data_dir
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path), \
-                patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path):
+        with (
+            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
+            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+        ):
             repo = MovieRepository(use_json=False)
 
             # Create test data with different ratings

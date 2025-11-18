@@ -2,12 +2,13 @@
 Tests for Movies Repository helper functions.
 Tests data transformation, validation, and utility functions with comprehensive coverage.
 """
+
 import uuid
 from datetime import datetime, timezone
 
 import pytest
 
-from backend.repositories.movies_repo import _movie_to_dict, _dict_to_movie_dict
+from backend.repositories.movies_repo import _dict_to_movie_dict, _movie_to_dict
 
 
 class TestMoviesRepoHelpers:
@@ -30,7 +31,7 @@ class TestMoviesRepoHelpers:
             "poster_url": "https://test.com/poster.jpg",
             "created_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             "updated_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-            "review_count": 5  # Extra field should be handled
+            "review_count": 5,  # Extra field should be handled
         }
 
         result = _movie_to_dict(movie_data)
@@ -51,7 +52,7 @@ class TestMoviesRepoHelpers:
         """Test _movie_to_dict with partial movie data"""
         movie_data = {
             "movie_id": "partial123",
-            "title": "Partial Movie"
+            "title": "Partial Movie",
             # Missing most optional fields
         }
 
@@ -79,7 +80,7 @@ class TestMoviesRepoHelpers:
             "movie_id": "timezone_test",
             "title": "Timezone Test",
             "created_at": naive_dt,
-            "updated_at": naive_dt
+            "updated_at": naive_dt,
         }
 
         result = _movie_to_dict(movie_data)
@@ -101,7 +102,7 @@ class TestMoviesRepoHelpers:
             "director": None,
             "cast": None,
             "plot": None,
-            "poster_url": None
+            "poster_url": None,
         }
 
         result = _movie_to_dict(movie_data)
@@ -124,7 +125,7 @@ class TestMoviesRepoHelpers:
             "title": "Extra Fields Movie",
             "genre": "Drama",
             "unknown_field": "This should be ignored",
-            "another_unknown": 12345
+            "another_unknown": 12345,
         }
 
         result = _movie_to_dict(movie_data)
@@ -153,7 +154,7 @@ class TestMoviesRepoHelpers:
             "plot": "Test Plot",
             "poster_url": "https://test.com/poster.jpg",
             "created_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-            "updated_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            "updated_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         }
 
         result = _dict_to_movie_dict(data)
@@ -177,7 +178,7 @@ class TestMoviesRepoHelpers:
             "director": "",  # Should become None
             "cast": "",  # Should become None
             "plot": "",  # Should become None
-            "poster_url": ""  # Should become None
+            "poster_url": "",  # Should become None
         }
 
         result = _dict_to_movie_dict(data)
@@ -191,9 +192,7 @@ class TestMoviesRepoHelpers:
 
     def test_movies_repo_dict_to_movie_dict_auto_generate_id(self):
         """Test _dict_to_movie_dict auto-generates ID when not provided"""
-        data = {
-            "title": "Auto ID Movie"
-        }
+        data = {"title": "Auto ID Movie"}
 
         result = _dict_to_movie_dict(data)
 
@@ -209,10 +208,7 @@ class TestMoviesRepoHelpers:
     def test_movies_repo_dict_to_movie_dict_preserves_custom_id(self):
         """Test _dict_to_movie_dict preserves custom movie_id"""
         custom_id = "custom_movie_123"
-        data = {
-            "movie_id": custom_id,
-            "title": "Custom ID Movie"
-        }
+        data = {"movie_id": custom_id, "title": "Custom ID Movie"}
 
         result = _dict_to_movie_dict(data)
         assert result["movie_id"] == custom_id
@@ -228,7 +224,7 @@ class TestMoviesRepoHelpers:
             "director": None,
             "cast": None,
             "plot": None,
-            "poster_url": None
+            "poster_url": None,
         }
 
         result = _dict_to_movie_dict(data)
@@ -245,9 +241,7 @@ class TestMoviesRepoHelpers:
 
     def test_movies_repo_dict_to_movie_dict_timestamps(self):
         """Test _dict_to_movie_dict timestamp generation"""
-        data = {
-            "title": "Timestamp Test Movie"
-        }
+        data = {"title": "Timestamp Test Movie"}
 
         result = _dict_to_movie_dict(data)
 
@@ -273,7 +267,7 @@ class TestMoviesRepoHelpers:
         data = {
             "title": "Custom Timestamps",
             "created_at": custom_time,
-            "updated_at": custom_time
+            "updated_at": custom_time,
         }
 
         result = _dict_to_movie_dict(data)
@@ -285,7 +279,7 @@ class TestMoviesRepoHelpers:
         """Test _dict_to_movie_dict with partial update data"""
         data = {
             "title": "Partial Update Movie",
-            "rating": 7.5
+            "rating": 7.5,
             # Missing other fields
         }
 
@@ -308,7 +302,7 @@ class TestMoviesRepoHelpers:
             "genre": "  Drama  ",
             "director": "  Director Name  ",
             "cast": "  Actor One, Actor Two  ",
-            "plot": "  Plot with spaces  "
+            "plot": "  Plot with spaces  ",
         }
 
         result = _dict_to_movie_dict(data)

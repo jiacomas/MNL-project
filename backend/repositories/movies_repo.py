@@ -1,17 +1,20 @@
 from __future__ import annotations
+
 import csv
 import json
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from backend.schemas.movies import MovieOut, MovieCreate, MovieUpdate
+from backend.schemas.movies import MovieCreate, MovieOut, MovieUpdate
 
 # Configuration
 MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", "data/movies/movies.csv")
 MOVIES_JSON_PATH = os.getenv("MOVIES_JSON_PATH", "data/movies/movies.json")
-EXTERNAL_METADATA_DIR = os.getenv("EXTERNAL_METADATA_DIR", "data/movies/external_metadata")
+EXTERNAL_METADATA_DIR = os.getenv(
+    "EXTERNAL_METADATA_DIR", "data/movies/external_metadata"
+)
 
 
 def _ensure_data_dir() -> None:
@@ -61,7 +64,9 @@ def _load_movies_from_csv() -> List[Dict[str, Any]]:
                                     # ISO format with timezone
                                     if date_str.endswith('Z'):
                                         date_str = date_str[:-1] + '+00:00'
-                                    movie_data[date_field] = datetime.fromisoformat(date_str)
+                                    movie_data[date_field] = datetime.fromisoformat(
+                                        date_str
+                                    )
                                 else:
                                     # Fallback to current time
                                     movie_data[date_field] = datetime.now(timezone.utc)
@@ -91,9 +96,20 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
 
     if not movies:
         # Create empty file with headers if no movies
-        fieldnames = ['movie_id', 'title', 'genre', 'release_year', 'rating',
-                      'runtime', 'director', 'cast', 'plot', 'poster_url',
-                      'created_at', 'updated_at']
+        fieldnames = [
+            'movie_id',
+            'title',
+            'genre',
+            'release_year',
+            'rating',
+            'runtime',
+            'director',
+            'cast',
+            'plot',
+            'poster_url',
+            'created_at',
+            'updated_at',
+        ]
         with open(MOVIES_CSV_PATH, 'w', encoding='utf-8', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -109,7 +125,9 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
             # Convert datetime objects to ISO format strings for CSV storage
             csv_movie = movie.copy()
             for date_field in ['created_at', 'updated_at']:
-                if date_field in csv_movie and isinstance(csv_movie[date_field], datetime):
+                if date_field in csv_movie and isinstance(
+                    csv_movie[date_field], datetime
+                ):
                     csv_movie[date_field] = csv_movie[date_field].isoformat()
             writer.writerow(csv_movie)
 
@@ -149,7 +167,9 @@ def _save_movies_to_json(movies: List[Dict[str, Any]]) -> None:
     for movie in movies:
         json_movie = movie.copy()
         for date_field in ['created_at', 'updated_at']:
-            if date_field in json_movie and isinstance(json_movie[date_field], datetime):
+            if date_field in json_movie and isinstance(
+                json_movie[date_field], datetime
+            ):
                 json_movie[date_field] = json_movie[date_field].isoformat()
         movies_for_json.append(json_movie)
 
@@ -173,12 +193,15 @@ def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
         "poster_url": movie.get("poster_url"),
         "created_at": movie.get("created_at", datetime.now(timezone.utc)),
         "updated_at": movie.get("updated_at", datetime.now(timezone.utc)),
-        "review_count": movie.get("review_count", 0)
+        "review_count": movie.get("review_count", 0),
     }
 
     # Ensure datetime objects are timezone-aware
     for date_field in ['created_at', 'updated_at']:
-        if isinstance(result[date_field], datetime) and result[date_field].tzinfo is None:
+        if (
+            isinstance(result[date_field], datetime)
+            and result[date_field].tzinfo is None
+        ):
             result[date_field] = result[date_field].replace(tzinfo=timezone.utc)
 
     return result
@@ -200,7 +223,7 @@ def _dict_to_movie_dict(data: Dict[str, Any]) -> Dict[str, Any]:
         "plot": data.get("plot"),
         "poster_url": data.get("poster_url"),
         "created_at": data.get("created_at", now),
-        "updated_at": data.get("updated_at", now)
+        "updated_at": data.get("updated_at", now),
     }
 
     # Ensure we don't have empty strings for optional fields
@@ -234,11 +257,11 @@ class MovieRepository:
             _save_movies_to_csv(movies)
 
     def get_all(
-            self,
-            skip: int = 0,
-            limit: int = 50,
-            sort_by: Optional[str] = None,
-            sort_desc: bool = False
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        sort_by: Optional[str] = None,
+        sort_desc: bool = False,
     ) -> Tuple[List[MovieOut], int]:
         """Get all movies with pagination and sorting"""
         try:
@@ -261,7 +284,7 @@ class MovieRepository:
             movies_data.sort(key=get_sort_key, reverse=sort_desc)
 
         # Apply pagination
-        paginated_data = movies_data[skip:skip + limit]
+        paginated_data = movies_data[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -276,16 +299,16 @@ class MovieRepository:
         return movies, total
 
     def search(
-            self,
-            title: Optional[str] = None,
-            genre: Optional[str] = None,
-            min_year: Optional[int] = None,
-            max_year: Optional[int] = None,
-            min_rating: Optional[float] = None,
-            max_rating: Optional[float] = None,
-            director: Optional[str] = None,
-            skip: int = 0,
-            limit: int = 50
+        self,
+        title: Optional[str] = None,
+        genre: Optional[str] = None,
+        min_year: Optional[int] = None,
+        max_year: Optional[int] = None,
+        min_rating: Optional[float] = None,
+        max_rating: Optional[float] = None,
+        director: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> Tuple[List[MovieOut], int]:
         """Search movies with filters"""
         movies_data = self._load_movies()
@@ -313,13 +336,16 @@ class MovieRepository:
             if max_rating and movie_rating > max_rating:
                 continue
 
-            if director and director.lower() not in (movie.get("director") or "").lower():
+            if (
+                director
+                and director.lower() not in (movie.get("director") or "").lower()
+            ):
                 continue
 
             filtered_movies.append(movie)
 
         total = len(filtered_movies)
-        paginated_data = filtered_movies[skip:skip + limit]
+        paginated_data = filtered_movies[skip : skip + limit]
 
         movies = []
         for movie_data in paginated_data:
@@ -368,7 +394,9 @@ class MovieRepository:
         if movie_create.movie_id:
             existing = self.get_by_id(movie_create.movie_id)
             if existing:
-                raise ValueError(f"Movie with ID {movie_create.movie_id} already exists")
+                raise ValueError(
+                    f"Movie with ID {movie_create.movie_id} already exists"
+                )
 
         # Create movie data
         movie_dict = _dict_to_movie_dict(movie_create.model_dump())
@@ -415,7 +443,9 @@ class MovieRepository:
         movies_data = self._load_movies()
 
         initial_count = len(movies_data)
-        movies_data = [movie for movie in movies_data if movie.get("movie_id") != movie_id]
+        movies_data = [
+            movie for movie in movies_data if movie.get("movie_id") != movie_id
+        ]
 
         if len(movies_data) < initial_count:
             self._save_movies(movies_data)
@@ -434,7 +464,7 @@ class MovieRepository:
         sorted_movies = sorted(
             rated_movies,
             key=lambda x: (x.get("rating") or 0, x.get("title") or ""),
-            reverse=True
+            reverse=True,
         )
 
         popular_movies = []
@@ -459,11 +489,7 @@ class MovieRepository:
                 return created
             return datetime.now(timezone.utc)
 
-        sorted_movies = sorted(
-            movies_data,
-            key=get_created_at,
-            reverse=True
-        )
+        sorted_movies = sorted(movies_data, key=get_created_at, reverse=True)
 
         recent_movies = []
         for movie_data in sorted_movies[:limit]:

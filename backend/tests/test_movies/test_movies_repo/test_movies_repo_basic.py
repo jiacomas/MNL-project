@@ -2,6 +2,7 @@
 Basic functional tests for MovieRepository.
 Tests core CRUD operations and data persistence with CSV/JSON backends.
 """
+
 import csv
 import json
 import os
@@ -21,42 +22,56 @@ class TestMovieRepositoryBasic:
     def temp_csv_file(self):
         """Create a temporary CSV file for testing"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
-            writer.writerows([
-                {
-                    'movie_id': 'tt0111161',
-                    'title': 'The Shawshank Redemption',
-                    'genre': 'Drama',
-                    'release_year': '1994',
-                    'rating': '9.3',
-                    'runtime': '142',
-                    'director': 'Frank Darabont',
-                    'cast': 'Tim Robbins, Morgan Freeman',
-                    'plot': 'Two imprisoned men bond over a number of years...',
-                    'poster_url': 'https://example.com/poster1.jpg',
-                    'created_at': '2024-01-01T12:00:00Z',
-                    'updated_at': '2024-01-01T12:00:00Z'
-                },
-                {
-                    'movie_id': 'tt0068646',
-                    'title': 'The Godfather',
-                    'genre': 'Crime, Drama',
-                    'release_year': '1972',
-                    'rating': '9.2',
-                    'runtime': '175',
-                    'director': 'Francis Ford Coppola',
-                    'cast': 'Marlon Brando, Al Pacino',
-                    'plot': 'The aging patriarch of an organized crime dynasty...',
-                    'poster_url': 'https://example.com/poster2.jpg',
-                    'created_at': '2024-01-01T12:00:00Z',
-                    'updated_at': '2024-01-01T12:00:00Z'
-                }
-            ])
+            writer.writerows(
+                [
+                    {
+                        'movie_id': 'tt0111161',
+                        'title': 'The Shawshank Redemption',
+                        'genre': 'Drama',
+                        'release_year': '1994',
+                        'rating': '9.3',
+                        'runtime': '142',
+                        'director': 'Frank Darabont',
+                        'cast': 'Tim Robbins, Morgan Freeman',
+                        'plot': 'Two imprisoned men bond over a number of years...',
+                        'poster_url': 'https://example.com/poster1.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                    {
+                        'movie_id': 'tt0068646',
+                        'title': 'The Godfather',
+                        'genre': 'Crime, Drama',
+                        'release_year': '1972',
+                        'rating': '9.2',
+                        'runtime': '175',
+                        'director': 'Francis Ford Coppola',
+                        'cast': 'Marlon Brando, Al Pacino',
+                        'plot': 'The aging patriarch of an organized crime dynasty...',
+                        'poster_url': 'https://example.com/poster2.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                ]
+            )
             temp_path = f.name
 
         yield temp_path
@@ -69,36 +84,39 @@ class TestMovieRepositoryBasic:
     def temp_json_file(self):
         """Create a temporary JSON file for testing"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump([
-                {
-                    'movie_id': 'tt0111161',
-                    'title': 'The Shawshank Redemption',
-                    'genre': 'Drama',
-                    'release_year': 1994,
-                    'rating': 9.3,
-                    'runtime': 142,
-                    'director': 'Frank Darabont',
-                    'cast': 'Tim Robbins, Morgan Freeman',
-                    'plot': 'Two imprisoned men bond over a number of years...',
-                    'poster_url': 'https://example.com/poster1.jpg',
-                    'created_at': '2024-01-01T12:00:00Z',
-                    'updated_at': '2024-01-01T12:00:00Z'
-                },
-                {
-                    'movie_id': 'tt0068646',
-                    'title': 'The Godfather',
-                    'genre': 'Crime, Drama',
-                    'release_year': 1972,
-                    'rating': 9.2,
-                    'runtime': 175,
-                    'director': 'Francis Ford Coppola',
-                    'cast': 'Marlon Brando, Al Pacino',
-                    'plot': 'The aging patriarch of an organized crime dynasty...',
-                    'poster_url': 'https://example.com/poster2.jpg',
-                    'created_at': '2024-01-01T12:00:00Z',
-                    'updated_at': '2024-01-01T12:00:00Z'
-                }
-            ], f)
+            json.dump(
+                [
+                    {
+                        'movie_id': 'tt0111161',
+                        'title': 'The Shawshank Redemption',
+                        'genre': 'Drama',
+                        'release_year': 1994,
+                        'rating': 9.3,
+                        'runtime': 142,
+                        'director': 'Frank Darabont',
+                        'cast': 'Tim Robbins, Morgan Freeman',
+                        'plot': 'Two imprisoned men bond over a number of years...',
+                        'poster_url': 'https://example.com/poster1.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                    {
+                        'movie_id': 'tt0068646',
+                        'title': 'The Godfather',
+                        'genre': 'Crime, Drama',
+                        'release_year': 1972,
+                        'rating': 9.2,
+                        'runtime': 175,
+                        'director': 'Francis Ford Coppola',
+                        'cast': 'Marlon Brando, Al Pacino',
+                        'plot': 'The aging patriarch of an organized crime dynasty...',
+                        'poster_url': 'https://example.com/poster2.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                ],
+                f,
+            )
             temp_path = f.name
 
         yield temp_path
@@ -160,10 +178,7 @@ class TestMovieRepositoryBasic:
     def test_create_movie_basic(self, csv_repo):
         """Test creating a new movie with basic data"""
         movie_create = MovieCreate(
-            title="New Test Movie",
-            genre="Comedy",
-            release_year=2024,
-            rating=8.5
+            title="New Test Movie", genre="Comedy", release_year=2024, rating=8.5
         )
 
         created_movie = csv_repo.create(movie_create)
@@ -181,10 +196,7 @@ class TestMovieRepositoryBasic:
 
     def test_update_movie_existing(self, csv_repo):
         """Test updating an existing movie"""
-        movie_update = MovieUpdate(
-            title="Updated Title",
-            rating=9.5
-        )
+        movie_update = MovieUpdate(title="Updated Title", rating=9.5)
 
         updated_movie = csv_repo.update('tt0111161', movie_update)
 

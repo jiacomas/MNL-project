@@ -2,6 +2,7 @@
 Mocking tests for MovieRepository.
 Tests datetime operations, UUID generation, and file operations using mocks.
 """
+
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import patch
@@ -35,10 +36,7 @@ class TestMovieRepositoryMocking:
             mock_datetime.fromisoformat.side_effect = mock_fromisoformat
 
             # Test movie creation with mocked time
-            movie_data = {
-                "title": "Mocked Time Movie",
-                "genre": "Comedy"
-            }
+            movie_data = {"title": "Mocked Time Movie", "genre": "Comedy"}
             movie_dict = _dict_to_movie_dict(movie_data)
 
             assert movie_dict["created_at"] == fixed_time
@@ -57,8 +55,10 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_file_operations(self, csv_repo):
         """Test repository with mocked file operations"""
-        with patch.object(csv_repo, '_load_movies') as mock_load, \
-                patch.object(csv_repo, '_save_movies') as mock_save:
+        with (
+            patch.object(csv_repo, '_load_movies') as mock_load,
+            patch.object(csv_repo, '_save_movies') as mock_save,
+        ):
             mock_load.return_value = [
                 {
                     "movie_id": "mocked123",
@@ -67,7 +67,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 8.5,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 }
             ]
 
@@ -81,8 +81,12 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_csv_operations(self):
         """Test CSV-specific operations with mocking"""
-        with patch('backend.repositories.movies_repo._load_movies_from_csv') as mock_load, \
-                patch('backend.repositories.movies_repo._save_movies_to_csv') as mock_save:
+        with (
+            patch(
+                'backend.repositories.movies_repo._load_movies_from_csv'
+            ) as mock_load,
+            patch('backend.repositories.movies_repo._save_movies_to_csv') as mock_save,
+        ):
             mock_load.return_value = [
                 {
                     "movie_id": "csv_mock_123",
@@ -91,7 +95,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 8.0,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 }
             ]
 
@@ -104,8 +108,12 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_json_operations(self):
         """Test JSON-specific operations with mocking"""
-        with patch('backend.repositories.movies_repo._load_movies_from_json') as mock_load, \
-                patch('backend.repositories.movies_repo._save_movies_to_json') as mock_save:
+        with (
+            patch(
+                'backend.repositories.movies_repo._load_movies_from_json'
+            ) as mock_load,
+            patch('backend.repositories.movies_repo._save_movies_to_json') as mock_save,
+        ):
             mock_load.return_value = [
                 {
                     "movie_id": "json_mock_123",
@@ -114,7 +122,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 7.5,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 }
             ]
 
@@ -127,14 +135,14 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_create_operation(self, csv_repo):
         """Test create operation with mocked file operations"""
-        with patch.object(csv_repo, '_load_movies') as mock_load, \
-                patch.object(csv_repo, '_save_movies') as mock_save:
+        with (
+            patch.object(csv_repo, '_load_movies') as mock_load,
+            patch.object(csv_repo, '_save_movies') as mock_save,
+        ):
             mock_load.return_value = []
 
             movie_create = MovieCreate(
-                title="Mock Create Movie",
-                genre="Drama",
-                release_year=2024
+                title="Mock Create Movie", genre="Drama", release_year=2024
             )
 
             created_movie = csv_repo.create(movie_create)
@@ -145,8 +153,10 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_update_operation(self, csv_repo):
         """Test update operation with mocked file operations"""
-        with patch.object(csv_repo, '_load_movies') as mock_load, \
-                patch.object(csv_repo, '_save_movies') as mock_save:
+        with (
+            patch.object(csv_repo, '_load_movies') as mock_load,
+            patch.object(csv_repo, '_save_movies') as mock_save,
+        ):
             existing_movie = {
                 "movie_id": "update_mock_123",
                 "title": "Original Title",
@@ -154,7 +164,7 @@ class TestMovieRepositoryMocking:
                 "release_year": 2024,
                 "rating": 8.0,
                 "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc)
+                "updated_at": datetime.now(timezone.utc),
             }
 
             mock_load.return_value = [existing_movie]
@@ -179,7 +189,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 8.5,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 },
                 {
                     "movie_id": "search2",
@@ -188,7 +198,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2023,
                     "rating": 7.5,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 },
                 {
                     "movie_id": "search3",
@@ -197,8 +207,8 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 6.5,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
-                }
+                    "updated_at": datetime.now(timezone.utc),
+                },
             ]
 
             mock_load.return_value = mock_data
@@ -225,15 +235,17 @@ class TestMovieRepositoryMocking:
             # Create mock data for 1000 movies
             large_dataset = []
             for i in range(1000):
-                large_dataset.append({
-                    "movie_id": f"movie_{i}",
-                    "title": f"Test Movie {i}",
-                    "genre": "Drama",
-                    "release_year": 2000 + (i % 25),
-                    "rating": 5.0 + (i % 5),
-                    "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
-                })
+                large_dataset.append(
+                    {
+                        "movie_id": f"movie_{i}",
+                        "title": f"Test Movie {i}",
+                        "genre": "Drama",
+                        "release_year": 2000 + (i % 25),
+                        "rating": 5.0 + (i % 5),
+                        "created_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                )
 
             mock_load.return_value = large_dataset
 
@@ -248,8 +260,10 @@ class TestMovieRepositoryMocking:
 
     def test_mock_repo_concurrent_operations(self, csv_repo):
         """Test concurrent operations with mocking"""
-        with patch.object(csv_repo, '_load_movies') as mock_load, \
-                patch.object(csv_repo, '_save_movies') as mock_save:
+        with (
+            patch.object(csv_repo, '_load_movies') as mock_load,
+            patch.object(csv_repo, '_save_movies') as mock_save,
+        ):
             initial_data = [
                 {
                     "movie_id": "concurrent1",
@@ -258,7 +272,7 @@ class TestMovieRepositoryMocking:
                     "release_year": 2024,
                     "rating": 8.0,
                     "created_at": datetime.now(timezone.utc),
-                    "updated_at": datetime.now(timezone.utc)
+                    "updated_at": datetime.now(timezone.utc),
                 }
             ]
 

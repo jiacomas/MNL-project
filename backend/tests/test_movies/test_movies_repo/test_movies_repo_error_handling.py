@@ -2,6 +2,7 @@
 Exception handling and fault injection tests for Movies Repository.
 Tests error conditions, corrupted data, and exception scenarios.
 """
+
 import csv
 import os
 import tempfile
@@ -19,11 +20,23 @@ class TestMoviesRepoExceptionHandling:
     def test_movies_repo_duplicate_movie_creation(self):
         """Test exception handling for duplicate movie creation"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
             temp_path = f.name
 
@@ -32,8 +45,7 @@ class TestMoviesRepoExceptionHandling:
                 repo = MovieRepository(use_json=False)
 
                 movie_create = MovieCreate(
-                    movie_id="duplicate123",
-                    title="Duplicate Movie"
+                    movie_id="duplicate123", title="Duplicate Movie"
                 )
 
                 # First creation should succeed
@@ -50,11 +62,23 @@ class TestMoviesRepoExceptionHandling:
     def test_movies_repo_update_nonexistent_movie(self):
         """Test updating a movie that doesn't exist"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
             temp_path = f.name
 
@@ -73,27 +97,41 @@ class TestMoviesRepoExceptionHandling:
         """Test handling of corrupted CSV file with fault injection"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             # Write a CSV that has the right headers but corrupted data
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
             # Write corrupted row with wrong data types
-            writer.writerow({
-                'movie_id': 'corrupted',
-                'title': 'Corrupted Movie',
-                'genre': 'Drama',
-                'release_year': 'not_a_number',  # Invalid type
-                'rating': 'also_not_number',     # Invalid type
-                'runtime': 'abc',               # Invalid type
-                'director': 'Test Director',
-                'cast': 'Test Cast',
-                'plot': 'Test Plot',
-                'poster_url': 'https://test.com/poster.jpg',
-                'created_at': 'invalid_date',   # Invalid date
-                'updated_at': 'invalid_date'    # Invalid date
-            })
+            writer.writerow(
+                {
+                    'movie_id': 'corrupted',
+                    'title': 'Corrupted Movie',
+                    'genre': 'Drama',
+                    'release_year': 'not_a_number',  # Invalid type
+                    'rating': 'also_not_number',  # Invalid type
+                    'runtime': 'abc',  # Invalid type
+                    'director': 'Test Director',
+                    'cast': 'Test Cast',
+                    'plot': 'Test Plot',
+                    'poster_url': 'https://test.com/poster.jpg',
+                    'created_at': 'invalid_date',  # Invalid date
+                    'updated_at': 'invalid_date',  # Invalid date
+                }
+            )
             temp_path = f.name
 
         try:
@@ -137,7 +175,9 @@ class TestMoviesRepoExceptionHandling:
         """Test repository operation when data directory doesn't exist"""
         non_existent_path = tmp_path / "nonexistent" / "movies.csv"
 
-        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', str(non_existent_path)):
+        with patch(
+            'backend.repositories.movies_repo.MOVIES_CSV_PATH', str(non_existent_path)
+        ):
             repo = MovieRepository(use_json=False)
 
             # Should handle missing directory gracefully
@@ -157,7 +197,9 @@ class TestMoviesRepoExceptionHandling:
         read_only_file.chmod(0o444)  # Read-only
 
         try:
-            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', str(read_only_file)):
+            with patch(
+                'backend.repositories.movies_repo.MOVIES_CSV_PATH', str(read_only_file)
+            ):
                 repo = MovieRepository(use_json=False)
 
                 # Reading should work
@@ -175,27 +217,41 @@ class TestMoviesRepoExceptionHandling:
     def test_movies_repo_invalid_movie_data_handling(self):
         """Test handling of invalid movie data in storage"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
             # Write row with invalid data types
-            writer.writerow({
-                'movie_id': 'invalid_movie',
-                'title': 'Invalid Movie',
-                'genre': 'Drama',
-                'release_year': 'not_a_number',  # Invalid
-                'rating': 'also_not_number',     # Invalid
-                'runtime': '123',               # Valid
-                'director': 'Test Director',
-                'cast': 'Test Cast',
-                'plot': 'Test Plot',
-                'poster_url': 'https://test.com/poster.jpg',
-                'created_at': 'invalid_date',   # Invalid
-                'updated_at': 'invalid_date'    # Invalid
-            })
+            writer.writerow(
+                {
+                    'movie_id': 'invalid_movie',
+                    'title': 'Invalid Movie',
+                    'genre': 'Drama',
+                    'release_year': 'not_a_number',  # Invalid
+                    'rating': 'also_not_number',  # Invalid
+                    'runtime': '123',  # Valid
+                    'director': 'Test Director',
+                    'cast': 'Test Cast',
+                    'plot': 'Test Plot',
+                    'poster_url': 'https://test.com/poster.jpg',
+                    'created_at': 'invalid_date',  # Invalid
+                    'updated_at': 'invalid_date',  # Invalid
+                }
+            )
             temp_path = f.name
 
         try:
@@ -225,11 +281,23 @@ class TestMoviesRepoExceptionHandling:
         # Test empty CSV file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             # Write only headers
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
             temp_path = f.name
 
@@ -246,26 +314,40 @@ class TestMoviesRepoExceptionHandling:
     def test_movies_repo_malformed_dates_handling(self):
         """Test handling of malformed date strings"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                'movie_id', 'title', 'genre', 'release_year', 'rating',
-                'runtime', 'director', 'cast', 'plot', 'poster_url',
-                'created_at', 'updated_at'
-            ])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
             writer.writeheader()
-            writer.writerow({
-                'movie_id': 'date_test',
-                'title': 'Date Test Movie',
-                'genre': 'Drama',
-                'release_year': '2024',
-                'rating': '8.5',
-                'runtime': '120',
-                'director': 'Test Director',
-                'cast': 'Test Cast',
-                'plot': 'Test Plot',
-                'poster_url': 'https://test.com/poster.jpg',
-                'created_at': 'not-a-real-date',  # Malformed date
-                'updated_at': '2024-01-01T12:00:00Z'  # Valid date
-            })
+            writer.writerow(
+                {
+                    'movie_id': 'date_test',
+                    'title': 'Date Test Movie',
+                    'genre': 'Drama',
+                    'release_year': '2024',
+                    'rating': '8.5',
+                    'runtime': '120',
+                    'director': 'Test Director',
+                    'cast': 'Test Cast',
+                    'plot': 'Test Plot',
+                    'poster_url': 'https://test.com/poster.jpg',
+                    'created_at': 'not-a-real-date',  # Malformed date
+                    'updated_at': '2024-01-01T12:00:00Z',  # Valid date
+                }
+            )
             temp_path = f.name
 
         try:
