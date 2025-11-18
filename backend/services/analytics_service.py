@@ -8,10 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
-from fastapi import HTTPException, status
-
 from repositories.reviews_repo import CSVReviewRepo
-from schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 # Shared review repository (for reading review CSVs)
 _repo = CSVReviewRepo()
