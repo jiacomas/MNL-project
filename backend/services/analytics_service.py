@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from backend.repositories.reviews_repo import CSVReviewRepo
-from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 # Shared review repository (for reading review CSVs)
 _repo = CSVReviewRepo()
