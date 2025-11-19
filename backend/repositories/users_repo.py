@@ -41,7 +41,7 @@ def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
             return [_to_serializable(v) for v in obj]
         # pydantic models / dataclasses / objects with dict-like API
         if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
-            return _to_serializable(obj.dict())
+            return _to_serializable(obj.model_dump())
         if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
             return _to_serializable(obj.to_dict())
         if hasattr(obj, "__dict__"):
