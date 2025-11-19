@@ -465,7 +465,7 @@ class TestMovieRepositoryUnit:
         """Test repository with mocked file operations"""
         with (
             patch.object(csv_repo, '_load_movies') as mock_load,
-            patch.object(csv_repo, '_save_movies') as mock_save,
+            patch.object(csv_repo, '_save_movies') as _,
         ):
             mock_load.return_value = [
                 {
