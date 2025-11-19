@@ -2,27 +2,29 @@
 Comprehensive unit tests for Movies Service
 Includes equivalence partitioning, boundary value testing, error handling, fault injection, and state-based testing
 """
-import pytest
+
 import time
 from unittest.mock import patch
+
+import pytest
 from fastapi import HTTPException, status
 
-from backend.services.movies_service import (
-    get_movies,
-    search_movies,
-    get_movie,
-    create_movie,
-    update_movie,
-    delete_movie,
-    get_popular_movies,
-    get_movie_stats
-)
 from backend.schemas.movies import (
     MovieCreate,
-    MovieUpdate,
-    MovieSearchFilters,
     MovieListResponse,
-    MovieOut
+    MovieOut,
+    MovieSearchFilters,
+    MovieUpdate,
+)
+from backend.services.movies_service import (
+    create_movie,
+    delete_movie,
+    get_movie,
+    get_movie_stats,
+    get_movies,
+    get_popular_movies,
+    search_movies,
+    update_movie,
 )
 
 
@@ -31,17 +33,27 @@ class TestMoviesServiceUnit:
 
     # Equivalence Partitioning and Boundary Value Tests
     @pytest.mark.unit
-    @pytest.mark.parametrize("page,page_size,expected_skip,expected_limit", [
-        # Valid equivalence classes
-        (1, 10, 0, 10),  # Minimum valid values
-        (2, 50, 50, 50),  # Normal case
-        (5, 200, 800, 200),  # Maximum page size
-        # Boundary values
-        (1, 1, 0, 1),  # Minimum page size
-        (1000, 50, 49950, 50),  # Large page number
-    ])
-    def test_get_movies_equivalence_partitioning(self, mock_repo, sample_movie_out,
-                                                 page, page_size, expected_skip, expected_limit):
+    @pytest.mark.parametrize(
+        "page,page_size,expected_skip,expected_limit",
+        [
+            # Valid equivalence classes
+            (1, 10, 0, 10),  # Minimum valid values
+            (2, 50, 50, 50),  # Normal case
+            (5, 200, 800, 200),  # Maximum page size
+            # Boundary values
+            (1, 1, 0, 1),  # Minimum page size
+            (1000, 50, 49950, 50),  # Large page number
+        ],
+    )
+    def test_get_movies_equivalence_partitioning(
+        self,
+        mock_repo,
+        sample_movie_out,
+        page,
+        page_size,
+        expected_skip,
+        expected_limit,
+    ):
         """Test get_movies with various equivalence partitions"""
         mock_repo.get_all.return_value = ([sample_movie_out], 1000)
 
@@ -55,15 +67,20 @@ class TestMoviesServiceUnit:
         assert response.page_size == page_size
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("page,page_size,expected_exception", [
-        # Invalid equivalence classes
-        (0, 10, HTTPException),  # Page too small
-        (-1, 10, HTTPException),  # Negative page
-        (1, 0, HTTPException),  # Page size too small
-        (1, 201, HTTPException),  # Page size too large
-        (1, -1, HTTPException),  # Negative page size
-    ])
-    def test_get_movies_invalid_equivalence(self, mock_repo, page, page_size, expected_exception):
+    @pytest.mark.parametrize(
+        "page,page_size,expected_exception",
+        [
+            # Invalid equivalence classes
+            (0, 10, HTTPException),  # Page too small
+            (-1, 10, HTTPException),  # Negative page
+            (1, 0, HTTPException),  # Page size too small
+            (1, 201, HTTPException),  # Page size too large
+            (1, -1, HTTPException),  # Negative page size
+        ],
+    )
+    def test_get_movies_invalid_equivalence(
+        self, mock_repo, page, page_size, expected_exception
+    ):
         """Test get_movies with invalid equivalence partitions"""
         with patch('backend.services.movies_service.movie_repo', mock_repo):
             with pytest.raises(expected_exception):
@@ -71,7 +88,9 @@ class TestMoviesServiceUnit:
 
     @pytest.mark.unit
     @pytest.mark.parametrize("limit", [1, 25, 50])  # Boundary values for limit
-    def test_get_popular_movies_boundary_values(self, mock_repo, sample_movie_out, limit):
+    def test_get_popular_movies_boundary_values(
+        self, mock_repo, sample_movie_out, limit
+    ):
         """Test boundary values for popular movies limit"""
         mock_repo.get_popular.return_value = [sample_movie_out]
 
@@ -122,7 +141,7 @@ class TestMoviesServiceUnit:
             genre="Drama",
             min_year=1990,
             max_year=2000,
-            min_rating=9.0
+            min_rating=9.0,
         )
 
         with patch('backend.services.movies_service.movie_repo', mock_repo):
@@ -149,9 +168,7 @@ class TestMoviesServiceUnit:
     def test_create_movie_unauthorized(self, mock_repo):
         """Test creating movie without admin privileges"""
         movie_create = MovieCreate(
-            title="Unauthorized Movie",
-            genre="Drama",
-            release_year=2024
+            title="Unauthorized Movie", genre="Drama", release_year=2024
         )
 
         with patch('backend.services.movies_service.movie_repo', mock_repo):
@@ -188,10 +205,7 @@ class TestMoviesServiceUnit:
     def test_create_movie_invalid_data_fault(self, mock_repo):
         """Test repository-level validation error"""
         movie_create = MovieCreate(
-            title="Faulty Movie",
-            genre="Drama",
-            release_year=2024,
-            rating=5.0
+            title="Faulty Movie", genre="Drama", release_year=2024, rating=5.0
         )
 
         mock_repo.create.side_effect = ValueError("Database constraint violation")
@@ -208,9 +222,7 @@ class TestMoviesServiceUnit:
     def test_movie_lifecycle_state_changes(self, mock_repo, sample_movie_out):
         """Test complete movie lifecycle state changes"""
         movie_create = MovieCreate(
-            title="Lifecycle Test Movie",
-            genre="Drama",
-            release_year=2024
+            title="Lifecycle Test Movie", genre="Drama", release_year=2024
         )
 
         movie_update = MovieUpdate(rating=8.5)
@@ -250,8 +262,16 @@ class TestMoviesServiceUnit:
         # Create multiple movies for stats testing
         movies_data = [
             sample_movie_out,
-            sample_movie_out.model_copy(update={"movie_id": "tt0068646", "genre": "Crime,Drama", "rating": 9.2}),
-            sample_movie_out.model_copy(update={"movie_id": "tt0468569", "genre": "Action,Crime,Drama", "rating": 9.0}),
+            sample_movie_out.model_copy(
+                update={"movie_id": "tt0068646", "genre": "Crime,Drama", "rating": 9.2}
+            ),
+            sample_movie_out.model_copy(
+                update={
+                    "movie_id": "tt0468569",
+                    "genre": "Action,Crime,Drama",
+                    "rating": 9.0,
+                }
+            ),
         ]
 
         mock_repo.get_all.return_value = (movies_data, 3)
@@ -287,8 +307,9 @@ class TestMoviesServiceUnit:
                 poster_url="https://example.com/poster.jpg",
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:00:00Z",
-                review_count=1000
-            ) for i in range(1000)
+                review_count=1000,
+            )
+            for i in range(1000)
         ]
 
         mock_repo.get_all.return_value = (large_movie_list[:50], 1000)
@@ -315,7 +336,7 @@ class TestMoviesServiceUnit:
             min_year=1990,
             max_year=2020,
             min_rating=7.5,
-            director="Christopher Nolan"
+            director="Christopher Nolan",
         )
 
         with patch('backend.services.movies_service.movie_repo', mock_repo):

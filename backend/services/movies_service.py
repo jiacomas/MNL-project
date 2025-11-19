@@ -1,36 +1,41 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
+
+from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException, status
 
-from backend.schemas.movies import MovieOut, MovieCreate, MovieUpdate, MovieSearchFilters, MovieListResponse
 from backend.repositories.movies_repo import movie_repo
+from backend.schemas.movies import (
+    MovieCreate,
+    MovieListResponse,
+    MovieOut,
+    MovieSearchFilters,
+    MovieUpdate,
+)
 
 
 def get_movies(
-        page: int = 1,
-        page_size: int = 50,
-        sort_by: Optional[str] = None,
-        sort_desc: bool = False
+    page: int = 1,
+    page_size: int = 50,
+    sort_by: Optional[str] = None,
+    sort_desc: bool = False,
 ) -> MovieListResponse:
     """Get paginated list of movies"""
     if page < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Page must be greater than 0"
+            detail="Page must be greater than 0",
         )
 
     if page_size < 1 or page_size > 200:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Page size must be between 1 and 200"
+            detail="Page size must be between 1 and 200",
         )
 
     skip = (page - 1) * page_size
     movies, total = movie_repo.get_all(
-        skip=skip,
-        limit=page_size,
-        sort_by=sort_by,
-        sort_desc=sort_desc
+        skip=skip, limit=page_size, sort_by=sort_by, sort_desc=sort_desc
     )
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
@@ -40,26 +45,24 @@ def get_movies(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
 def search_movies(
-        filters: MovieSearchFilters,
-        page: int = 1,
-        page_size: int = 50
+    filters: MovieSearchFilters, page: int = 1, page_size: int = 50
 ) -> MovieListResponse:
     """Search movies with filters"""
     if page < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Page must be greater than 0"
+            detail="Page must be greater than 0",
         )
 
     if page_size < 1 or page_size > 200:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Page size must be between 1 and 200"
+            detail="Page size must be between 1 and 200",
         )
 
     skip = (page - 1) * page_size
@@ -72,7 +75,7 @@ def search_movies(
         min_rating=filters.min_rating,
         director=filters.director,
         skip=skip,
-        limit=page_size
+        limit=page_size,
     )
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
@@ -82,7 +85,7 @@ def search_movies(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
@@ -91,8 +94,7 @@ def get_movie(movie_id: str) -> MovieOut:
     movie = movie_repo.get_by_id(movie_id)
     if not movie:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found"
         )
     return movie
 
@@ -102,31 +104,29 @@ def create_movie(movie_create: MovieCreate, is_admin: bool = False) -> MovieOut:
     if not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can create movies"
+            detail="Only administrators can create movies",
         )
 
     try:
         return movie_repo.create(movie_create)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-def update_movie(movie_id: str, movie_update: MovieUpdate, is_admin: bool = False) -> MovieOut:
+def update_movie(
+    movie_id: str, movie_update: MovieUpdate, is_admin: bool = False
+) -> MovieOut:
     """Update a movie (admin only)"""
     if not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can update movies"
+            detail="Only administrators can update movies",
         )
 
     updated_movie = movie_repo.update(movie_id, movie_update)
     if not updated_movie:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found"
         )
 
     return updated_movie
@@ -137,13 +137,12 @@ def delete_movie(movie_id: str, is_admin: bool = False) -> None:
     if not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can delete movies"
+            detail="Only administrators can delete movies",
         )
 
     if not movie_repo.delete(movie_id):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Movie not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found"
         )
 
 
@@ -152,7 +151,7 @@ def get_popular_movies(limit: int = 10) -> List[MovieOut]:
     if limit < 1 or limit > 50:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Limit must be between 1 and 50"
+            detail="Limit must be between 1 and 50",
         )
 
     return movie_repo.get_popular(limit=limit)
@@ -163,7 +162,7 @@ def get_recent_movies(limit: int = 10) -> List[MovieOut]:
     if limit < 1 or limit > 50:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Limit must be between 1 and 50"
+            detail="Limit must be between 1 and 50",
         )
 
     return movie_repo.get_recent(limit=limit)
@@ -178,7 +177,7 @@ def get_movie_stats() -> Dict[str, Any]:
             "total_movies": 0,
             "average_rating": 0,
             "top_genres": [],
-            "year_range": {"min": 0, "max": 0}
+            "year_range": {"min": 0, "max": 0},
         }
 
     # Calculate statistics
@@ -204,5 +203,5 @@ def get_movie_stats() -> Dict[str, Any]:
         "total_movies": len(movies),
         "average_rating": round(average_rating, 2),
         "top_genres": top_genres,
-        "year_range": {"min": min_year, "max": max_year}
+        "year_range": {"min": min_year, "max": max_year},
     }

@@ -2,20 +2,27 @@
 Integration tests for Movies Service with real repository
 Tests actual database interactions and end-to-end workflows
 """
-import pytest
+
 from unittest.mock import patch
 
+import pytest
+
+from backend.repositories.movies_repo import MovieRepository
+from backend.schemas.movies import (
+    MovieCreate,
+    MovieListResponse,
+    MovieSearchFilters,
+    MovieUpdate,
+)
 from backend.services.movies_service import (
+    create_movie,
+    delete_movie,
+    get_movie,
+    get_movie_stats,
     get_movies,
     search_movies,
-    get_movie_stats,
-    get_movie,
-    create_movie,
     update_movie,
-    delete_movie
 )
-from backend.schemas.movies import MovieSearchFilters, MovieListResponse, MovieCreate, MovieUpdate
-from backend.repositories.movies_repo import MovieRepository
 
 
 class TestMoviesServiceIntegration:
@@ -40,10 +47,7 @@ class TestMoviesServiceIntegration:
     @pytest.mark.integration
     def test_integration_search_movies(self, real_repository):
         """Integration test: search movies with real repository"""
-        filters = MovieSearchFilters(
-            genre="Drama",
-            min_rating=8.0
-        )
+        filters = MovieSearchFilters(genre="Drama", min_rating=8.0)
 
         with patch('backend.services.movies_service.movie_repo', real_repository):
             response = search_movies(filters=filters, page=1, page_size=10)
@@ -56,10 +60,7 @@ class TestMoviesServiceIntegration:
         """Integration test: complete CRUD workflow with real repository"""
         # Test data
         movie_create = MovieCreate(
-            title="Integration Test Movie",
-            genre="Drama",
-            release_year=2024,
-            rating=8.5
+            title="Integration Test Movie", genre="Drama", release_year=2024, rating=8.5
         )
 
         movie_update = MovieUpdate(rating=9.0)
@@ -102,7 +103,7 @@ class TestMoviesServiceIntegration:
         test_cases = [
             MovieSearchFilters(genre="Action", min_rating=7.5, min_year=2010),
             MovieSearchFilters(director="Christopher Nolan", max_year=2020),
-            MovieSearchFilters(title="the", genre="Drama,Crime", min_rating=8.0)
+            MovieSearchFilters(title="the", genre="Drama,Crime", min_rating=8.0),
         ]
 
         with patch('backend.services.movies_service.movie_repo', real_repository):
