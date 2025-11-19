@@ -33,3 +33,7 @@ markers = [
     "unit: unit tests",
     "slow: slow running tests",
 ]
+
+[tool.flake8]
+ignore = ["E203", "W503"]
+max-line-length = 88
