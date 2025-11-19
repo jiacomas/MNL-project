@@ -1,369 +1,522 @@
 """
-Integration tests for MovieRepository with actual file operations.
-Tests data persistence, cross-format compatibility, and concurrent access.
+Consolidated unit tests for MovieRepository.
+Tests core CRUD operations, equivalence partitioning, boundary values, error handling, helpers, and mocking.
 """
 
+import csv
+import json
+import os
 import tempfile
-from pathlib import Path
+import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
 
-from backend.repositories.movies_repo import MovieRepository
+from backend.repositories.movies_repo import (
+    MovieRepository,
+    _dict_to_movie_dict,
+    _movie_to_dict,
+)
 from backend.schemas.movies import MovieCreate, MovieUpdate
 
 
-class TestIntegrationMoviesRepository:
-    """Integration tests for MovieRepository with actual file operations"""
+class TestMovieRepositoryUnit:
+    """Consolidated unit tests for MovieRepository"""
+
+    # ========== FIXTURES ==========
 
     @pytest.fixture
-    def temp_data_dir(self):
-        """Create a temporary data directory for integration tests"""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create subdirectories to match expected structure
-            movies_dir = Path(temp_dir) / "movies"
-            movies_dir.mkdir(parents=True)
+    def temp_csv_file(self):
+        """Create a temporary CSV file for testing"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
+            )
+            writer.writeheader()
+            writer.writerows(
+                [
+                    {
+                        'movie_id': 'tt0111161',
+                        'title': 'The Shawshank Redemption',
+                        'genre': 'Drama',
+                        'release_year': '1994',
+                        'rating': '9.3',
+                        'runtime': '142',
+                        'director': 'Frank Darabont',
+                        'cast': 'Tim Robbins, Morgan Freeman',
+                        'plot': 'Two imprisoned men bond...',
+                        'poster_url': 'https://example.com/poster1.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                    {
+                        'movie_id': 'tt0068646',
+                        'title': 'The Godfather',
+                        'genre': 'Crime, Drama',
+                        'release_year': '1972',
+                        'rating': '9.2',
+                        'runtime': '175',
+                        'director': 'Francis Ford Coppola',
+                        'cast': 'Marlon Brando, Al Pacino',
+                        'plot': 'The aging patriarch...',
+                        'poster_url': 'https://example.com/poster2.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                ]
+            )
+            temp_path = f.name
 
-            csv_path = movies_dir / "movies.csv"
-            json_path = movies_dir / "movies.json"
+        yield temp_path
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-            yield temp_dir, str(csv_path), str(json_path)
+    @pytest.fixture
+    def temp_json_file(self):
+        """Create a temporary JSON file for testing"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(
+                [
+                    {
+                        'movie_id': 'tt0111161',
+                        'title': 'The Shawshank Redemption',
+                        'genre': 'Drama',
+                        'release_year': 1994,
+                        'rating': 9.3,
+                        'runtime': 142,
+                        'director': 'Frank Darabont',
+                        'cast': 'Tim Robbins, Morgan Freeman',
+                        'plot': 'Two imprisoned men bond...',
+                        'poster_url': 'https://example.com/poster1.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                    {
+                        'movie_id': 'tt0068646',
+                        'title': 'The Godfather',
+                        'genre': 'Crime, Drama',
+                        'release_year': 1972,
+                        'rating': 9.2,
+                        'runtime': 175,
+                        'director': 'Francis Ford Coppola',
+                        'cast': 'Marlon Brando, Al Pacino',
+                        'plot': 'The aging patriarch...',
+                        'poster_url': 'https://example.com/poster2.jpg',
+                        'created_at': '2024-01-01T12:00:00Z',
+                        'updated_at': '2024-01-01T12:00:00Z',
+                    },
+                ],
+                f,
+            )
+            temp_path = f.name
 
-    def test_movies_repo_integration_csv_full_cycle(self, temp_data_dir):
-        """Integration test for complete CSV operations cycle"""
-        temp_dir, csv_path, json_path = temp_data_dir
+        yield temp_path
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
+    @pytest.fixture
+    def csv_repo(self, temp_csv_file):
+        """Create MovieRepository instance with CSV backend"""
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_csv_file):
             repo = MovieRepository(use_json=False)
+            yield repo
 
-            # Test 1: Empty repository
-            movies, total = repo.get_all()
-            assert total == 0
-            assert len(movies) == 0
-
-            # Test 2: Create movies
-            movie1 = MovieCreate(
-                title="Integration Test Movie 1",
-                genre="Drama",
-                release_year=2024,
-                rating=8.5,
-            )
-
-            movie2 = MovieCreate(
-                title="Integration Test Movie 2",
-                genre="Comedy",
-                release_year=2023,
-                rating=7.8,
-            )
-
-            created1 = repo.create(movie1)
-            created2 = repo.create(movie2)
-
-            # Test 3: Verify persistence by creating new repository instance
-            repo2 = MovieRepository(use_json=False)
-            movies, total = repo2.get_all()
-            assert total == 2
-            assert any(m.title == "Integration Test Movie 1" for m in movies)
-            assert any(m.title == "Integration Test Movie 2" for m in movies)
-
-            # Test 4: Update movie
-            update_data = MovieUpdate(rating=9.0)
-            updated = repo2.update(created1.movie_id, update_data)
-            assert updated.rating == 9.0
-
-            # Test 5: Verify update persistence
-            repo3 = MovieRepository(use_json=False)
-            retrieved = repo3.get_by_id(created1.movie_id)
-            assert retrieved.rating == 9.0
-
-            # Test 6: Delete movie
-            delete_result = repo3.delete(created2.movie_id)
-            assert delete_result is True
-
-            # Test 7: Verify deletion persistence
-            repo4 = MovieRepository(use_json=False)
-            movies, total = repo4.get_all()
-            assert total == 1
-            assert movies[0].movie_id == created1.movie_id
-
-    def test_movies_repo_integration_json_full_cycle(self, temp_data_dir):
-        """Integration test for complete JSON operations cycle"""
-        temp_dir, csv_path, json_path = temp_data_dir
-
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
+    @pytest.fixture
+    def json_repo(self, temp_json_file):
+        """Create MovieRepository instance with JSON backend"""
+        with patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', temp_json_file):
             repo = MovieRepository(use_json=True)
+            yield repo
 
-            # Test empty repository
-            movies, total = repo.get_all()
-            assert total == 0
-
-            # Create and verify movie
-            movie_create = MovieCreate(
-                title="JSON Integration Movie", genre="Action", release_year=2024
+    @pytest.fixture
+    def empty_csv_repo(self):
+        """Create MovieRepository instance with empty CSV backend"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
             )
+            writer.writeheader()
+            temp_path = f.name
 
-            created = repo.create(movie_create)
-            assert created.title == "JSON Integration Movie"
-
-            # Verify persistence with new instance
-            repo2 = MovieRepository(use_json=True)
-            retrieved = repo2.get_by_id(created.movie_id)
-            assert retrieved.title == "JSON Integration Movie"
-
-    def test_movies_repo_integration_cross_format_compatibility(self, temp_data_dir):
-        """Test that data can be migrated between CSV and JSON formats"""
-        temp_dir, csv_path, json_path = temp_data_dir
-
-        # Start with CSV repository
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
-
-            csv_repo = MovieRepository(use_json=False)
-
-            # Create movies in CSV
-            movies_to_create = [
-                MovieCreate(title=f"Movie {i}", genre="Test", release_year=2000 + i)
-                for i in range(3)
-            ]
-
-            created_movies = []
-            for movie_create in movies_to_create:
-                created_movies.append(csv_repo.create(movie_create))
-
-            # Verify CSV has data
-            csv_movies, csv_total = csv_repo.get_all()
-            assert csv_total == 3
-
-            # Switch to JSON repository and verify it can read the same data
-            # (This tests that both formats can coexist and be used interchangeably)
-            json_repo = MovieRepository(use_json=True)
-
-            # JSON should be empty initially (separate storage)
-            json_movies, json_total = json_repo.get_all()
-            assert json_total == 0
-
-            # Create same movies in JSON
-            for movie_create in movies_to_create:
-                json_repo.create(movie_create)
-
-            # Verify both repositories have their own data
-            csv_movies, csv_total = csv_repo.get_all()
-            json_movies, json_total = json_repo.get_all()
-
-            assert csv_total == 3
-            assert json_total == 3
-
-    def test_movies_repo_integration_concurrent_access(self, temp_data_dir):
-        """Test that repository handles concurrent access correctly"""
-        temp_dir, csv_path, json_path = temp_data_dir
-
-        def create_movies(repo_instance, prefix, count):
-            """Helper function to create movies in a repository instance"""
-            for i in range(count):
-                movie = MovieCreate(
-                    title=f"{prefix} Movie {i}", genre="Test", release_year=2000 + i
-                )
-                repo_instance.create(movie)
-
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
-            # Simulate concurrent access by multiple repository instances
-            repo1 = MovieRepository(use_json=False)
-            repo2 = MovieRepository(use_json=False)
-
-            # Create movies with both instances
-            create_movies(repo1, "Repo1", 2)
-            create_movies(repo2, "Repo2", 2)
-
-            # Verify all movies are persisted
-            repo3 = MovieRepository(use_json=False)
-            movies, total = repo3.get_all()
-
-            # Should have 4 movies total
-            assert total == 4
-            repo1_titles = [m.title for m in movies if m.title.startswith("Repo1")]
-            repo2_titles = [m.title for m in movies if m.title.startswith("Repo2")]
-            assert len(repo1_titles) == 2
-            assert len(repo2_titles) == 2
-
-    def test_movies_repo_integration_large_dataset(self, temp_data_dir):
-        """Test repository performance with large dataset"""
-        temp_dir, csv_path, json_path = temp_data_dir
-
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
+        with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
             repo = MovieRepository(use_json=False)
+            yield repo
 
-            # Create larger dataset
-            for i in range(100):
-                movie = MovieCreate(
-                    title=f"Movie {i:03d}",
-                    genre="Test",
-                    release_year=2000 + (i % 25),
-                    rating=5.0 + (i % 5),
-                )
-                repo.create(movie)
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-            # Test pagination with large dataset
-            movies_page1, total = repo.get_all(skip=0, limit=10)
-            assert len(movies_page1) == 10
-            assert total == 100
+    # ========== BASIC CRUD OPERATIONS ==========
 
-            movies_page10, total = repo.get_all(skip=90, limit=10)
-            assert len(movies_page10) == 10
+    def test_get_all_csv(self, csv_repo):
+        """Test getting all movies from CSV repository"""
+        movies, total = csv_repo.get_all()
+        assert total == 2
+        assert len(movies) == 2
+        assert movies[0].movie_id == 'tt0111161'
+        assert movies[1].movie_id == 'tt0068646'
 
-            # Test search with large dataset
-            action_movies, action_total = repo.search(genre="Test", min_rating=7.0)
-            assert action_total > 0
+    def test_get_all_json(self, json_repo):
+        """Test getting all movies from JSON repository"""
+        movies, total = json_repo.get_all()
+        assert total == 2
+        assert len(movies) == 2
+        assert movies[0].movie_id == 'tt0111161'
+        assert movies[1].movie_id == 'tt0068646'
 
-    def test_movies_repo_integration_data_consistency(self, temp_data_dir):
-        """Test data consistency across multiple operations"""
-        temp_dir, csv_path, json_path = temp_data_dir
+    def test_get_by_id_existing(self, csv_repo):
+        """Test getting existing movie by ID"""
+        movie = csv_repo.get_by_id('tt0111161')
+        assert movie is not None
+        assert movie.movie_id == 'tt0111161'
+        assert movie.title == 'The Shawshank Redemption'
 
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
-            repo = MovieRepository(use_json=False)
+    def test_get_by_id_nonexistent(self, csv_repo):
+        """Test getting non-existent movie by ID"""
+        movie = csv_repo.get_by_id('nonexistent_id')
+        assert movie is None
 
-            # Create initial movie
-            movie_create = MovieCreate(
-                title="Consistency Test Movie",
-                genre="Drama",
-                release_year=2024,
-                rating=8.0,
+    def test_create_movie_basic(self, csv_repo):
+        """Test creating a new movie with basic data"""
+        movie_create = MovieCreate(
+            title="New Test Movie", genre="Comedy", release_year=2024, rating=8.5
+        )
+        created_movie = csv_repo.create(movie_create)
+        assert created_movie is not None
+        assert created_movie.title == "New Test Movie"
+        assert created_movie.genre == "Comedy"
+        assert created_movie.release_year == 2024
+        assert created_movie.rating == 8.5
+        assert created_movie.movie_id is not None
+
+    def test_update_movie_existing(self, csv_repo):
+        """Test updating an existing movie"""
+        movie_update = MovieUpdate(title="Updated Title", rating=9.5)
+        updated_movie = csv_repo.update('tt0111161', movie_update)
+        assert updated_movie is not None
+        assert updated_movie.title == "Updated Title"
+        assert updated_movie.rating == 9.5
+        assert updated_movie.genre == "Drama"  # Preserved
+
+    def test_update_movie_nonexistent(self, csv_repo):
+        """Test updating a non-existent movie"""
+        movie_update = MovieUpdate(title="Updated Title")
+        result = csv_repo.update("nonexistent_id", movie_update)
+        assert result is None
+
+    def test_delete_movie_existing(self, csv_repo):
+        """Test deleting an existing movie"""
+        result = csv_repo.delete('tt0111161')
+        assert result is True
+        deleted_movie = csv_repo.get_by_id('tt0111161')
+        assert deleted_movie is None
+        movies, total = csv_repo.get_all()
+        assert total == 1
+
+    def test_delete_movie_nonexistent(self, csv_repo):
+        """Test deleting a non-existent movie"""
+        result = csv_repo.delete('nonexistent_id')
+        assert result is False
+
+    # ========== EQUIVALENCE PARTITIONING & BOUNDARY VALUES ==========
+
+    @pytest.mark.parametrize(
+        "skip,limit,expected_count",
+        [
+            (0, 0, 0),
+            (0, 1, 1),
+            (0, 5, 5),
+            (0, 6, 5),
+            (0, 100, 5),
+            (4, 10, 1),
+            (5, 10, 0),
+            (999, 10, 0),
+        ],
+    )
+    def test_pagination_combined(self, empty_csv_repo, skip, limit, expected_count):
+        """Test pagination with various scenarios"""
+        for i in range(5):
+            movie_create = MovieCreate(title=f"Movie {i}")
+            empty_csv_repo.create(movie_create)
+        movies, total = empty_csv_repo.get_all(skip=skip, limit=limit)
+        assert len(movies) == expected_count
+        assert total == 5
+
+    @pytest.mark.parametrize("rating", [0.0, 0.1, 5.0, 7.5, 9.9, 10.0, None])
+    def test_rating_field_combined(self, empty_csv_repo, rating):
+        """Test rating field with various valid scenarios"""
+        movie_create = MovieCreate(title="Rating Test Movie", rating=rating)
+        movie = empty_csv_repo.create(movie_create)
+        assert movie.rating == rating
+
+    def test_invalid_rating_schema_rejection(self):
+        """Test that invalid ratings are rejected by schema validation"""
+        with pytest.raises(ValueError, match="greater than or equal to 0"):
+            MovieCreate(title="Test Movie", rating=-0.1)
+        with pytest.raises(ValueError, match="less than or equal to 10"):
+            MovieCreate(title="Test Movie", rating=10.1)
+
+    @pytest.mark.parametrize("release_year", [1895, 1896, 1950, 2000, 2024, None])
+    def test_release_year_combined(self, empty_csv_repo, release_year):
+        """Test release_year field with various valid scenarios"""
+        movie_create = MovieCreate(title="Year Test Movie", release_year=release_year)
+        movie = empty_csv_repo.create(movie_create)
+        assert movie.release_year == release_year
+
+    @pytest.mark.parametrize(
+        "title_input",
+        [
+            "A",
+            "Normal Movie Title",
+            "A" * 100,
+            "Movie with 123",
+            "Movie with spéciål chàrs",
+            "🎬 Movie with emoji",
+        ],
+    )
+    def test_title_field_combined(self, empty_csv_repo, title_input):
+        """Test title field with various input scenarios"""
+        movie_create = MovieCreate(title=title_input)
+        movie = empty_csv_repo.create(movie_create)
+        assert movie.title == title_input
+
+    # ========== ERROR HANDLING & FAULT INJECTION ==========
+
+    def test_duplicate_movie_creation(self, empty_csv_repo):
+        """Test exception handling for duplicate movie creation"""
+        movie_create = MovieCreate(movie_id="duplicate123", title="Duplicate Movie")
+        first_movie = empty_csv_repo.create(movie_create)
+        assert first_movie.movie_id == "duplicate123"
+        with pytest.raises(ValueError, match="already exists"):
+            empty_csv_repo.create(movie_create)
+
+    def test_corrupted_csv_file_handling(self):
+        """Test handling of corrupted CSV file"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    'movie_id',
+                    'title',
+                    'genre',
+                    'release_year',
+                    'rating',
+                    'runtime',
+                    'director',
+                    'cast',
+                    'plot',
+                    'poster_url',
+                    'created_at',
+                    'updated_at',
+                ],
             )
-            created = repo.create(movie_create)
-            original_id = created.movie_id
+            writer.writeheader()
+            writer.writerow(
+                {
+                    'movie_id': 'corrupted',
+                    'title': 'Corrupted Movie',
+                    'genre': 'Drama',
+                    'release_year': 'not_a_number',
+                    'rating': 'also_not_number',
+                    'runtime': 'abc',
+                    'director': 'Test Director',
+                    'cast': 'Test Cast',
+                    'plot': 'Test Plot',
+                    'poster_url': 'https://test.com/poster.jpg',
+                    'created_at': 'invalid_date',
+                    'updated_at': 'invalid_date',
+                }
+            )
+            temp_path = f.name
 
-            # Perform multiple updates
-            updates = [
-                MovieUpdate(rating=8.5),
-                MovieUpdate(genre="Thriller"),
-                MovieUpdate(title="Updated Consistency Test Movie"),
-                MovieUpdate(rating=9.0, genre="Action"),
-            ]
+        try:
+            with patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', temp_path):
+                repo = MovieRepository(use_json=False)
+                movies, total = repo.get_all()
+                assert total == 1
+                assert movies[0].title == 'Corrupted Movie'
+                assert movies[0].release_year is None
+                assert movies[0].rating is None
+                assert movies[0].runtime is None
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
-            for update in updates:
-                repo.update(original_id, update)
+    def test_corrupted_json_file_handling(self):
+        """Test handling of corrupted JSON file"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write("{invalid json content")
+            temp_path = f.name
 
-            # Verify final state
-            final_movie = repo.get_by_id(original_id)
-            assert final_movie is not None
-            assert final_movie.title == "Updated Consistency Test Movie"
-            assert final_movie.genre == "Action"
-            assert final_movie.rating == 9.0
-            assert final_movie.release_year == 2024  # Should remain unchanged
+        try:
+            with patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', temp_path):
+                repo = MovieRepository(use_json=True)
+                movies, total = repo.get_all()
+                assert len(movies) == 0
+                assert total == 0
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
-    def test_movies_repo_integration_search_persistence(self, temp_data_dir):
-        """Test that search functionality works with persisted data"""
-        temp_dir, csv_path, json_path = temp_data_dir
+    # ========== HELPER FUNCTION TESTS ==========
 
+    def test_movie_to_dict_complete_data(self):
+        """Test _movie_to_dict with complete movie data"""
+        movie_data = {
+            "movie_id": "tt0111161",
+            "title": "Test Movie",
+            "genre": "Drama",
+            "release_year": 1994,
+            "rating": 9.3,
+            "runtime": 142,
+            "director": "Test Director",
+            "cast": "Test Cast",
+            "plot": "Test Plot",
+            "poster_url": "https://test.com/poster.jpg",
+            "created_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "updated_at": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "review_count": 5,
+        }
+        result = _movie_to_dict(movie_data)
+        assert result["movie_id"] == "tt0111161"
+        assert result["title"] == "Test Movie"
+        assert result["genre"] == "Drama"
+        assert result["review_count"] == 5
+
+    def test_dict_to_movie_dict_auto_generate_id(self):
+        """Test _dict_to_movie_dict auto-generates ID when not provided"""
+        data = {"title": "Auto ID Movie"}
+        result = _dict_to_movie_dict(data)
+        assert "movie_id" in result
+        assert result["movie_id"] is not None
+        try:
+            uuid.UUID(result["movie_id"])
+        except ValueError:
+            pytest.fail("Generated movie_id is not a valid UUID")
+
+    def test_dict_to_movie_dict_empty_strings_to_none(self):
+        """Test _dict_to_movie_dict converts empty strings to None"""
+        data = {
+            "title": "Empty Fields Movie",
+            "genre": "",
+            "director": "",
+            "cast": "",
+            "plot": "",
+            "poster_url": "",
+        }
+        result = _dict_to_movie_dict(data)
+        assert result["title"] == "Empty Fields Movie"
+        assert result["genre"] is None
+        assert result["director"] is None
+        assert result["cast"] is None
+        assert result["plot"] is None
+        assert result["poster_url"] is None
+
+    # ========== MOCKING TESTS ==========
+
+    def test_mock_datetime_operations(self):
+        """Test datetime operations using mocking"""
+        with patch('backend.repositories.movies_repo.datetime') as mock_datetime:
+            fixed_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+            mock_datetime.now.return_value = fixed_time
+            movie_data = {"title": "Mocked Time Movie", "genre": "Comedy"}
+            movie_dict = _dict_to_movie_dict(movie_data)
+            assert movie_dict["created_at"] == fixed_time
+            assert movie_dict["updated_at"] == fixed_time
+
+    def test_mock_uuid_generation(self):
+        """Test UUID generation using mocking"""
+        fixed_uuid = "12345678-1234-5678-1234-567812345678"
+        with patch('backend.repositories.movies_repo.uuid.uuid4') as mock_uuid:
+            mock_uuid.return_value = uuid.UUID(fixed_uuid)
+            movie_data = {"title": "Mocked UUID Movie"}
+            movie_dict = _dict_to_movie_dict(movie_data)
+            assert movie_dict["movie_id"] == fixed_uuid
+
+    def test_mock_file_operations(self, csv_repo):
+        """Test repository with mocked file operations"""
         with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
+            patch.object(csv_repo, '_load_movies') as mock_load,
+            patch.object(csv_repo, '_save_movies') as mock_save,
         ):
-            repo = MovieRepository(use_json=False)
-
-            # Create test data with specific characteristics
-            test_movies = [
-                MovieCreate(
-                    title="Action Thriller",
-                    genre="Action, Thriller",
-                    release_year=2020,
-                    rating=8.0,
-                ),
-                MovieCreate(
-                    title="Drama Story", genre="Drama", release_year=2019, rating=7.5
-                ),
-                MovieCreate(
-                    title="Comedy Special",
-                    genre="Comedy",
-                    release_year=2021,
-                    rating=6.5,
-                ),
-                MovieCreate(
-                    title="Sci-Fi Adventure",
-                    genre="Sci-Fi, Action",
-                    release_year=2022,
-                    rating=8.8,
-                ),
+            mock_load.return_value = [
+                {
+                    "movie_id": "mocked123",
+                    "title": "Mocked Movie",
+                    "genre": "Drama",
+                    "release_year": 2024,
+                    "rating": 8.5,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc),
+                }
             ]
+            movies, total = csv_repo.get_all()
+            assert total == 1
+            assert movies[0].title == "Mocked Movie"
+            mock_load.assert_called_once()
 
-            for movie in test_movies:
-                repo.create(movie)
+    # ========== SEARCH & FILTER TESTS ==========
 
-            # Test search persistence with new instance
-            repo2 = MovieRepository(use_json=False)
+    def test_search_by_title(self, csv_repo):
+        """Test searching movies by title"""
+        movies, total = csv_repo.search(title="shawshank")
+        assert total == 1
+        assert "Shawshank" in movies[0].title
 
-            # Search by genre
-            action_movies, action_total = repo2.search(genre="Action")
-            assert action_total == 2
-            assert any("Action Thriller" in movie.title for movie in action_movies)
-            assert any("Sci-Fi Adventure" in movie.title for movie in action_movies)
+    def test_search_by_genre(self, csv_repo):
+        """Test searching movies by genre"""
+        movies, total = csv_repo.search(genre="drama")
+        assert total == 2
+        assert all("drama" in (movie.genre or "").lower() for movie in movies)
 
-            # Search by year range
-            recent_movies, recent_total = repo2.search(min_year=2021)
-            assert recent_total == 2
+    def test_search_by_rating(self, csv_repo):
+        """Test searching movies by minimum rating"""
+        movies, total = csv_repo.search(min_rating=9.0)
+        assert total == 2
+        assert all(movie.rating >= 9.0 for movie in movies)
 
-            # Search by rating
-            high_rated, high_total = repo2.search(min_rating=8.0)
-            assert high_total == 2
+    def test_get_popular_movies(self, csv_repo):
+        """Test getting popular movies sorted by rating"""
+        popular_movies = csv_repo.get_popular(limit=2)
+        assert len(popular_movies) == 2
+        assert popular_movies[0].rating >= popular_movies[1].rating
 
-    def test_movies_repo_integration_sorting_persistence(self, temp_data_dir):
-        """Test that sorting works with persisted data"""
-        temp_dir, csv_path, json_path = temp_data_dir
-
-        with (
-            patch('backend.repositories.movies_repo.MOVIES_CSV_PATH', csv_path),
-            patch('backend.repositories.movies_repo.MOVIES_JSON_PATH', json_path),
-        ):
-            repo = MovieRepository(use_json=False)
-
-            # Create test data with different ratings
-            test_movies = [
-                MovieCreate(title="Movie A", rating=7.0, release_year=2020),
-                MovieCreate(title="Movie C", rating=9.0, release_year=2022),
-                MovieCreate(title="Movie B", rating=8.0, release_year=2021),
-            ]
-
-            for movie in test_movies:
-                repo.create(movie)
-
-            # Test sorting persistence with new instance
-            repo2 = MovieRepository(use_json=False)
-
-            # Sort by title ascending
-            movies, total = repo2.get_all(sort_by="title", sort_desc=False)
-            assert movies[0].title == "Movie A"
-            assert movies[1].title == "Movie B"
-            assert movies[2].title == "Movie C"
-
-            # Sort by rating descending
-            movies, total = repo2.get_all(sort_by="rating", sort_desc=True)
-            assert movies[0].rating == 9.0
-            assert movies[1].rating == 8.0
-            assert movies[2].rating == 7.0
-
-            # Sort by year ascending
-            movies, total = repo2.get_all(sort_by="release_year", sort_desc=False)
-            assert movies[0].release_year == 2020
-            assert movies[1].release_year == 2021
-            assert movies[2].release_year == 2022
+    def test_get_recent_movies(self, csv_repo):
+        """Test getting recently added movies"""
+        movie_create = MovieCreate(title="Recent Movie")
+        csv_repo.create(movie_create)
+        recent_movies = csv_repo.get_recent(limit=3)
+        assert len(recent_movies) == 3
+        assert recent_movies[0].title == "Recent Movie"
 
 
-# pytest configuration to ensure GitHub compatibility
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

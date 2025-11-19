@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.schemas.movies import MovieCreate, MovieOut, MovieUpdate
 
 # Configuration
-MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", "data/movies/movies.csv")
-MOVIES_JSON_PATH = os.getenv("MOVIES_JSON_PATH", "data/movies/movies.json")
+MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", "backend/data/movies/movies.csv")
+MOVIES_JSON_PATH = os.getenv("MOVIES_JSON_PATH", "backend/data/movies/movies.json")
 EXTERNAL_METADATA_DIR = os.getenv(
-    "EXTERNAL_METADATA_DIR", "data/movies/external_metadata"
+    "EXTERNAL_METADATA_DIR", "backend/data/movies/external_metadata"
 )
 
 
