@@ -155,9 +155,18 @@ class TestMoviesRouterIntegration:
         errors = []
         lock = threading.Lock()
 
-        def update_movie(rating):
+    def test_concurrent_updates(self, client, mock_current_admin):
+        """Test handling of concurrent movie updates with thread-safe authentication"""
+        movie_id = "tt0111161"
+        results = []
+        errors = []
+        lock = threading.Lock()
+
+        def update_movie(rating, thread_id):
             try:
                 update_data = {"rating": rating}
+
+                # 为每个线程创建独立的mock
                 with patch('backend.routers.movies.svc.update_movie') as mock_update:
                     mock_update.return_value = MovieOut(
                         movie_id=movie_id,
@@ -174,34 +183,39 @@ class TestMoviesRouterIntegration:
                         updated_at="2024-01-01T12:00:00Z",
                         review_count=1000,
                     )
+
+                    # 使用线程安全的认证mock
                     with patch(
                             'backend.routers.movies.get_current_admin_user',
-                            return_value=mock_current_admin,
+                            return_value={"user_id": f"admin_user_{thread_id}", "role": "admin"}
                     ):
                         response = client.put(f"/api/movies/{movie_id}", json=update_data)
                         with lock:
-                            results.append(response.status_code)
+                            results.append((thread_id, response.status_code, response.text))
             except Exception as e:
                 with lock:
-                    errors.append(str(e))
+                    errors.append(f"Thread {thread_id}: {str(e)}")
 
         # Simulate concurrent updates
         threads = []
         for i in range(5):
-            thread = threading.Thread(target=update_movie, args=(8.0 + i * 0.1,))
+            thread = threading.Thread(target=update_movie, args=(8.0 + i * 0.1, i))
             threads.append(thread)
             thread.start()
 
         for thread in threads:
             thread.join()
 
-        # Check for errors first
-        if errors:
-            print(f"Errors during concurrent updates: {errors}")
+        # Debug output
+        print(f"Results: {results}")
+        print(f"Errors: {errors}")
 
-        # All updates should complete successfully or handle gracefully
+        # Check for errors first
         assert len(errors) == 0, f"Concurrent updates failed with errors: {errors}"
-        assert all(code == 200 for code in results), f"Not all requests succeeded: {results}"
+
+        # Extract status codes
+        status_codes = [result[1] for result in results]
+        assert all(code == 200 for code in status_codes), f"Not all requests succeeded: {status_codes}"
 
     # Performance tests
     @pytest.mark.parametrize(
