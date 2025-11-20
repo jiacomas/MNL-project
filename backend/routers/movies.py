@@ -31,10 +31,12 @@ except ImportError:
             _thread_local.current_user = {"user_id": "demo_user", "role": "user"}
         return _thread_local.current_user
 
-
     def get_current_admin_user() -> Dict[str, Any]:
         if not hasattr(_thread_local, 'current_admin_user'):
-            _thread_local.current_admin_user = {"user_id": "admin_user", "role": "admin"}
+            _thread_local.current_admin_user = {
+                "user_id": "admin_user",
+                "role": "admin",
+            }
         return _thread_local.current_admin_user
 
 

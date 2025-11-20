@@ -148,7 +148,6 @@ class TestMoviesRouterIntegration:
             assert len(data_page2["items"]) == 50
             assert data_page2["page"] == 2
 
-
     def test_concurrent_updates(self, client, mock_current_admin):
         """Test handling of concurrent movie updates with thread-safe authentication"""
         movie_id = "tt0111161"
