@@ -166,7 +166,6 @@ class TestMoviesRouterIntegration:
                 try:
                     update_data = {"rating": rating}
 
-                    # 为每个线程设置特定的返回值
                     with lock:
                         mock_update.return_value = MovieOut(
                             movie_id=movie_id,
