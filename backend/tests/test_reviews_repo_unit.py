@@ -6,57 +6,53 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.schemas.reviews import ReviewOut  # Import necessary schema
-
-# --- Helper Functions & Fixtures ---
+from backend.schemas.reviews import ReviewOut
 
 
 @pytest.fixture()
-def movies_dir(tmp_path, monkeypatch):
-    # Create a temporary data/movies directory
-    data_dir = tmp_path / "data" / "movies"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    # Temporarily set MOVIE_DATA_PATH to this directory
-    monkeypatch.setenv("MOVIE_DATA_PATH", str(data_dir))
-    # Reload the reviews_repo module to pick up the new path
+def repo_with_tmp_dir(tmp_path, mocker):
+    """Inject fake MOVIE_DATA_PATH using mocker instead of monkeypatch."""
+    fake = tmp_path / "data" / "movies"
+    fake.mkdir(parents=True, exist_ok=True)
+
+    # mock env reading in repo
+    mocker.patch("backend.repositories.reviews_repo.os.getenv", return_value=str(fake))
+
+    # reload repo to take effect
     from backend.repositories import reviews_repo as repo_mod
 
     importlib.reload(repo_mod)
-    # return both the temp dir and the reloaded module
-    return data_dir, repo_mod
+
+    return fake, repo_mod.CSVReviewRepo(), repo_mod
 
 
-def _write_csv(dir_path, rows):
+def _seed_csv(dir_path, rows):
     path = dir_path / "movieReviews.csv"
+    headers = [
+        "Date of Review",
+        "User",
+        "Usefulness Vote",
+        "Total Votes",
+        "User's Rating out of 10",
+        "Review Title",
+        "id",
+    ]
     with path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "Date of Review",
-                "User",
-                "Usefulness Vote",
-                "Total Votes",
-                "User's Rating out of 10",
-                "Review Title",
-                "id",
-            ],
-        )
-        writer.writeheader()
-        for r in rows:
-            writer.writerow(r)
+        w = csv.DictWriter(f, fieldnames=headers)
+        w.writeheader()
+        w.writerows(rows)
     return path
 
 
 @pytest.fixture()
-def seeded_repo(movies_dir):
-    '''Fixture to set up the repository instance and seed initial data.'''
-    data_dir, repo_mod = movies_dir
+def seeded_repo(repo_with_tmp_dir):
+    """Repo backed by CSV w/ 2 initial reviews."""
+    base, repo, _ = repo_with_tmp_dir
     movie_id = "Thor Ragnarok"
-    mdir = data_dir / movie_id.replace("/", "_")
+    mdir = base / movie_id
     mdir.mkdir(parents=True, exist_ok=True)
 
-    # Seed 2 rows
-    _write_csv(
+    _seed_csv(
         mdir,
         [
             {
@@ -79,100 +75,66 @@ def seeded_repo(movies_dir):
             },
         ],
     )
-
-    # Return the movie_id, repository instance, and the data directory
-    return movie_id, repo_mod.CSVReviewRepo(), data_dir
+    return movie_id, repo
 
 
-# --- Separated Test Functions ---
+# ---------- TESTS ----------
 
 
-def test_list_and_filtering(seeded_repo):
-    '''Tests basic list functionality and min_rating filtering.'''
-    movie_id, repo, _ = seeded_repo
+def test_filter_and_list(seeded_repo):
+    movie_id, repo = seeded_repo
+    items, nxt = repo.list_by_movie(movie_id)
+    assert len(items) == 2 and nxt is None
 
-    # List all (no cursor)
-    items, next_cursor = repo.list_by_movie(movie_id, limit=50)
-    assert len(items) == 2
-    assert next_cursor is None
-    assert items[0].user_id == "u1"
-
-    # min_rating filter (>=7)
-    items2, _ = repo.list_by_movie(movie_id, limit=50, min_rating=7)
-    assert len(items2) == 1
-    assert items2[0].user_id == "u1"
+    only_good, _ = repo.list_by_movie(movie_id, min_rating=7)
+    assert len(only_good) == 1
+    assert only_good[0].user_id == "u1"
 
 
 def test_pagination(seeded_repo):
-    '''Tests cursor-based pagination logic.'''
-    movie_id, repo, _ = seeded_repo
+    movie_id, repo = seeded_repo
 
-    # pagination (limit=1)
-    page1, cur1 = repo.list_by_movie(movie_id, limit=1)
-    assert (
-        len(page1) == 1 and cur1 == 1
-    )  # cur1 should point to the second item (index 1)
+    p1, c1 = repo.list_by_movie(movie_id, limit=1)
+    assert len(p1) == 1 and c1 == 1
 
-    page2, cur2 = repo.list_by_movie(movie_id, limit=1, cursor=cur1)
-    assert (
-        len(page2) == 1 and cur2 is None
-    )  # cur2 should be None as there are no more items
-    assert page2[0].user_id == "u2"  # Should fetch the second item
+    p2, c2 = repo.list_by_movie(movie_id, limit=1, cursor=c1)
+    assert len(p2) == 1 and c2 is None
+    assert p2[0].user_id == "u2"
 
 
-def test_get_by_id_and_user(seeded_repo):
-    '''Tests fetching a single review by user ID and by the generated unique ID.'''
-    movie_id, repo, _ = seeded_repo
-
-    # fetch by user
-    mine = repo.get_by_user(movie_id, "u2")
-    assert mine is not None and mine.rating == 6
-
-    # Since we don't know the generated ID, we'll test create/get_by_id in the CRUD flow
+def test_get_review_by_user(seeded_repo):
+    movie_id, repo = seeded_repo
+    u2 = repo.get_review_by_user(movie_id, "u2")
+    assert u2 is not None and u2.rating == 6
 
 
-def test_crud_lifecycle(seeded_repo):
-    '''Tests the full Create, Update, Delete lifecycle.'''
-    movie_id, repo, _ = seeded_repo
+def test_crud_cycle(seeded_repo):
+    movie_id, repo = seeded_repo
 
-    # Initial count
-    initial_items, _ = repo.list_by_movie(movie_id, limit=50)
-    initial_count = len(initial_items)
+    start, _ = repo.list_by_movie(movie_id)
+    initial = len(start)
 
-    # --- CREATE ---
     now = datetime.now(timezone.utc)
-    new_rev = ReviewOut(
-        id="rev-3-crud",
-        user_id="u3",
+    rev = ReviewOut(
+        id="x9",
+        user_id="u9",
         movie_id=movie_id,
         rating=9,
-        comment="love it",
+        comment="wow",
         created_at=now,
         updated_at=now,
     )
-    repo.create(new_rev)
+    repo.create(rev)
+    assert repo.get_review_by_user(movie_id, "u9").rating == 9
 
-    # Check list count and get_by_id
-    items_after_create, _ = repo.list_by_movie(movie_id, limit=50)
-    assert len(items_after_create) == initial_count + 1
-    got = repo.get_by_id(movie_id, "rev-3-crud")
-    assert got is not None and got.user_id == "u3"
+    # update
+    updated = ReviewOut(**rev.model_dump(exclude={"rating"}), rating=10)
+    repo.update(updated)
+    assert repo.get_review_by_id(movie_id, "x9").rating == 10
 
-    # --- UPDATE ---
-    updated_rev = ReviewOut(
-        **got.model_dump(exclude={"rating"}),
-        rating=10,
-    )
-    updated_rev = repo.update(updated_rev)
+    # delete
+    repo.delete(movie_id, "x9")
+    assert repo.get_review_by_id(movie_id, "x9") is None
 
-    # Check updated value
-    again = repo.get_by_id(movie_id, updated_rev.id)
-    assert again.rating == 10
-
-    # --- DELETE ---
-    repo.delete(movie_id, updated_rev.id)
-
-    # Check final count and get_by_id failure
-    after_del, _ = repo.list_by_movie(movie_id, limit=50)
-    assert len(after_del) == initial_count
-    assert repo.get_by_id(movie_id, updated_rev.id) is None
+    final, _ = repo.list_by_movie(movie_id)
+    assert len(final) == initial

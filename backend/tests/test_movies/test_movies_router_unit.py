@@ -3,58 +3,37 @@ Integration-style unit tests for Movies Router (JWT version).
 Covers CRUD + search + pagination + auth behavior.
 """
 
-from datetime import timedelta
-
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.services import auth_service
 
 client = TestClient(app)
 
 
-# ----- Fixtures -----
-@pytest.fixture
-def admin_headers():
-    """Generate a valid admin JWT header."""
-    token = auth_service.create_access_token(
-        {"sub": "admin1", "role": "admin", "username": "admin1"},
-        expires_delta=timedelta(minutes=30),
-    )
-    return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-def user_headers():
-    """Generate a valid normal user JWT header."""
-    token = auth_service.create_access_token(
-        {"sub": "u1", "role": "user", "username": "u1"},
-        expires_delta=timedelta(minutes=30),
-    )
-    return {"Authorization": f"Bearer {token}"}
-
-
 # ----- CRUD flow -----
-def test_full_movie_crud_flow(admin_headers):
+def test_full_movie_crud_flow(jwt_admin_headers):
     """Full admin CRUD lifecycle."""
     # Create
-    r = client.post("/api/movies/", json={"title": "A Movie"}, headers=admin_headers)
+    r = client.post(
+        "/api/movies/", json={"title": "A Movie"}, headers=jwt_admin_headers
+    )
     assert r.status_code == 201
     mid = r.json()["movie_id"]
 
     # Get
-    r = client.get(f"/api/movies/{mid}", headers=admin_headers)
+    r = client.get(f"/api/movies/{mid}", headers=jwt_admin_headers)
     assert r.status_code == 200
     assert r.json()["title"] == "A Movie"
 
     # Update
-    r = client.patch(f"/api/movies/{mid}", json={"rating": 9.0}, headers=admin_headers)
+    r = client.patch(
+        f"/api/movies/{mid}", json={"rating": 9.0}, headers=jwt_admin_headers
+    )
     assert r.status_code == 200
     assert r.json()["rating"] == 9.0
 
     # Delete
-    r = client.delete(f"/api/movies/{mid}", headers=admin_headers)
+    r = client.delete(f"/api/movies/{mid}", headers=jwt_admin_headers)
     assert r.status_code == 204
 
 
@@ -86,7 +65,7 @@ def test_popular_and_recent_movies():
 
 
 # ----- Auth Protection -----
-def test_non_admin_cannot_create_update_delete(user_headers):
+def test_non_admin_cannot_create_update_delete(jwt_user_headers):
     """Normal users forbidden from admin operations."""
     endpoints = [
         ("post", "/api/movies/", {"title": "Forbidden"}),
@@ -95,15 +74,15 @@ def test_non_admin_cannot_create_update_delete(user_headers):
     ]
     for method, url, payload in endpoints:
         if method == "delete":
-            res = getattr(client, method)(url, headers=user_headers)
+            res = getattr(client, method)(url, headers=jwt_user_headers)
         else:
-            res = getattr(client, method)(url, json=payload, headers=user_headers)
+            res = getattr(client, method)(url, json=payload, headers=jwt_user_headers)
         assert res.status_code == 403
 
 
 # ----- Validation -----
-def test_create_invalid_data(admin_headers):
+def test_create_invalid_data(jwt_admin_headers):
     """Invalid movie data triggers 422 or 400."""
     bad_payload = {"title": "   "}
-    r = client.post("/api/movies/", json=bad_payload, headers=admin_headers)
+    r = client.post("/api/movies/", json=bad_payload, headers=jwt_admin_headers)
     assert r.status_code in (400, 422)

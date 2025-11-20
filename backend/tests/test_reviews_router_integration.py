@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from backend.deps import get_fake_is_admin, get_fake_user_id
+from backend.deps import get_current_user_id, require_admin
 from backend.schemas.reviews import (
     ReviewCreate,
     ReviewListResponse,
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 @router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
 def create_review_endpoint(
     payload: ReviewCreate,
-    user_id: str = Depends(get_fake_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     POST /api/reviews
@@ -67,7 +67,7 @@ def get_review_by_user_endpoint(
 @router.get("/movie/{movie_id}/me", response_model=Optional[ReviewOut])
 def get_my_review_endpoint(
     movie_id: str,
-    user_id: str = Depends(get_fake_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     GET /api/reviews/movie/{movie_id}/me
@@ -82,7 +82,7 @@ def update_review_endpoint(
     movie_id: str,
     review_id: str,
     payload: ReviewUpdate,
-    user_id: str = Depends(get_fake_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     PATCH /api/reviews/movie/{movie_id}/{review_id}
@@ -104,8 +104,8 @@ def update_review_endpoint(
 def delete_review_endpoint(
     movie_id: str,
     review_id: str,
-    user_id: str = Depends(get_fake_user_id),
-    is_admin: bool = Depends(get_fake_is_admin),
+    user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(require_admin),
 ):
     """
     DELETE /api/reviews/movie/{movie_id}/{review_id}
@@ -115,7 +115,7 @@ def delete_review_endpoint(
         movie_id=movie_id,
         review_id=review_id,
         current_user_id=user_id,
-        is_admin=is_admin,
+        is_admin=True,
     )
     if not allowed:
         raise HTTPException(
