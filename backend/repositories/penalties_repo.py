@@ -277,24 +277,85 @@ class JSONPenaltyRepository:
         self._save(data)
         return True
 
-    # ---------- Query / Search ---------- #
+    # ---------- Internal filtering helpers ---------- #
 
-    def list_by_user(
+    def _record_matches(
         self,
-        user_id: str,
-        skip: int = 0,
-        limit: int = 50,
-    ) -> Tuple[List[PenaltyOut], int]:
-        """
-        List penalties for a single user with basic pagination.
-        Returns (items, total).
-        """
-        data = self._load()
-        filtered = [p for p in data if str(p.get("user_id")) == user_id]
-        total = len(filtered)
+        record: Dict[str, Any],
+        raw_filters: Dict[str, Any],
+    ) -> bool:
+        """Return True if record matches the given raw filters."""
+        user_id = raw_filters.get("user_id")
+        ptype = raw_filters.get("penalty_type")
+        severity = raw_filters.get("severity")
+        active = raw_filters.get("is_active")
 
-        page = filtered[skip : skip + limit]
-        return [self._to_model(p) for p in page], total
+        if user_id and record.get("user_id") != user_id:
+            return False
+        if ptype and record.get("penalty_type") != ptype:
+            return False
+        if severity is not None and record.get("severity") != severity:
+            return False
+
+        # Active filter uses refreshed state
+        if active is not None:
+            ref = _refresh_is_active(record)
+            if ref.get("is_active") is not active:
+                return False
+
+        return True
+
+    def _filter_records(
+        self,
+        data: List[Dict[str, Any]],
+        filters: Optional[PenaltySearchFilters],
+    ) -> List[Dict[str, Any]]:
+        """Apply all search filters and return filtered list."""
+        raw_filters = filters.model_dump() if filters is not None else {}
+        return [record for record in data if self._record_matches(record, raw_filters)]
+
+    def _sort_records(
+        self,
+        records: List[Dict[str, Any]],
+        sort_by: Optional[str],
+        sort_desc: bool,
+    ) -> List[Dict[str, Any]]:
+        """Sort records optionally by the given field."""
+        if not sort_by:
+            return records
+
+        def _sort_key(p: Dict[str, Any]):
+            val = p.get(sort_by)
+
+            # Try interpret as datetime string
+            if isinstance(val, str) and ("T" in val or "-" in val):
+                try:
+                    s = val[:-1] + "+00:00" if val.endswith("Z") else val
+                    dt = datetime.fromisoformat(s)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    return dt
+                except Exception:
+                    return val
+
+            return val
+
+        return sorted(
+            records,
+            key=lambda p: (_sort_key(p) is None, _sort_key(p)),
+            reverse=sort_desc,
+        )
+
+    def _paginate(
+        self,
+        records: List[Dict[str, Any]],
+        skip: int,
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        """Return a paginated slice of records."""
+        return records[skip : skip + limit]
+
+    # ---------- Query / Search ---------- #
 
     def search(
         self,
@@ -309,60 +370,41 @@ class JSONPenaltyRepository:
         Returns (items, total).
         """
         data = self._load()
-        raw_filters = filters.model_dump() if filters is not None else {}
 
-        def _matches(p: Dict[str, Any]) -> bool:
-            if (
-                raw_filters.get("user_id")
-                and p.get("user_id") != raw_filters["user_id"]
-            ):
-                return False
-            if (
-                raw_filters.get("penalty_type")
-                and p.get("penalty_type") != raw_filters["penalty_type"]
-            ):
-                return False
-            if (
-                raw_filters.get("severity") is not None
-                and p.get("severity") != raw_filters["severity"]
-            ):
-                return False
-            if raw_filters.get("is_active") is not None:
-                # Ensure we check the refreshed active status
-                refreshed = _refresh_is_active(p)
-                if refreshed.get("is_active") is not raw_filters["is_active"]:
-                    return False
-            return True
+        # Step 1: filter
+        filtered = self._filter_records(data, filters)
 
-        filtered = [p for p in data if _matches(p)]
+        # Step 2: sort
+        sorted_records = self._sort_records(filtered, sort_by, sort_desc)
 
-        # Optional sorting
-        if sort_by:
+        # Step 3: paginate
+        page = self._paginate(sorted_records, skip, limit)
 
-            def _sort_key(p: Dict[str, Any]):
-                value = p.get(sort_by)
-                # try parse datetime if it looks like ISO
-                if isinstance(value, str) and ("T" in value or "-" in value):
-                    try:
-                        s = value
-                        if s.endswith("Z"):
-                            s = s[:-1] + "+00:00"
-                        value_dt = datetime.fromisoformat(s)
-                        if value_dt.tzinfo is None:
-                            value_dt = value_dt.replace(tzinfo=timezone.utc)
-                        return value_dt
-                    except Exception:
-                        return value
-                return value
+        # Step 4: convert models
+        return [self._to_model(p) for p in page], len(filtered)
 
-            filtered.sort(
-                key=lambda p: (_sort_key(p) is None, _sort_key(p)),
-                reverse=sort_desc,
-            )
+    def list_by_user(
+        self,
+        user_id: str,
+        skip: int = 0,
+        limit: int = 50,
+        sort_by: Optional[str] = "created_at",
+        sort_desc: bool = True,
+    ) -> Tuple[List[PenaltyOut], int]:
+        """
+        Convenience wrapper to list penalties for a single user.
 
-        total = len(filtered)
-        page = filtered[skip : skip + limit]
-        return [self._to_model(p) for p in page], total
+        Internally delegates to `search` with a user_id filter so that tests
+        and existing callers that rely on this method keep working.
+        """
+        filters = PenaltySearchFilters(user_id=user_id)
+        return self.search(
+            filters=filters,
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_desc=sort_desc,
+        )
 
     # ---------- Summary ---------- #
 
