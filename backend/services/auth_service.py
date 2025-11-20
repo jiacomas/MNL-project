@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import datetime
 import os
+from datetime import timezone
 from typing import Callable, Optional
 
-import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-key")
@@ -20,7 +21,7 @@ def create_access_token(
     data: dict, expires_delta: Optional[datetime.timedelta] = None
 ) -> str:
     to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + (
+    expire = datetime.datetime.now(timezone.utc) + (
         expires_delta or datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
@@ -42,13 +43,9 @@ def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
+    except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired"
-        )
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
 
 
