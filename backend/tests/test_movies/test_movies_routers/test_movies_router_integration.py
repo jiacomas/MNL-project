@@ -152,31 +152,38 @@ class TestMoviesRouterIntegration:
         """Test handling of concurrent movie updates"""
         movie_id = "tt0111161"
         results = []
+        errors = []
+        lock = threading.Lock()
 
         def update_movie(rating):
-            update_data = {"rating": rating}
-            with patch('backend.routers.movies.svc.update_movie') as mock_update:
-                mock_update.return_value = MovieOut(
-                    movie_id=movie_id,
-                    title="Test Movie",
-                    genre="Drama",
-                    release_year=1994,
-                    rating=rating,
-                    runtime=142,
-                    director="Test Director",
-                    cast="Test Cast",
-                    plot="Test plot",
-                    poster_url="https://example.com/poster.jpg",
-                    created_at="2024-01-01T12:00:00Z",
-                    updated_at="2024-01-01T12:00:00Z",
-                    review_count=1000,
-                )
-                with patch(
-                    'backend.routers.movies.get_current_admin_user',
-                    return_value=mock_current_admin,
-                ):
-                    response = client.put(f"/api/movies/{movie_id}", json=update_data)
-                    results.append(response.status_code)
+            try:
+                update_data = {"rating": rating}
+                with patch('backend.routers.movies.svc.update_movie') as mock_update:
+                    mock_update.return_value = MovieOut(
+                        movie_id=movie_id,
+                        title="Test Movie",
+                        genre="Drama",
+                        release_year=1994,
+                        rating=rating,
+                        runtime=142,
+                        director="Test Director",
+                        cast="Test Cast",
+                        plot="Test plot",
+                        poster_url="https://example.com/poster.jpg",
+                        created_at="2024-01-01T12:00:00Z",
+                        updated_at="2024-01-01T12:00:00Z",
+                        review_count=1000,
+                    )
+                    with patch(
+                            'backend.routers.movies.get_current_admin_user',
+                            return_value=mock_current_admin,
+                    ):
+                        response = client.put(f"/api/movies/{movie_id}", json=update_data)
+                        with lock:
+                            results.append(response.status_code)
+            except Exception as e:
+                with lock:
+                    errors.append(str(e))
 
         # Simulate concurrent updates
         threads = []
@@ -188,8 +195,13 @@ class TestMoviesRouterIntegration:
         for thread in threads:
             thread.join()
 
-        # All updates should complete successfully
-        assert all(code == 200 for code in results)
+        # Check for errors first
+        if errors:
+            print(f"Errors during concurrent updates: {errors}")
+
+        # All updates should complete successfully or handle gracefully
+        assert len(errors) == 0, f"Concurrent updates failed with errors: {errors}"
+        assert all(code == 200 for code in results), f"Not all requests succeeded: {results}"
 
     # Performance tests
     @pytest.mark.parametrize(
