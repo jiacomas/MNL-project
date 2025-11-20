@@ -1,8 +1,10 @@
 """
 Shared test fixtures for movies router tests.
 """
-import pytest
+
 from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -38,7 +40,7 @@ def sample_movie_data():
         "poster_url": "https://example.com/poster.jpg",
         "created_at": "2024-01-01T12:00:00Z",
         "updated_at": "2024-01-01T12:00:00Z",
-        "review_count": 2500000
+        "review_count": 2500000,
     }
 
 

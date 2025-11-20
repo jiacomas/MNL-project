@@ -2,14 +2,16 @@
 Comprehensive integration tests for Movies Router.
 Combines workflow tests, performance tests, and complex scenarios.
 """
-import pytest
-import time
+
 import threading
+import time
 from unittest.mock import patch
+
+import pytest
 from fastapi import status
 
 from backend.main import app
-from backend.schemas.movies import MovieOut, MovieListResponse
+from backend.schemas.movies import MovieListResponse, MovieOut
 
 
 class TestMoviesRouterIntegration:
@@ -27,17 +29,22 @@ class TestMoviesRouterIntegration:
             "director": "Test Director",
             "cast": "Test Cast",
             "plot": "Test plot description",
-            "poster_url": "https://example.com/poster.jpg"
+            "poster_url": "https://example.com/poster.jpg",
         }
 
-        with patch('backend.routers.movies.svc.create_movie') as mock_create, \
-                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with (
+            patch('backend.routers.movies.svc.create_movie') as mock_create,
+            patch(
+                'backend.routers.movies.get_current_admin_user',
+                return_value=mock_current_admin,
+            ),
+        ):
             mock_create.return_value = MovieOut(
                 movie_id="tt9999999",
                 **create_data,
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:00:00Z",
-                review_count=0
+                review_count=0,
             )
 
             create_response = client.post("/api/movies", json=create_data)
@@ -51,7 +58,7 @@ class TestMoviesRouterIntegration:
                 **create_data,
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:00:00Z",
-                review_count=0
+                review_count=0,
             )
 
             get_response = client.get(f"/api/movies/{movie_id}")
@@ -60,15 +67,20 @@ class TestMoviesRouterIntegration:
 
         # 3. Update movie
         update_data = {"rating": 9.0, "title": "Updated Integration Test Movie"}
-        with patch('backend.routers.movies.svc.update_movie') as mock_update, \
-                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with (
+            patch('backend.routers.movies.svc.update_movie') as mock_update,
+            patch(
+                'backend.routers.movies.get_current_admin_user',
+                return_value=mock_current_admin,
+            ),
+        ):
             updated_movie_data = {**create_data, **update_data}
             mock_update.return_value = MovieOut(
                 movie_id=movie_id,
                 **updated_movie_data,
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:30:00Z",
-                review_count=0
+                review_count=0,
             )
 
             update_response = client.put(f"/api/movies/{movie_id}", json=update_data)
@@ -77,8 +89,13 @@ class TestMoviesRouterIntegration:
             assert update_response.json()["title"] == "Updated Integration Test Movie"
 
         # 4. Delete movie
-        with patch('backend.routers.movies.svc.delete_movie') as mock_delete, \
-                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with (
+            patch('backend.routers.movies.svc.delete_movie') as mock_delete,
+            patch(
+                'backend.routers.movies.get_current_admin_user',
+                return_value=mock_current_admin,
+            ),
+        ):
             delete_response = client.delete(f"/api/movies/{movie_id}")
             assert delete_response.status_code == status.HTTP_204_NO_CONTENT
 
@@ -98,21 +115,20 @@ class TestMoviesRouterIntegration:
                 poster_url="https://example.com/poster.jpg",
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:00:00Z",
-                review_count=i * 100
-            ) for i in range(1, 101)
+                review_count=i * 100,
+            )
+            for i in range(1, 101)
         ]
 
         with patch('backend.routers.movies.svc.search_movies') as mock_search:
             # First page
             mock_search.return_value = MovieListResponse(
-                items=mock_movies[:50],
-                total=100,
-                page=1,
-                page_size=50,
-                total_pages=2
+                items=mock_movies[:50], total=100, page=1, page_size=50, total_pages=2
             )
 
-            response_page1 = client.get("/api/movies/search?genre=Drama&page=1&page_size=50")
+            response_page1 = client.get(
+                "/api/movies/search?genre=Drama&page=1&page_size=50"
+            )
             assert response_page1.status_code == status.HTTP_200_OK
             data_page1 = response_page1.json()
             assert len(data_page1["items"]) == 50
@@ -121,14 +137,12 @@ class TestMoviesRouterIntegration:
 
             # Second page
             mock_search.return_value = MovieListResponse(
-                items=mock_movies[50:],
-                total=100,
-                page=2,
-                page_size=50,
-                total_pages=2
+                items=mock_movies[50:], total=100, page=2, page_size=50, total_pages=2
             )
 
-            response_page2 = client.get("/api/movies/search?genre=Drama&page=2&page_size=50")
+            response_page2 = client.get(
+                "/api/movies/search?genre=Drama&page=2&page_size=50"
+            )
             assert response_page2.status_code == status.HTTP_200_OK
             data_page2 = response_page2.json()
             assert len(data_page2["items"]) == 50
@@ -155,9 +169,12 @@ class TestMoviesRouterIntegration:
                     poster_url="https://example.com/poster.jpg",
                     created_at="2024-01-01T12:00:00Z",
                     updated_at="2024-01-01T12:00:00Z",
-                    review_count=1000
+                    review_count=1000,
                 )
-                with patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+                with patch(
+                    'backend.routers.movies.get_current_admin_user',
+                    return_value=mock_current_admin,
+                ):
                     response = client.put(f"/api/movies/{movie_id}", json=update_data)
                     results.append(response.status_code)
 
@@ -175,22 +192,31 @@ class TestMoviesRouterIntegration:
         assert all(code == 200 for code in results)
 
     # Performance tests
-    @pytest.mark.parametrize("endpoint", [
-        "/api/movies?page=1&page_size=50",
-        "/api/movies/search?title=test",
-        "/api/movies/popular?limit=10",
-        "/api/movies/recent?limit=10"
-    ])
+    @pytest.mark.parametrize(
+        "endpoint",
+        [
+            "/api/movies?page=1&page_size=50",
+            "/api/movies/search?title=test",
+            "/api/movies/popular?limit=10",
+            "/api/movies/recent?limit=10",
+        ],
+    )
     def test_response_time_performance(self, client, endpoint):
         """Test response time for critical endpoints"""
         max_response_time = 2.0  # 2 seconds maximum
 
-        with patch('backend.routers.movies.svc.get_movies') as mock_svc, \
-                patch('backend.routers.movies.svc.search_movies') as mock_search, \
-                patch('backend.routers.movies.svc.get_popular_movies') as mock_popular, \
-                patch('backend.routers.movies.svc.get_recent_movies') as mock_recent:
-            mock_svc.return_value = MovieListResponse(items=[], total=0, page=1, page_size=50, total_pages=0)
-            mock_search.return_value = MovieListResponse(items=[], total=0, page=1, page_size=50, total_pages=0)
+        with (
+            patch('backend.routers.movies.svc.get_movies') as mock_svc,
+            patch('backend.routers.movies.svc.search_movies') as mock_search,
+            patch('backend.routers.movies.svc.get_popular_movies') as mock_popular,
+            patch('backend.routers.movies.svc.get_recent_movies') as mock_recent,
+        ):
+            mock_svc.return_value = MovieListResponse(
+                items=[], total=0, page=1, page_size=50, total_pages=0
+            )
+            mock_search.return_value = MovieListResponse(
+                items=[], total=0, page=1, page_size=50, total_pages=0
+            )
             mock_popular.return_value = []
             mock_recent.return_value = []
 
@@ -201,8 +227,9 @@ class TestMoviesRouterIntegration:
             response_time = end_time - start_time
 
             assert response.status_code == status.HTTP_200_OK
-            assert response_time < max_response_time, \
-                f"Endpoint {endpoint} took {response_time:.2f}s, exceeding {max_response_time}s limit"
+            assert (
+                response_time < max_response_time
+            ), f"Endpoint {endpoint} took {response_time:.2f}s, exceeding {max_response_time}s limit"
 
     def test_rate_limiting(self, client):
         """Test rate limiting on API endpoints"""
@@ -232,24 +259,27 @@ class TestMoviesRouterIntegration:
             "director": "Test Director",
             "cast": "Test Cast",
             "plot": "Test plot",
-            "poster_url": "https://example.com/poster.jpg"
+            "poster_url": "https://example.com/poster.jpg",
         }
 
-        with patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with patch(
+            'backend.routers.movies.get_current_admin_user',
+            return_value=mock_current_admin,
+        ):
             with patch('backend.routers.movies.svc.create_movie') as mock_create:
                 mock_create.return_value = MovieOut(
                     movie_id="tt9999999",
                     **large_data,
                     created_at="2024-01-01T12:00:00Z",
                     updated_at="2024-01-01T12:00:00Z",
-                    review_count=0
+                    review_count=0,
                 )
 
                 response = client.post("/api/movies", json=large_data)
                 assert response.status_code in [
                     status.HTTP_201_CREATED,
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    status.HTTP_400_BAD_REQUEST
+                    status.HTTP_400_BAD_REQUEST,
                 ]
 
     def test_large_payload_handling(self, client, mock_current_admin):
@@ -263,22 +293,27 @@ class TestMoviesRouterIntegration:
             "rating": 5.5,
             "runtime": 120,
             "director": "Test Director",
-            "poster_url": "https://example.com/poster.jpg"
+            "poster_url": "https://example.com/poster.jpg",
         }
 
-        with patch('backend.routers.movies.svc.create_movie') as mock_create, \
-                patch('backend.routers.movies.get_current_admin_user', return_value=mock_current_admin):
+        with (
+            patch('backend.routers.movies.svc.create_movie') as mock_create,
+            patch(
+                'backend.routers.movies.get_current_admin_user',
+                return_value=mock_current_admin,
+            ),
+        ):
             mock_create.return_value = MovieOut(
                 movie_id="tt9999999",
                 **large_movie_data,
                 created_at="2024-01-01T12:00:00Z",
                 updated_at="2024-01-01T12:00:00Z",
-                review_count=0
+                review_count=0,
             )
 
             response = client.post("/api/movies", json=large_movie_data)
             assert response.status_code in [
                 status.HTTP_201_CREATED,
                 status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
             ]
