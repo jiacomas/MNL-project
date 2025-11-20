@@ -2,53 +2,51 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 
 from backend.services import external_sync_service as sync_mod
 
-
-@pytest.fixture
-def anyio_backend():
-    # Tell pytest-anyio to only use asyncio, not trio
-    return "asyncio"
+pytestmark = pytest.mark.anyio  # apply "anyio" to the whole module
 
 
-def _write_json(path: Path, data: Any) -> None:
+def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
 
-@pytest.mark.anyio
-async def test_sync_external_metadata_updates_items_and_logs(
-    tmp_path, monkeypatch
-) -> None:
-    """Unit test for external API sync.
+async def fake_fetch(client, title: str) -> Dict[str, Any] | None:
+    """Fake external metadata fetch for testing only."""
+    if title == "Avengers Endgame":
+        return {
+            "poster_url": "http://example.com/avengers.jpg",
+            "runtime": 181,
+            "cast": "Robert Downey Jr., Chris Evans",
+        }
+    return None
 
-    Verifies:
-    - items.json is updated with poster_url, runtime, cast for one movie
-    - other movies remain unchanged
-    - sync log is appended with timestamp, items_updated, indices
+
+async def test_sync_external_metadata_updates_items_and_logs(tmp_path, monkeypatch):
+    """Validate that external sync:
+
+    - Enriches only movies missing metadata
+    - Leaves already-complete movies unchanged
+    - Logs sync metadata: timestamp, updated count, indices
     """
 
-    # ------------------------------------------------------------------
-    # 1. Point service to temp files
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Setup temp storage
+    # --------------------------------------------------------------
     items_file = tmp_path / "items.json"
     log_file = tmp_path / "external_sync_log.json"
 
     monkeypatch.setattr(sync_mod, "ITEMS_FILE", items_file)
     monkeypatch.setattr(sync_mod, "SYNC_LOG_FILE", log_file)
+    monkeypatch.setattr(sync_mod, "_fetch_external_metadata", fake_fetch)
 
-    # ------------------------------------------------------------------
-    # 2. Seed items: one missing metadata, one already enriched
-    # ------------------------------------------------------------------
-    items: List[Dict[str, Any]] = [
-        {
-            "id": "m1",
-            "title": "Avengers Endgame",
-            # no poster/runtime/cast yet
-        },
+    # Seed two movies: one missing metadata, one already enriched
+    items_seed = [
+        {"id": "m1", "title": "Avengers Endgame"},
         {
             "id": "m2",
             "title": "Some Other Movie",
@@ -57,58 +55,46 @@ async def test_sync_external_metadata_updates_items_and_logs(
             "cast": "Actor One, Actor Two",
         },
     ]
-    _write_json(items_file, items)
+    write_json(items_file, items_seed)
 
-    # ------------------------------------------------------------------
-    # 3. Monkeypatch external fetch to avoid real HTTP calls
-    # ------------------------------------------------------------------
-    async def fake_fetch(client, title: str) -> Dict[str, Any] | None:
-        if title == "Avengers Endgame":
-            return {
-                "poster_url": "http://example.com/avengers.jpg",
-                "runtime": 181,
-                "cast": "Robert Downey Jr., Chris Evans",
-            }
-        # no update for other titles
-        return None
-
-    monkeypatch.setattr(sync_mod, "_fetch_external_metadata", fake_fetch)
-
-    # ------------------------------------------------------------------
-    # 4. Run sync and assert result
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Execute sync
+    # --------------------------------------------------------------
     updated_count, timestamp = await sync_mod.sync_external_metadata()
 
-    # Exactly one movie was updated
     assert updated_count == 1
-    assert timestamp is not None
+    assert isinstance(timestamp, str)
 
-    updated_items = json.loads(items_file.read_text(encoding="utf-8"))
+    # --------------------------------------------------------------
+    # Validate updated items.json
+    # --------------------------------------------------------------
+    updated_items = json.loads(items_file.read_text())
+
+    # Should still be exactly 2 items
     assert len(updated_items) == 2
 
-    # First item enriched from external metadata
     first = updated_items[0]
+    second = updated_items[1]
+
+    # First item enriched by fake API
     assert first["title"] == "Avengers Endgame"
     assert first["poster_url"] == "http://example.com/avengers.jpg"
     assert first["runtime"] == 181
     assert "Robert Downey Jr." in first["cast"]
 
     # Second item unchanged
-    second = updated_items[1]
     assert second["poster_url"] == "http://existing/poster.jpg"
     assert second["runtime"] == 120
     assert second["cast"] == "Actor One, Actor Two"
 
-    # ------------------------------------------------------------------
-    # 5. Sync log written with timestamp + items_updated + indices
-    # ------------------------------------------------------------------
-    log = json.loads(log_file.read_text(encoding="utf-8"))
+    # --------------------------------------------------------------
+    # Validate log file
+    # --------------------------------------------------------------
+    log = json.loads(log_file.read_text())
     assert isinstance(log, list)
     assert len(log) == 1
 
     entry = log[0]
     assert entry["items_updated"] == 1
-    # Only first item (index 0) updated
     assert entry["indices"] == [0]
-    assert "timestamp" in entry
     assert isinstance(entry["timestamp"], str)
