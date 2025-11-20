@@ -2,14 +2,15 @@
 Admin router for syncing external metadata onto items/movies.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from backend.services import external_sync_service
+from backend.services.auth_service import require_role
 
 router = APIRouter()
 
 
-@router.post("/admin/sync-external")
+@router.post("/admin/sync-external", dependencies=[Depends(require_role("admin"))])
 async def sync_external():
     """
     Triggers external metadata sync for items/movies.

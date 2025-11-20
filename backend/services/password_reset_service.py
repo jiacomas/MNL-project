@@ -29,10 +29,14 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored: str) -> bool:
+    # New format: salt_hex$hash_hex
     try:
         salt_hex, hash_hex = stored.split("$", 1)
     except ValueError:
-        return False
+        # Legacy format: stored value is plain sha256(password).hexdigest()
+        digest = hashlib.sha256()
+        digest.update(password.encode("utf-8"))
+        return digest.hexdigest() == stored
 
     salt = bytes.fromhex(salt_hex)
     candidate = _hash_with_salt(password, salt)

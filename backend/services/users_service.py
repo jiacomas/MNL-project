@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 from backend.repositories.users_repo import UserRepository
 from backend.schemas.users import Admin, Customers, User
+from backend.services import auth_service as auth_svc
 
 # import system-wide hashing used in reset service
 from backend.services.password_reset_service import hash_password as global_hash
@@ -39,6 +40,22 @@ class UsersService:
         if not stored:
             return False
         return global_verify(password, stored)
+
+    def authenticate_user(self, username: str, password: str) -> str | None:
+        """Authenticate by username/password and return a JWT access token on success.
+
+        Returns the JWT token (string) if authentication succeeds, otherwise None.
+        """
+        if not self.check_password(username, password):
+            return None
+        user = self.repo.get_user_by_username(username)
+        if not user:
+            return None
+        return auth_svc.create_token_for_user(user)
+
+    def create_access_token_for_user(self, user: User) -> str:
+        """Create an access token for the given user object."""
+        return auth_svc.create_token_for_user(user)
 
     def create_user(
         self,
