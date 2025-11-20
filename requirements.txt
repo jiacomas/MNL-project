@@ -18,6 +18,3 @@ flake8
 
 bandit
 pre-commit
-
-# Database
-sqlalchemy
