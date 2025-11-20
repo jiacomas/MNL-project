@@ -4,8 +4,10 @@ uvicorn[standard]
 pydantic
 python-jose
 passlib[bcrypt]
+jwt
 httpx
 email-validator
+python-multipart
 
 # Data handling
 kagglehub

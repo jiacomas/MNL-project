@@ -4,8 +4,6 @@ Integration tests for movie schemas working together.
 
 from datetime import datetime, timezone
 
-import pytest
-
 from backend.schemas.movies import (
     MovieCreate,
     MovieListResponse,
@@ -15,7 +13,6 @@ from backend.schemas.movies import (
 )
 
 
-@pytest.mark.integration
 class TestMovieSchemasIntegration:
     """Integration tests for movie schemas working together.
 
@@ -23,7 +20,6 @@ class TestMovieSchemasIntegration:
     in real-world scenarios and workflows.
     """
 
-    @pytest.mark.integration
     def test_create_to_output_flow(self):
         """Integration test: Verify MovieCreate to MovieOut conversion workflow."""
         # Create a movie using MovieCreate
@@ -55,7 +51,6 @@ class TestMovieSchemasIntegration:
         assert movie_out.rating == movie_create.rating
         assert movie_out.runtime == movie_create.runtime
 
-    @pytest.mark.integration
     def test_update_workflow(self):
         """Integration test: Verify complete movie update workflow."""
         # Create original movie
@@ -90,7 +85,6 @@ class TestMovieSchemasIntegration:
         assert updated_movie.genre == original_movie.genre  # Unchanged
         assert updated_movie.release_year == original_movie.release_year  # Unchanged
 
-    @pytest.mark.integration
     def test_search_and_list_integration(self):
         """Integration test: Verify search filters work with list response."""
         # Create search filters
@@ -130,7 +124,6 @@ class TestMovieSchemasIntegration:
         assert search_filters.min_year <= movie.release_year <= search_filters.max_year
         assert movie.rating >= search_filters.min_rating
 
-    @pytest.mark.integration
     def test_complete_movie_lifecycle(self):
         """Integration test: Complete movie lifecycle from creation to search.
 

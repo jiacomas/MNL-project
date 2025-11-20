@@ -4,7 +4,7 @@ Main FastAPI application entrypoint.
 
 from fastapi import FastAPI
 
-from backend.routers import admin_analytics, admin_sync, password_reset
+from backend.routers import admin_analytics, admin_sync, auth, password_reset
 from backend.routers.bookmarks import router as bookmarks_router
 from backend.routers.movies import router as movies_router
 from backend.routers.recommendations import router as recommendations_router
@@ -30,6 +30,9 @@ app.include_router(reviews_router)
 app.include_router(recommendations_router)
 # Password reset router
 app.include_router(password_reset.router)
+
+# Auth router (token endpoint)
+app.include_router(auth.router)
 
 # Bookmarks router
 app.include_router(bookmarks_router)
