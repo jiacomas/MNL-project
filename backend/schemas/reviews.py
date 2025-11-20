@@ -1,6 +1,6 @@
 # Reviews Schemas
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -146,12 +146,10 @@ class ReviewOut(ReviewBase):
 
 
 class ReviewListResponse(BaseModel):
-    """
-    Cursor-based paginated list of reviews.
-    """
+    """Paginated list of reviews with optional cursor for continuation."""
 
-    items: list[ReviewOut]
-    nextCursor: Optional[int]
+    items: List[ReviewOut]
+    next_cursor: Optional[int] = Field(None, alias="nextCursor")
 
     model_config = ConfigDict(
         from_attributes=True,

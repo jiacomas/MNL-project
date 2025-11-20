@@ -17,7 +17,7 @@ _repo = CSVReviewRepo()
 def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     """Return a review for a movie, or raise 404 with 'Review not found.'."""
     # Primary lookup
-    review = _repo.get_by_id(movie_id, review_id)
+    review = _repo.get_review_by_id(movie_id, review_id)
 
     # Fallback: scan current movie reviews in case repo index differs by type
     if review is None:
@@ -40,7 +40,7 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
 
 def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
     """Create a new review (one per user per movie)."""
-    existing = _repo.get_by_user(payload.movie_id, user_id)
+    existing = _repo.get_review_by_user(payload.movie_id, user_id)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -101,13 +101,13 @@ def update_review(
 
 
 def delete_review(
-    movie_id: str, review_id: str, user_id: str, admin_override: bool = False
+    movie_id: str, review_id: str, user_id: str, is_admin: bool = False
 ) -> None:
     """Delete a review; only the author or an admin may delete."""
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    if not admin_override and existing.user_id != user_id:
+    if not is_admin and existing.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this review.",
@@ -116,6 +116,6 @@ def delete_review(
     _repo.delete(movie_id, review_id)
 
 
-def get_user_review(movie_id: str, user_id: str) -> Optional[ReviewOut]:
+def get_review_by_user(movie_id: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
-    return _repo.get_by_user(movie_id, user_id)
+    return _repo.get_review_by_user(movie_id, user_id)
