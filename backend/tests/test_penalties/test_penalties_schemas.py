@@ -400,7 +400,7 @@ class TestIntegrationScenarios:
 
         # 2. Update the penalty
         update_data = {"reason": "Additional violations discovered", "severity": 5}
-        penalty_update = PenaltyUpdate(**update_data)
+        PenaltyUpdate(**update_data)
 
         # 3. Create output representation
         now = datetime.now(timezone.utc)
