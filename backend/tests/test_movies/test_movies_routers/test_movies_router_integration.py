@@ -154,7 +154,6 @@ class TestMoviesRouterIntegration:
         errors = []
         lock = threading.Lock()
 
-        # 在外部设置全局mock，确保所有线程使用相同的mock
         with (
             patch('backend.routers.movies.svc.update_movie') as mock_update,
             patch(
