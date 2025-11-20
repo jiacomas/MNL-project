@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, status
 
-from backend.deps import get_fake_is_admin
+from backend.deps import require_admin
 from backend.schemas.movies import (
     MovieCreate,
     MovieListResponse,
@@ -67,23 +67,23 @@ def get_movie(movie_id: str):
 @router.post("/", response_model=MovieOut, status_code=status.HTTP_201_CREATED)
 def create_movie(
     movie_create: MovieCreate,
-    is_admin: bool = Depends(get_fake_is_admin),
+    user: dict = Depends(require_admin),
 ):
-    return svc.create_movie(movie_create, is_admin=is_admin)
+    return svc.create_movie(movie_create, is_admin=True)
 
 
 @router.patch("/{movie_id}", response_model=MovieOut)
 def update_movie(
     movie_id: str,
     movie_update: MovieUpdate,
-    is_admin: bool = Depends(get_fake_is_admin),
+    user: dict = Depends(require_admin),
 ):
-    return svc.update_movie(movie_id, movie_update, is_admin=is_admin)
+    return svc.update_movie(movie_id, movie_update, is_admin=True)
 
 
 @router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_movie(
     movie_id: str,
-    is_admin: bool = Depends(get_fake_is_admin),
+    user: dict = Depends(require_admin),
 ):
-    svc.delete_movie(movie_id, is_admin=is_admin)
+    svc.delete_movie(movie_id, is_admin=True)

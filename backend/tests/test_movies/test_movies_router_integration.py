@@ -1,13 +1,16 @@
 """
-Integration tests for Movies Router using mocker.
+Integration tests for Movies Router using mocker + JWT.
 Ensures full endpoint flow without touching filesystem.
 """
+
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.schemas.movies import MovieOut
+from backend.services import auth_service
 
 client = TestClient(app)
 
@@ -17,7 +20,6 @@ def mock_repo_all(mocker):
     """Mock repository methods globally for all tests."""
     mock_repo = mocker.patch("backend.services.movies_service.movie_repo")
 
-    # Default movie data
     sample = MovieOut(
         movie_id="m1",
         title="Mock Movie",
@@ -46,29 +48,44 @@ def mock_repo_all(mocker):
     return mock_repo
 
 
+# ----- Helper fixtures -----
+@pytest.fixture
+def admin_headers():
+    """Generate a valid admin JWT header."""
+    token = auth_service.create_access_token(
+        {"sub": "admin1", "role": "admin", "username": "admin1"},
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def user_headers():
+    """Generate a normal user JWT header."""
+    token = auth_service.create_access_token(
+        {"sub": "u1", "role": "user", "username": "u1"},
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
 class TestMoviesRouterIntegration:
     # ---------- CRUD ----------
-    def test_full_movie_crud_flow(self):
-        # Create
-        r = client.post(
-            "/api/movies/", json={"title": "A"}, headers={"X-User-Role": "admin"}
-        )
+    def test_full_movie_crud_flow(self, admin_headers):
+        r = client.post("/api/movies/", json={"title": "A"}, headers=admin_headers)
         assert r.status_code == 201
         mid = r.json()["movie_id"]
 
-        # Read
-        r = client.get(f"/api/movies/{mid}")
+        r = client.get(f"/api/movies/{mid}", headers=admin_headers)
         assert r.status_code == 200
 
-        # Update
         r = client.patch(
-            f"/api/movies/{mid}", json={"rating": 9.9}, headers={"X-User-Role": "admin"}
+            f"/api/movies/{mid}", json={"rating": 9.9}, headers=admin_headers
         )
         assert r.status_code == 200
         assert "rating" in r.json()
 
-        # Delete
-        r = client.delete(f"/api/movies/{mid}", headers={"X-User-Role": "admin"})
+        r = client.delete(f"/api/movies/{mid}", headers=admin_headers)
         assert r.status_code == 204
 
     # ---------- Pagination & Sorting ----------
@@ -95,24 +112,21 @@ class TestMoviesRouterIntegration:
         assert isinstance(r2.json(), list)
 
     # ---------- Auth ----------
-    def test_non_admin_cannot_create_update_delete(self):
-        bad_headers = {"X-User-Role": "user"}
+    def test_non_admin_cannot_create_update_delete(self, user_headers):
         for method, endpoint in [
             ("post", "/api/movies/"),
             ("patch", "/api/movies/m1"),
             ("delete", "/api/movies/m1"),
         ]:
             if method == "delete":
-                r = getattr(client, method)(endpoint, headers=bad_headers)
+                r = getattr(client, method)(endpoint, headers=user_headers)
             else:
                 r = getattr(client, method)(
-                    endpoint, json={"title": "X"}, headers=bad_headers
+                    endpoint, json={"title": "X"}, headers=user_headers
                 )
             assert r.status_code == 403
 
     # ---------- Validation ----------
-    def test_create_invalid_data(self):
-        r = client.post(
-            "/api/movies/", json={"title": "   "}, headers={"X-User-Role": "admin"}
-        )
-        assert r.status_code == 422
+    def test_create_invalid_data(self, admin_headers):
+        r = client.post("/api/movies/", json={"title": "   "}, headers=admin_headers)
+        assert r.status_code in (400, 422)

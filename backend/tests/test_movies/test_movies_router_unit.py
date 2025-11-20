@@ -1,36 +1,59 @@
 """
-Unit tests for Movies Router.
+Integration-style unit tests for Movies Router (JWT version).
 Covers CRUD + search + pagination + auth behavior.
 """
+
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.services import auth_service
 
 client = TestClient(app)
 
 
+# ----- Fixtures -----
+@pytest.fixture
+def admin_headers():
+    """Generate a valid admin JWT header."""
+    token = auth_service.create_access_token(
+        {"sub": "admin1", "role": "admin", "username": "admin1"},
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def user_headers():
+    """Generate a valid normal user JWT header."""
+    token = auth_service.create_access_token(
+        {"sub": "u1", "role": "user", "username": "u1"},
+        expires_delta=timedelta(minutes=30),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
 # ----- CRUD flow -----
-@pytest.mark.usefixtures("admin_headers")
 def test_full_movie_crud_flow(admin_headers):
     """Full admin CRUD lifecycle."""
-    # Create (admin)
+    # Create
     r = client.post("/api/movies/", json={"title": "A Movie"}, headers=admin_headers)
     assert r.status_code == 201
     mid = r.json()["movie_id"]
 
     # Get
-    r = client.get(f"/api/movies/{mid}")
+    r = client.get(f"/api/movies/{mid}", headers=admin_headers)
     assert r.status_code == 200
     assert r.json()["title"] == "A Movie"
 
-    # Update (admin)
+    # Update
     r = client.patch(f"/api/movies/{mid}", json={"rating": 9.0}, headers=admin_headers)
     assert r.status_code == 200
     assert r.json()["rating"] == 9.0
 
-    # Delete (admin)
+    # Delete
     r = client.delete(f"/api/movies/{mid}", headers=admin_headers)
     assert r.status_code == 204
 
@@ -41,8 +64,7 @@ def test_list_movies_pagination():
     r = client.get("/api/movies?page=1&page_size=20")
     assert r.status_code == 200
     data = r.json()
-    assert "items" in data
-    assert "total_pages" in data
+    assert "items" in data and "total_pages" in data
 
 
 def test_search_movies_basic():
@@ -64,24 +86,22 @@ def test_popular_and_recent_movies():
 
 
 # ----- Auth Protection -----
-@pytest.mark.usefixtures("user_headers")
 def test_non_admin_cannot_create_update_delete(user_headers):
     """Normal users forbidden from admin operations."""
-    # create
-    r = client.post("/api/movies/", json={"title": "Forbidden"}, headers=user_headers)
-    assert r.status_code == 403
-
-    # update
-    r = client.patch("/api/movies/tt0001", json={"rating": 5}, headers=user_headers)
-    assert r.status_code == 403
-
-    # delete
-    r = client.delete("/api/movies/tt0001", headers=user_headers)
-    assert r.status_code == 403
+    endpoints = [
+        ("post", "/api/movies/", {"title": "Forbidden"}),
+        ("patch", "/api/movies/tt0001", {"rating": 5}),
+        ("delete", "/api/movies/tt0001", None),
+    ]
+    for method, url, payload in endpoints:
+        if method == "delete":
+            res = getattr(client, method)(url, headers=user_headers)
+        else:
+            res = getattr(client, method)(url, json=payload, headers=user_headers)
+        assert res.status_code == 403
 
 
 # ----- Validation -----
-@pytest.mark.usefixtures("admin_headers")
 def test_create_invalid_data(admin_headers):
     """Invalid movie data triggers 422 or 400."""
     bad_payload = {"title": "   "}
