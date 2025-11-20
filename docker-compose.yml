@@ -1,30 +1,33 @@
 services:
   frontend:
     build:
-      context: . # set to root to access the requirements.txt
+      context: . # root so Dockerfile sees project files
       dockerfile: frontend/Dockerfile
     ports:
       - '3000:80'
     depends_on:
       - backend
+    # volumes:
+    #   - ./frontend:/app/frontend
 
   backend:
     build:
-      context: . # set to root to access the requirements.txt
+      context: .
       dockerfile: backend/Dockerfile
     ports:
       - '8000:8000'
     environment:
-      - TESTING=true
       - PYTHONPATH=/app
+      - TESTING=true
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
     working_dir: /app
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
   test-runner:
     build:
-      context: . # context should be root to access all services
-      dockerfile: tests/Dockerfile.test # specify the test Dockerfile
+      context: .
+      dockerfile: tests/Dockerfile.test
     depends_on:
       - backend
       - frontend
@@ -33,4 +36,5 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./frontend:/app/frontend
-    command: pytest /app/backend/tests -v
+    working_dir: /app/backend
+    command: pytest tests -v
