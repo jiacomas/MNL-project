@@ -10,7 +10,6 @@ from unittest.mock import patch
 import pytest
 from fastapi import status
 
-from backend.main import app
 from backend.schemas.movies import MovieListResponse, MovieOut
 
 
@@ -90,7 +89,7 @@ class TestMoviesRouterIntegration:
 
         # 4. Delete movie
         with (
-            patch('backend.routers.movies.svc.delete_movie') as mock_delete,
+            patch('backend.routers.movies.svc.delete_movie') as _,
             patch(
                 'backend.routers.movies.get_current_admin_user',
                 return_value=mock_current_admin,

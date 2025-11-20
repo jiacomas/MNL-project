@@ -11,8 +11,7 @@ import pytest
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.main import app
-from backend.schemas.movies import MovieListResponse, MovieOut
+from backend.schemas.movies import MovieListResponse
 
 
 class TestMoviesRouterUnit:
