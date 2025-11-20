@@ -11,10 +11,7 @@ from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 _repo = CSVReviewRepo()
 
-
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
@@ -24,7 +21,7 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
 
     # Fallback: scan current movie reviews in case repo index differs by type
     if review is None:
-        reviews, _ = _repo.list_by_movie(movie_id, limit=10_000)
+        reviews, _ = _repo.list_by_movie(movie_id, limit=2000)
         for candidate in reviews:
             if candidate.id == review_id:
                 review = candidate
@@ -38,14 +35,12 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     return review
 
 
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 
 
-def create_review(payload: ReviewCreate) -> ReviewOut:
+def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
     """Create a new review (one per user per movie)."""
-    existing = _repo.get_by_user(payload.movie_id, payload.user_id)
+    existing = _repo.get_by_user(payload.movie_id, user_id)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,7 +50,7 @@ def create_review(payload: ReviewCreate) -> ReviewOut:
     now = datetime.now(timezone.utc)
     review = ReviewOut(
         id=str(uuid.uuid4()),
-        user_id=payload.user_id,
+        user_id=user_id,  # inject from auth dependency
         movie_id=payload.movie_id,
         rating=payload.rating,
         comment=payload.comment,
@@ -83,14 +78,14 @@ def list_reviews(
 def update_review(
     movie_id: str,
     review_id: str,
-    current_user_id: str,
+    user_id: str,
     payload: ReviewUpdate,
 ) -> ReviewOut:
     """Update an existing review (only the author may do this)."""
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    if existing.user_id != current_user_id:
+    if existing.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this review.",
@@ -105,12 +100,14 @@ def update_review(
     return _repo.update(updated)
 
 
-def delete_review(movie_id: str, review_id: str, current_user_id: str) -> None:
-    """Delete a review; only the author may delete."""
+def delete_review(
+    movie_id: str, review_id: str, user_id: str, admin_override: bool = False
+) -> None:
+    """Delete a review; only the author or an admin may delete."""
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    if existing.user_id != current_user_id:
+    if not admin_override and existing.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this review.",
