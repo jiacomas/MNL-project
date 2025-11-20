@@ -46,7 +46,15 @@ class ReviewBase(BaseModel):
 
 
 class ReviewCreate(ReviewBase):
-    user_id: str = Field(..., min_length=1, description="ID of the reviewer user.")
+    """
+    Client payload for creating a new review.
+
+    NOTE:
+    - `user_id` must NOT be provided by clients.
+    - The backend injects the authenticated user ID using auth dependencies
+      (temporary header-based auth or future JWT auth).
+    """
+
     movie_id: str = Field(..., min_length=1, description="ID of the reviewed movie.")
 
     model_config = ConfigDict(
@@ -55,7 +63,6 @@ class ReviewCreate(ReviewBase):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "user_id": "user_12345",
                 "movie_id": "movie_67890",
                 "rating": 9,
                 "comment": "An masterpiece!",
@@ -65,6 +72,11 @@ class ReviewCreate(ReviewBase):
 
 
 class ReviewUpdate(BaseModel):
+    """
+    Payload for updating an existing review.
+    Allows partial update but requires at least one field.
+    """
+
     rating: Optional[int] = Field(
         None, ge=1, le=10, description="Updated rating score from 1 to 10"
     )
@@ -108,7 +120,7 @@ class ReviewUpdate(BaseModel):
 class ReviewOut(ReviewBase):
     # What the API returns to clients
     id: str
-    user_id: str
+    user_id: str  # reviewer identity (populated by backend)
     movie_id: str
     created_at: datetime
     updated_at: datetime
@@ -133,5 +145,25 @@ class ReviewOut(ReviewBase):
     )
 
 
+class ReviewListResponse(BaseModel):
+    """
+    Cursor-based paginated list of reviews.
+    """
+
+    items: list[ReviewOut]
+    nextCursor: Optional[int]
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="ignore",
+    )
+
+
 # explicit export
-__all__ = ["ReviewBase", "ReviewCreate", "ReviewUpdate", "ReviewOut"]
+__all__ = [
+    "ReviewBase",
+    "ReviewCreate",
+    "ReviewUpdate",
+    "ReviewOut",
+    "ReviewListResponse",
+]
