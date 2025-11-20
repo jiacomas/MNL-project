@@ -186,12 +186,19 @@ class TestMoviesRouterIntegration:
 
                     # 使用线程安全的认证mock
                     with patch(
-                            'backend.routers.movies.get_current_admin_user',
-                            return_value={"user_id": f"admin_user_{thread_id}", "role": "admin"}
+                        'backend.routers.movies.get_current_admin_user',
+                        return_value={
+                            "user_id": f"admin_user_{thread_id}",
+                            "role": "admin",
+                        },
                     ):
-                        response = client.put(f"/api/movies/{movie_id}", json=update_data)
+                        response = client.put(
+                            f"/api/movies/{movie_id}", json=update_data
+                        )
                         with lock:
-                            results.append((thread_id, response.status_code, response.text))
+                            results.append(
+                                (thread_id, response.status_code, response.text)
+                            )
             except Exception as e:
                 with lock:
                     errors.append(f"Thread {thread_id}: {str(e)}")
@@ -215,7 +222,9 @@ class TestMoviesRouterIntegration:
 
         # Extract status codes
         status_codes = [result[1] for result in results]
-        assert all(code == 200 for code in status_codes), f"Not all requests succeeded: {status_codes}"
+        assert all(
+            code == 200 for code in status_codes
+        ), f"Not all requests succeeded: {status_codes}"
 
     # Performance tests
     @pytest.mark.parametrize(
