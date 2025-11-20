@@ -111,6 +111,8 @@ class TestMoviesServiceUnit:
             release_year=1994,
             skip=10,
             limit=10,
+            sort_by=None,
+            sort_desc=False,
         )
         assert res.items[0].title == sample_movie_out.title
 
