@@ -155,56 +155,53 @@ class TestMoviesRouterIntegration:
         errors = []
         lock = threading.Lock()
 
-        def update_movie(rating, thread_id):
-            try:
-                update_data = {"rating": rating}
+        # 在外部设置全局mock，确保所有线程使用相同的mock
+        with (
+            patch('backend.routers.movies.svc.update_movie') as mock_update,
+            patch(
+                'backend.routers.movies.get_current_admin_user',
+                return_value=mock_current_admin,
+            ),
+        ):
 
-                # 为每个线程创建独立的mock
-                with patch('backend.routers.movies.svc.update_movie') as mock_update:
-                    mock_update.return_value = MovieOut(
-                        movie_id=movie_id,
-                        title="Test Movie",
-                        genre="Drama",
-                        release_year=1994,
-                        rating=rating,
-                        runtime=142,
-                        director="Test Director",
-                        cast="Test Cast",
-                        plot="Test plot",
-                        poster_url="https://example.com/poster.jpg",
-                        created_at="2024-01-01T12:00:00Z",
-                        updated_at="2024-01-01T12:00:00Z",
-                        review_count=1000,
-                    )
+            def update_movie(rating, thread_id):
+                try:
+                    update_data = {"rating": rating}
 
-                    # 使用线程安全的认证mock
-                    with patch(
-                        'backend.routers.movies.get_current_admin_user',
-                        return_value={
-                            "user_id": f"admin_user_{thread_id}",
-                            "role": "admin",
-                        },
-                    ):
-                        response = client.put(
-                            f"/api/movies/{movie_id}", json=update_data
+                    # 为每个线程设置特定的返回值
+                    with lock:
+                        mock_update.return_value = MovieOut(
+                            movie_id=movie_id,
+                            title="Test Movie",
+                            genre="Drama",
+                            release_year=1994,
+                            rating=rating,
+                            runtime=142,
+                            director="Test Director",
+                            cast="Test Cast",
+                            plot="Test plot",
+                            poster_url="https://example.com/poster.jpg",
+                            created_at="2024-01-01T12:00:00Z",
+                            updated_at="2024-01-01T12:00:00Z",
+                            review_count=1000,
                         )
-                        with lock:
-                            results.append(
-                                (thread_id, response.status_code, response.text)
-                            )
-            except Exception as e:
-                with lock:
-                    errors.append(f"Thread {thread_id}: {str(e)}")
 
-        # Simulate concurrent updates
-        threads = []
-        for i in range(5):
-            thread = threading.Thread(target=update_movie, args=(8.0 + i * 0.1, i))
-            threads.append(thread)
-            thread.start()
+                    response = client.put(f"/api/movies/{movie_id}", json=update_data)
+                    with lock:
+                        results.append((thread_id, response.status_code, response.text))
+                except Exception as e:
+                    with lock:
+                        errors.append(f"Thread {thread_id}: {str(e)}")
 
-        for thread in threads:
-            thread.join()
+            # Simulate concurrent updates
+            threads = []
+            for i in range(5):
+                thread = threading.Thread(target=update_movie, args=(8.0 + i * 0.1, i))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
 
         # Debug output
         print(f"Results: {results}")
