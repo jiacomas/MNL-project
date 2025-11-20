@@ -6,12 +6,19 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.repositories.users_repo import UserRepository
+from backend.services.users_service import UsersService
 
 
 def test_token_success():
     client = TestClient(app)
 
-    # user `cust1` with password `secret2` exists in backend/data/users.json
+    # Ensure test user exists (some test runs modify users.json)
+    repo = UserRepository()
+    svc = UsersService(repo)
+    if not repo.get_user_by_username("cust1"):
+        svc.create_user("cust1", "cust1@example.com", "secret2", user_type="customer")
+
     response = client.post(
         "/auth/token", data={"username": "cust1", "password": "secret2"}
     )
@@ -22,6 +29,12 @@ def test_token_success():
 
 def test_me_with_valid_token():
     client = TestClient(app)
+    # Ensure user exists
+    repo = UserRepository()
+    svc = UsersService(repo)
+    if not repo.get_user_by_username("cust1"):
+        svc.create_user("cust1", "cust1@example.com", "secret2", user_type="customer")
+
     r = client.post("/auth/token", data={"username": "cust1", "password": "secret2"})
     assert r.status_code == 200
     token = r.json()["access_token"]
@@ -53,7 +66,14 @@ def test_admin_sync_requires_admin_token():
         r = client.post("/admin/sync-external")
         assert r.status_code in (401, 403)
 
-        # Get admin token
+        # Ensure admin exists and get admin token
+        repo = UserRepository()
+        svc = UsersService(repo)
+        if not repo.get_user_by_username("admin1"):
+            svc.create_user(
+                "admin1", "admin1@example.com", "secret1", user_type="admin"
+            )
+
         r2 = client.post(
             "/auth/token", data={"username": "admin1", "password": "secret1"}
         )
