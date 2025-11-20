@@ -1,32 +1,48 @@
 """
-Shared test fixtures for movies router tests.
+Fixtures for Movies Router tests.
 """
 
-from unittest.mock import patch
+from unittest.mock import create_autospec
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.repositories.movies_repo import MovieRepository
 from backend.schemas.movies import MovieOut
 
 
-@pytest.fixture(autouse=True)
-def setup_test_environment():
-    """Setup test environment for all tests"""
-    with patch('backend.routers.movies._AUTH_ENABLED', True):
-        yield
+# ----- Mock Repository -----
+@pytest.fixture
+def mock_repo():
+    """Mocked MovieRepository instance."""
+    return create_autospec(MovieRepository)
 
 
+# ----- Test Client -----
 @pytest.fixture
 def client():
-    """Create test client for FastAPI app"""
+    """FastAPI TestClient for integration tests."""
     return TestClient(app)
 
 
+# ----- Headers for Auth -----
+@pytest.fixture
+def user_headers():
+    """Simulate normal user headers."""
+    return {"X-User-Role": "user", "X-User-Id": "u1"}
+
+
+@pytest.fixture
+def admin_headers():
+    """Simulate admin headers."""
+    return {"X-User-Role": "admin", "X-User-Id": "admin"}
+
+
+# ----- Sample Data -----
 @pytest.fixture
 def sample_movie_data():
-    """Sample movie data for testing"""
+    """Sample raw movie dictionary."""
     return {
         "movie_id": "tt0111161",
         "title": "The Shawshank Redemption",
@@ -40,23 +56,11 @@ def sample_movie_data():
         "poster_url": "https://example.com/poster.jpg",
         "created_at": "2024-01-01T12:00:00Z",
         "updated_at": "2024-01-01T12:00:00Z",
-        "review_count": 2500000,
+        "review_count": 2000000,
     }
 
 
 @pytest.fixture
 def sample_movie_out(sample_movie_data):
-    """Create MovieOut instance from sample data"""
+    """Sample MovieOut model instance."""
     return MovieOut(**sample_movie_data)
-
-
-@pytest.fixture
-def mock_current_user():
-    """Mock current user for authentication"""
-    return {"user_id": "test_user", "role": "user"}
-
-
-@pytest.fixture
-def mock_current_admin():
-    """Mock admin user for authentication"""
-    return {"user_id": "admin_user", "role": "admin"}

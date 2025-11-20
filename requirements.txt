@@ -20,6 +20,4 @@ flake8
 
 bandit
 pre-commit
-
-# Database
-sqlalchemy
+pytest-mock==3.12.0
