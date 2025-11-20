@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -23,11 +24,18 @@ except ImportError:
     _AUTH_ENABLED = False
 
     # Fallback for development without auth
+    _thread_local = threading.local()
+
     def get_current_user() -> Dict[str, Any]:
-        return {"user_id": "demo_user", "role": "user"}
+        if not hasattr(_thread_local, 'current_user'):
+            _thread_local.current_user = {"user_id": "demo_user", "role": "user"}
+        return _thread_local.current_user
+
 
     def get_current_admin_user() -> Dict[str, Any]:
-        return {"user_id": "admin_user", "role": "admin"}
+        if not hasattr(_thread_local, 'current_admin_user'):
+            _thread_local.current_admin_user = {"user_id": "admin_user", "role": "admin"}
+        return _thread_local.current_admin_user
 
 
 router = APIRouter(prefix="/api/movies", tags=["movies"])
