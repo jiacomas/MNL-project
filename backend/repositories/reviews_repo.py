@@ -262,7 +262,7 @@ class CSVReviewRepo:
         _save_index(movie_id, idx)
         return idx
 
-    def get_by_id(self, movie_id: str, review_id: str) -> Optional[ReviewOut]:
+    def get_review_by_id(self, movie_id: str, review_id: str) -> Optional[ReviewOut]:
         """Get a single review by its ID using the index for fast lookup"""
         idx = self._ensure_index(movie_id)
         pos = idx.get("by_id", {}).get(review_id)
@@ -280,13 +280,13 @@ class CSVReviewRepo:
                     return ReviewOut.model_validate(_row_to_dict(movie_id, row))
         return None
 
-    def get_by_user(self, movie_id: str, user_id: str) -> Optional[ReviewOut]:
+    def get_review_by_user(self, movie_id: str, user_id: str) -> Optional[ReviewOut]:
         '''Get the first review by a given user'''
         idx = self._ensure_index(movie_id)
         review_id = idx["by_user"].get(user_id)
         if not review_id:
             return None
-        return self.get_by_id(movie_id, review_id)
+        return self.get_review_by_id(movie_id, review_id)
 
     # Create/Update/Delete operations
     def create(self, review: ReviewOut) -> ReviewOut:

@@ -1,110 +1,90 @@
-# reviews router
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+from backend.deps import get_current_user_id, require_admin
+from backend.schemas.reviews import (
+    ReviewCreate,
+    ReviewListResponse,
+    ReviewOut,
+    ReviewUpdate,
+)
 from backend.services import reviews_service as svc
 
-# TODO: import auth and get current user from the app dependency file
-# Build a temporary fallback for local dev without auth
-try:
-    from deps import get_current_user_id
-except ImportError:
+router = APIRouter(prefix="/api/movies", tags=["reviews"])
 
-    def get_current_user_id() -> str:
-        return "demo_user"
+# ---------- Endpoints ----------
 
 
-router = APIRouter(prefix="/api/reviews", tags=["reviews"])
-
-
-@router.get("/movie/{movie_id}", response_model=Dict[str, Any])
-def list_reviews_endpoint(
-    movie_id: str = Path(..., description="Movie ID(directory name under data/movies)"),
+@router.get("/{movie_id}/reviews", response_model=ReviewListResponse)
+def list_reviews(
+    movie_id: str = Path(..., description="Movie ID"),
     limit: int = Query(50, ge=1, le=200, description="Max number of reviews to return"),
     cursor: Optional[int] = Query(None, description="Pagination cursor"),
     min_rating: Optional[int] = Query(
         None, ge=1, le=10, description="Minimum rating filter"
     ),
 ):
-    '''List reviews for a movie with cursor-based pagination
-    Returns a JSON object: {"items": ReviewOut[], "nextCursor": int | null}.
-    Frontend can pass nextCursor from the previous response to fetch the next page.
-    '''
-    items, next_cursor = svc.list_reviews(
-        movie_id=movie_id,
-        limit=limit,
-        cursor=cursor,
-        min_rating=min_rating,
-    )
-    return {"items": items, "nextCursor": next_cursor}
+    """List all reviews for a movie (cursor-based pagination)."""
+    items, next_cursor = svc.list_reviews(movie_id, limit, cursor, min_rating)
+    return ReviewListResponse(items=items, next_cursor=next_cursor)
 
 
-@router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
-def create_review_endpoint(payload: ReviewCreate):
-    '''Create a new review for a movie by the current user
-    TODO: In real app, inject current_user_id from the auth'''
-    # current_user_id = Depends(get_current_user_id)
-    # payload.user_id = current_user_id
-    return svc.create_review(payload)
+@router.post(
+    "/{movie_id}/reviews", response_model=ReviewOut, status_code=status.HTTP_201_CREATED
+)
+def create_review(
+    movie_id: str,
+    payload: ReviewCreate,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Create a new review for a specific movie."""
+    payload.movie_id = movie_id
+    return svc.create_review(payload.model_dump(), user_id)
 
 
-@router.patch("/movie/{movie_id}/{review_id}", response_model=ReviewOut)
-def update_review_endpoint(
+@router.patch("/{movie_id}/reviews/{review_id}", response_model=ReviewOut)
+def update_review(
     movie_id: str,
     review_id: str,
     payload: ReviewUpdate,
-    current_user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
-    '''Update an existing review by the current user'''
+    """Update an existing review (only the author can update)."""
     return svc.update_review(
-        movie_id=movie_id,
-        review_id=review_id,
-        current_user_id=current_user_id,
-        payload=payload,
+        movie_id, review_id, user_id, payload.model_dump(exclude_none=True)
     )
 
 
-@router.delete("/movie/{movie_id}/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_review_endpoint(
+@router.delete(
+    "/{movie_id}/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+def delete_review(
     movie_id: str,
     review_id: str,
-    current_user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
+    _: Dict = Depends(require_admin),
 ):
-    '''Delete an existing review by the current user or admin
-    TODO: In real app, check if current user is admin'''
-    svc.delete_review(
-        movie_id=movie_id,
-        review_id=review_id,
-        current_user_id=current_user_id,
-    )
+    """Delete a review (owner or admin)."""
+    svc.delete_review(movie_id, review_id, user_id, is_admin=True)
     return None
 
 
-@router.get("/movie/{movie_id}/me", response_model=Optional[ReviewOut])
-def get_my_review_endpoint(
+@router.get("/{movie_id}/reviews/me", response_model=Optional[ReviewOut])
+def get_my_review(
     movie_id: str,
-    current_user_id: str = Depends(
-        get_current_user_id
-    ),  # only depends on current_user_id
+    user_id: str = Depends(get_current_user_id),
 ):
-    '''Get the review for a movie by the currently authenticated user'''
-    # Use current_user_id
-    return svc.get_user_review(movie_id=movie_id, user_id=current_user_id)
+    """Retrieve the current user's review for a movie."""
+    return svc.get_review_by_user(movie_id, user_id)
 
 
-@router.get("/movie/{movie_id}/user/{user_id}", response_model=Optional[ReviewOut])
-def get_review_by_user_endpoint(
+@router.get("/{movie_id}/reviews/user/{user_id}", response_model=Optional[ReviewOut])
+def get_review_by_user(
     movie_id: str,
     user_id: str,
 ):
-    '''Get the review for a movie by a specific user ID'''
-    return svc.get_user_review(movie_id=movie_id, user_id=user_id)
-
-
-# .. note::
-#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-#    Core logic and subsequent modifications were implemented by the author(s).
+    """Retrieve a specific user's review for a movie."""
+    return svc.get_review_by_user(movie_id, user_id)
