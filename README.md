@@ -2,13 +2,13 @@
 
 ## 1. Overview
 
-This project is a full-stack multiuser system built for the COSC 310 course.  
+This project is a full-stack multiuser system built for the COSC 310 course.
 The domain is an IMDB-style movie reviews platform, where users can:
 
-- browse and search movies  
-- write and edit reviews  
-- manage bookmarks  
-- receive personalized recommendations  
+- browse and search movies
+- write and edit reviews
+- manage bookmarks
+- receive personalized recommendations
 - be managed by admins through penalties, statistics and external metadata sync
 
 The system follows the course constraints:
@@ -20,9 +20,8 @@ The system follows the course constraints:
 - **CI:** GitHub Actions
 - **Containerization:** Docker + Docker Compose
 
-Dataset used: **IMDB Movies User Reviews**  
+Dataset used: **IMDB Movies User Reviews**
 <https://www.kaggle.com/datasets/sadmadlad/imdb-user-reviews>
-
 
 ---
 
@@ -52,7 +51,6 @@ Dataset used: **IMDB Movies User Reviews**
   - `frontend` (Nginx)
   - `test-runner` (Pytest container)
 - CI with GitHub Actions
-
 
 ---
 
@@ -90,18 +88,18 @@ MNL-project/
 
 ## 4. Backend Routers
 
-| Router file | Responsibility |
-|-------------|----------------|
-| `auth.py` | JWT authentication & `/me` |
-| `movies.py` | Movie CRUD, filter, search (admin create/update/delete) |
-| `reviews.py` | CRUD reviews, pagination, "my review" |
-| `bookmarks.py` | User bookmarks + CSV export |
-| `recommendations.py` | Personalized movie recommendations |
-| `password_reset.py` | Reset tokens (request + set new password) |
-| `admin_analytics.py` | Admin CSV export of platform statistics |
-| `admin_sync.py` | Trigger external metadata sync |
+| Router file          | Responsibility                                          |
+| -------------------- | ------------------------------------------------------- |
+| `auth.py`            | JWT authentication & `/me`                              |
+| `movies.py`          | Movie CRUD, filter, search (admin create/update/delete) |
+| `reviews.py`         | CRUD reviews, pagination, "my review"                   |
+| `bookmarks.py`       | User bookmarks + CSV export                             |
+| `recommendations.py` | Personalized movie recommendations                      |
+| `password_reset.py`  | Reset tokens (request + set new password)               |
+| `admin_analytics.py` | Admin CSV export of platform statistics                 |
+| `admin_sync.py`      | Trigger external metadata sync                          |
 
-Swagger UI: `http://localhost:8000/docs`  
+Swagger UI: `http://localhost:8000/docs`
 ReDoc: `http://localhost:8000/redoc`
 
 ---
@@ -167,10 +165,10 @@ docker compose up --build
 
 Services:
 
-| Service | Port |
-|--------|------|
-| Backend | 8000 |
-| Frontend | 3000 |
+| Service     | Port               |
+| ----------- | ------------------ |
+| Backend     | 8000               |
+| Frontend    | 3000               |
 | Test Runner | runs automatically |
 
 Stop:
@@ -209,13 +207,13 @@ Tests include:
 
 ## 9. Data Storage
 
-| Type | File |
-|------|------|
-| Users | `backend/data/users.json` |
-| Bookmarks | `backend/data/bookmarks.json` |
-| Movies/Reviews | `backend/data/movies/` |
-| Exports | `backend/data/exports/` |
-| Sync Log | `backend/data/external_sync_log.json` |
+| Type           | File                                  |
+| -------------- | ------------------------------------- |
+| Users          | `backend/data/users.json`             |
+| Bookmarks      | `backend/data/bookmarks.json`         |
+| Movies/Reviews | `backend/data/movies/`                |
+| Exports        | `backend/data/exports/`               |
+| Sync Log       | `backend/data/external_sync_log.json` |
 
 Persistence rules:
 
@@ -292,10 +290,9 @@ reports/
 
 **Team Name:** MNL Project
 
-| Name | Student ID |
-|------|------------|
-| Jia Comas | 73041360 |
-| Mason Liu | 10288041 |
-| Helin Long | 64904501 |
-| Mia Kuang | 35154913 |
-
+| Name       | Student ID |
+| ---------- | ---------- |
+| Jia Comas  | 73041360   |
+| Mason Liu  | 10288041   |
+| Helin Long | 64904501   |
+| Mia Kuang  | 35154913   |
