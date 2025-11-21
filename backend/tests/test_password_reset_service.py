@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Tuple
 
 import pytest
 from fastapi import HTTPException
@@ -9,14 +10,21 @@ from backend.repositories.reset_tokens_repo import ResetTokenRepo
 from backend.repositories.users_repo import User, UserRepository
 from backend.services import password_reset_service as svc
 
+# ---------------------------------------------------------------------------
+# Fixtures & helpers
+# ---------------------------------------------------------------------------
+
 
 @pytest.fixture
-def repos(monkeypatch):
-    """Provide fresh in-memory repos for each test and plug them into the service."""
+def repos(monkeypatch) -> Tuple[UserRepository, ResetTokenRepo]:
+    """
+    Provide fresh in-memory repos for each test and plug them into
+    the password_reset_service module-level singletons.
+    """
     users = UserRepository()
     tokens = ResetTokenRepo()
 
-    # Replace module-level singletons
+    # Replace module-level singletons used by the service
     monkeypatch.setattr(svc, "_users", users)
     monkeypatch.setattr(svc, "_tokens", tokens)
 
@@ -24,7 +32,9 @@ def repos(monkeypatch):
 
 
 def _seed_user(users: UserRepository) -> User:
-    """Create a demo user that matches the current User schema."""
+    """
+    Create and persist a demo user that matches the current User schema.
+    """
     user = User(
         user_id="u1",
         user_type="customer",
@@ -43,37 +53,40 @@ def _seed_user(users: UserRepository) -> User:
 # ---------------------------------------------------------------------------
 
 
-def test_password_reset_happy_path(repos):
+def test_password_reset_happy_path(repos) -> None:
     users, tokens = repos
     user = _seed_user(users)
 
-    # 1) request token
+    # 1) User requests a reset token
     result = svc.request_password_reset(
         email="user@example.com",
         base_url="https://frontend.example",
     )
 
+    # Verify linkage between user and token
     assert result.user.user_id == user.user_id
     assert result.token.user_id == user.user_id
     assert result.reset_link.startswith("https://frontend.example/reset-password/")
     assert result.token.id in result.reset_link
 
-    # token in repo
+    # Token must be stored and valid
     token_from_repo = tokens.get(result.token.id)
     assert token_from_repo is not None
     assert token_from_repo.is_used is False
     assert token_from_repo.is_expired is False
 
-    # reset password
+    # 2) Reset password with the token
     svc.reset_password(token_id=result.token.id, new_password="Newpass1")
 
+    # User's password hash should be updated
     updated_user = users.get_by_id(user.user_id)
     assert updated_user is not None
-
     assert not svc.verify_password("Oldpass1", updated_user.passwordHash)
     assert svc.verify_password("Newpass1", updated_user.passwordHash)
 
+    # Token should now be marked as used
     used_token = tokens.get(result.token.id)
+    assert used_token is not None
     assert used_token.is_used is True
 
 
@@ -82,7 +95,7 @@ def test_password_reset_happy_path(repos):
 # ---------------------------------------------------------------------------
 
 
-def test_request_with_unknown_email_raises_404(repos):
+def test_request_with_unknown_email_raises_404(repos) -> None:
     users, _ = repos
     _seed_user(users)
 
@@ -93,8 +106,9 @@ def test_request_with_unknown_email_raises_404(repos):
     assert "Email not found" in exc.value.detail
 
 
-def test_reset_with_invalid_token_raises_error(repos):
-    _users, _tokens = repos
+def test_reset_with_invalid_token_raises_error(repos) -> None:
+    # repos fixture still sets up _users/_tokens, but we don't need them directly here
+    _, _ = repos  # explicit to show we're using the fixture
 
     with pytest.raises(HTTPException) as exc:
         svc.reset_password(token_id="not-a-real-token", new_password="Newpass1")
@@ -103,7 +117,7 @@ def test_reset_with_invalid_token_raises_error(repos):
     assert "Invalid or unknown reset token" in exc.value.detail
 
 
-def test_reset_with_used_token_raises_error(repos):
+def test_reset_with_used_token_raises_error(repos) -> None:
     users, tokens = repos
     user = _seed_user(users)
 
@@ -117,7 +131,7 @@ def test_reset_with_used_token_raises_error(repos):
     assert "already been used" in exc.value.detail
 
 
-def test_reset_with_expired_token_raises_error(repos):
+def test_reset_with_expired_token_raises_error(repos) -> None:
     users, tokens = repos
     user = _seed_user(users)
 
@@ -138,7 +152,11 @@ def test_reset_with_expired_token_raises_error(repos):
         ("longpassword", "at least one digit"),
     ],
 )
-def test_password_must_meet_rules(repos, bad_password, expected_message_substring):
+def test_password_must_meet_rules(
+    repos,
+    bad_password: str,
+    expected_message_substring: str,
+) -> None:
     users, tokens = repos
     user = _seed_user(users)
     token = tokens.create_for_user(user.user_id)
