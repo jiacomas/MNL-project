@@ -6,6 +6,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, status
 
+from backend import settings
 from backend.repositories.bookmarks_repo import JSONBookmarkRepo
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 from backend.services.bookmarks_service import BookmarkService
@@ -18,7 +19,8 @@ router = APIRouter(
 
 def get_bookmarks_service() -> BookmarkService:
     '''Provide BookmarkService with a repo using BOOKMARKS_PATH.'''
-    storage_path = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
+    # Prefer explicit env var (tests set this) and fall back to centralized settings
+    storage_path = os.getenv("BOOKMARKS_PATH", str(settings.BOOKMARKS_PATH))
     repo = JSONBookmarkRepo(storage_path=storage_path)
     return BookmarkService(repo)
 

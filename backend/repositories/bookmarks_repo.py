@@ -8,11 +8,14 @@ from datetime import datetime, timezone
 from typing import Dict, List
 from uuid import UUID
 
+from backend import settings
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
-# Configuration
-BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
-BOOKMARKS_EXPORT_DIR = os.getenv("BOOKMARKS_EXPORT_DIR", "backend/data/exports")
+# Configuration (centralized) with env overrides for tests
+BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", str(settings.BOOKMARKS_PATH))
+BOOKMARKS_EXPORT_DIR = os.getenv(
+    "BOOKMARKS_EXPORT_DIR", str(settings.BOOKMARKS_EXPORT_DIR)
+)
 
 
 # Helpers

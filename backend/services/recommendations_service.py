@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import json
-import os
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Set
 
 from fastapi import HTTPException, status
 
+from backend import settings
 from backend.schemas.recommendations import RecommendationOut
 
-# These are monkey-patched in tests
-ITEMS_FILE: Path = Path(os.getenv("ITEMS_FILE", "data/items.json"))
-REVIEWS_FILE: Path = Path(os.getenv("REVIEWS_FILE", "data/reviews.json"))
+# Use centralized settings for file locations; tests can monkeypatch `settings.ITEMS_FILE`
+ITEMS_FILE: Path = settings.ITEMS_FILE
+REVIEWS_FILE: Path = settings.REVIEWS_FILE
 
 MIN_RATINGS_REQUIRED = 3
 MIN_RECOMMENDATIONS = 5
