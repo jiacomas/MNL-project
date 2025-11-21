@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from backend.services import analytics_service as analytics
 
 
-def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
+def _write_json(path: Path, payload: object) -> None:
+    """Small helper to write JSON payloads with UTF-8 + pretty format."""
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_compute_stats_and_write_csv(tmp_path: Path, monkeypatch) -> None:
     """Unit test for Analytics / CSV export.
 
     Verifies:
@@ -13,7 +19,6 @@ def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
     - top genres calculation
     - CSV schema (headers) and presence of generated_at row
     """
-
     # ------------------------------------------------------------------
     # 1. Point analytics_service to temporary data files
     # ------------------------------------------------------------------
@@ -35,31 +40,42 @@ def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
     # 2. Write minimal JSON fixtures for the test
     # ------------------------------------------------------------------
     # Users: one active, one locked
-    users_file.write_text(
-        '[{"id": "u1", "is_locked": false}, {"id": "u2", "is_locked": true}]',
-        encoding="utf-8",
+    _write_json(
+        users_file,
+        [
+            {"id": "u1", "is_locked": False},
+            {"id": "u2", "is_locked": True},
+        ],
     )
 
     # Single movie m1 with two genres
-    items_file.write_text(
-        '[{"id": "m1", "genres": ["Action", "Adventure"]}]',
-        encoding="utf-8",
+    _write_json(
+        items_file,
+        [
+            {"id": "m1", "genres": ["Action", "Adventure"]},
+        ],
     )
 
     # One review and one bookmark for m1
-    reviews_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
+    _write_json(
+        reviews_file,
+        [
+            {"user_id": "u1", "movie_id": "m1"},
+        ],
     )
-    bookmarks_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
+    _write_json(
+        bookmarks_file,
+        [
+            {"user_id": "u1", "movie_id": "m1"},
+        ],
     )
 
     # One penalty record
-    penalties_file.write_text(
-        '[{"user_id": "u2", "reason": "spam"}]',
-        encoding="utf-8",
+    _write_json(
+        penalties_file,
+        [
+            {"user_id": "u2", "reason": "spam"},
+        ],
     )
 
     # ------------------------------------------------------------------
