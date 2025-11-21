@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pytest_mock import MockerFixture
+
 from backend.services import analytics_service as analytics
 
 
-def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
+def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> None:
     """Unit test for Analytics / CSV export.
 
     Verifies:
@@ -24,12 +26,12 @@ def test_compute_stats_and_write_csv(tmp_path, monkeypatch) -> None:
     items_file = tmp_path / "items.json"
     export_dir = tmp_path / "exports"
 
-    monkeypatch.setattr(analytics, "USERS_FILE", users_file)
-    monkeypatch.setattr(analytics, "REVIEWS_FILE", reviews_file)
-    monkeypatch.setattr(analytics, "BOOKMARKS_FILE", bookmarks_file)
-    monkeypatch.setattr(analytics, "PENALTIES_FILE", penalties_file)
-    monkeypatch.setattr(analytics, "ITEMS_FILE", items_file)
-    monkeypatch.setattr(analytics, "EXPORT_DIR", export_dir)
+    mocker.patch.object(analytics, "USERS_FILE", users_file)
+    mocker.patch.object(analytics, "REVIEWS_FILE", reviews_file)
+    mocker.patch.object(analytics, "BOOKMARKS_FILE", bookmarks_file)
+    mocker.patch.object(analytics, "PENALTIES_FILE", penalties_file)
+    mocker.patch.object(analytics, "ITEMS_FILE", items_file)
+    mocker.patch.object(analytics, "EXPORT_DIR", export_dir)
 
     # ------------------------------------------------------------------
     # 2. Write minimal JSON fixtures for the test

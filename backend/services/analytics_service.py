@@ -6,7 +6,7 @@ import os
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 from backend.repositories.reviews_repo import CSVReviewRepo
 
@@ -56,6 +56,43 @@ def _read_json_list(path: Path) -> List[Dict[str, Any]]:
     return [data]
 
 
+def _basic_user_metrics(users: List[Dict[str, Any]]) -> Tuple[int, int, int]:
+    """Return (total, active, locked) user counts."""
+    total = len(users)
+    active = sum(1 for u in users if not u.get("is_locked"))
+    locked = sum(1 for u in users if u.get("is_locked"))
+    return total, active, locked
+
+
+def _activity_metrics(
+    reviews: List[Dict[str, Any]],
+    bookmarks: List[Dict[str, Any]],
+    penalties: List[Dict[str, Any]],
+) -> Tuple[int, int, int]:
+    """Return counts for reviews, bookmarks and penalties."""
+    return len(reviews), len(bookmarks), len(penalties)
+
+
+def _top_genres(
+    items: List[Dict[str, Any]],
+    reviews: List[Dict[str, Any]],
+) -> List[Tuple[str, int]]:
+    """Compute (genre, count) sorted by most common first.
+
+    The count is based on how often a genre appears for *reviewed* movies.
+    """
+    genres_by_item = {item.get("id"): item.get("genres", []) for item in items}
+    genre_counter: Counter[str] = Counter()
+
+    for review in reviews:
+        movie_id = review.get("movie_id")
+        for genre in genres_by_item.get(movie_id, []):
+            if genre:
+                genre_counter[genre] += 1
+
+    return list(genre_counter.most_common())
+
+
 def compute_stats_and_write_csv() -> Path:
     """Compute platform stats and write them to a CSV file.
 
@@ -73,14 +110,10 @@ def compute_stats_and_write_csv() -> Path:
     penalties = _read_json_list(PENALTIES_FILE)
     items = _read_json_list(ITEMS_FILE)
 
-    # Basic user / activity counts
-    user_total = len(users)
-    user_active = sum(1 for u in users if not u.get("is_locked"))
-    user_locked = sum(1 for u in users if u.get("is_locked"))
-
-    reviews_count = len(reviews)
-    bookmarks_count = len(bookmarks)
-    penalties_count = len(penalties)
+    user_total, user_active, user_locked = _basic_user_metrics(users)
+    reviews_count, bookmarks_count, penalties_count = _activity_metrics(
+        reviews, bookmarks, penalties
+    )
 
     metrics = [
         ("users_count", str(user_total)),
@@ -92,17 +125,7 @@ def compute_stats_and_write_csv() -> Path:
         ("penalties_count", str(penalties_count)),
     ]
 
-    # Top genres: count how often genres appear for reviewed movies
-    genres_by_item = {item.get("id"): item.get("genres", []) for item in items}
-    genre_counter: Counter[str] = Counter()
-
-    for r in reviews:
-        movie_id = r.get("movie_id")
-        for g in genres_by_item.get(movie_id, []):
-            if g:
-                genre_counter[g] += 1
-
-    top_genres = list(genre_counter.most_common())
+    top_genres = _top_genres(items, reviews)
 
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = EXPORT_DIR / "analytics_export.csv"
@@ -137,9 +160,7 @@ def _discover_movie_root() -> str:
     """Return the directory where per-movie review CSVs live."""
     # The project normally uses MOVIE_DATA_PATH; fall back to data/movies.
     env_root = os.environ.get("MOVIE_DATA_PATH")
-    if env_root:
-        return env_root
-    return "data/movies"
+    return env_root or "data/movies"
 
 
 def _iter_matching_movie_ids(root: str, normalized_q: str) -> Iterable[str]:
@@ -164,14 +185,14 @@ def _load_review_rows_for_movie(movie_id: str) -> List[Dict[str, Any]]:
         return []
 
     rows: List[Dict[str, Any]] = []
-    for r in reviews:
+    for review in reviews:
         rows.append(
             {
-                "id": r.id,
+                "id": review.id,
                 "movie_title": movie_id,
-                "rating": r.rating,
-                "created_at": r.created_at,
-                "user_id": r.user_id,
+                "rating": review.rating,
+                "created_at": review.created_at,
+                "user_id": review.user_id,
             }
         )
     return rows
@@ -184,10 +205,13 @@ def _sort_review_rows(
 ) -> List[Dict[str, Any]]:
     """Sort review rows by rating or created_at according to the tests."""
     reverse = order != "asc"
+
     if sort_by == "rating":
-        rows.sort(key=lambda x: (x.get("rating") or 0), reverse=reverse)
+        key = lambda x: (x.get("rating") or 0)  # noqa: E731
     else:
-        rows.sort(key=lambda x: x.get("created_at") or 0, reverse=reverse)
+        key = lambda x: x.get("created_at") or 0  # noqa: E731
+
+    rows.sort(key=key, reverse=reverse)
     return rows
 
 
@@ -209,11 +233,17 @@ def search_reviews_by_title(
     normalized_q = (title_query or "").strip().lower()
 
     rows: List[Dict[str, Any]] = []
-
     for movie_id in _iter_matching_movie_ids(root, normalized_q):
         rows.extend(_load_review_rows_for_movie(movie_id))
 
     return _sort_review_rows(rows, sort_by, order)
+
+
+def _serialize_created_at(value: Any) -> str:
+    """Convert created_at to a string suitable for CSV output."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
 
 
 def write_reviews_csv(rows: List[Dict[str, Any]], out_path: Path) -> Path:
@@ -223,19 +253,15 @@ def write_reviews_csv(rows: List[Dict[str, Any]], out_path: Path) -> Path:
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["id", "movie_title", "rating", "created_at", "user_id"])
-        for r in rows:
-            created = r.get("created_at")
-            if isinstance(created, datetime):
-                created_s = created.isoformat()
-            else:
-                created_s = str(created)
+
+        for row in rows:
             writer.writerow(
                 [
-                    r.get("id"),
-                    r.get("movie_title"),
-                    r.get("rating"),
-                    created_s,
-                    r.get("user_id"),
+                    row.get("id"),
+                    row.get("movie_title"),
+                    row.get("rating"),
+                    _serialize_created_at(row.get("created_at")),
+                    row.get("user_id"),
                 ]
             )
 

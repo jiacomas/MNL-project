@@ -3,33 +3,62 @@ import pytest
 from backend.services import analytics_service
 
 
-def test_search_case_insensitive():
-    # Search for 'avengers' should match 'Avengers Endgame' and/or 'The Avengers'
-    rows = analytics_service.search_reviews_by_title("avengers")
-    assert isinstance(rows, list)
-    # If no rows exist for this environment, test is skipped
+def _assert_or_skip_for_empty_rows(rows, skip_message: str) -> None:
+    """
+    Helper to skip tests when the local environment lacks review data.
+    """
     if not rows:
-        pytest.skip("No matching reviews for 'avengers' found in test data")
-    for r in rows:
-        assert "avengers" in r["movie_title"].lower()
+        pytest.skip(skip_message)
 
 
-def test_sort_by_rating_desc():
+@pytest.mark.integration
+def test_search_case_insensitive() -> None:
+    """
+    Searching by lowercase query should match titles regardless of case.
+    Example: 'avengers' matches 'Avengers Endgame' or 'The Avengers'.
+    """
+    rows = analytics_service.search_reviews_by_title("avengers")
+
+    _assert_or_skip_for_empty_rows(
+        rows, "No matching reviews for 'avengers' found in test data"
+    )
+
+    assert isinstance(rows, list)
+    for row in rows:
+        assert "avengers" in row["movie_title"].lower()
+
+
+@pytest.mark.integration
+def test_sort_by_rating_desc() -> None:
+    """
+    Sorting by rating descending should produce ratings from high → low.
+    """
     rows = analytics_service.search_reviews_by_title("", sort_by="rating", order="desc")
+
     if len(rows) < 2:
         pytest.skip("Not enough reviews to test sorting")
-    ratings = [r["rating"] or 0 for r in rows]
+
+    ratings = [row["rating"] or 0 for row in rows]
     assert ratings == sorted(ratings, reverse=True)
 
 
-def test_write_reviews_csv(tmp_path):
+@pytest.mark.integration
+def test_write_reviews_csv(tmp_path) -> None:
+    """
+    Writing review search results to CSV should produce a file
+    containing the correct header row.
+    """
     rows = analytics_service.search_reviews_by_title("joker")
-    if not rows:
-        pytest.skip("No matching reviews for 'joker' found in test data")
 
-    # write to a specific filename inside exports dir
+    _assert_or_skip_for_empty_rows(
+        rows, "No matching reviews for 'joker' found in test data"
+    )
+
     filename = "test_joker_export.csv"
     csv_path = analytics_service.write_reviews_csv(rows, filename=filename)
+
     assert csv_path.exists()
-    content = csv_path.read_text(encoding="utf-8")
-    assert "id,movie_title,rating,created_at,user_id" in content.splitlines()[0]
+
+    lines = csv_path.read_text(encoding="utf-8").splitlines()
+    assert lines
+    assert lines[0] == "id,movie_title,rating,created_at,user_id"
