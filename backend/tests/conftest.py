@@ -154,3 +154,11 @@ def mock_reviews_service(mocker):
 
     # Patch the service object used inside the router
     return mocker.patch.object(reviews, "svc", autospec=True)
+
+
+@pytest.fixture
+def mock_bookmarks_service(mocker):
+    from backend.routers import bookmarks
+
+    # Patch the service object used inside the bookmarks router
+    return mocker.patch.object(bookmarks, "svc", autospec=True)
