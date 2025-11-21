@@ -20,16 +20,14 @@ from typing import Any, List, Tuple
 
 import httpx
 
-SERVICES_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = SERVICES_DIR.parent
-PROJECT_ROOT = BACKEND_DIR.parent
+from backend import settings
 
-ROOT_DATA_DIR = PROJECT_ROOT / "data"
-ITEMS_FILE = ROOT_DATA_DIR / "items.json"
-SYNC_LOG_FILE = ROOT_DATA_DIR / "external_sync_log.json"
-
-EXTERNAL_API_BASE_URL = "https://example.com/movie-api"
-EXTERNAL_API_KEY_ENV = "MOVIE_API_KEY"
+# Use centralized settings for file locations and external API configuration
+ROOT_DATA_DIR = settings.ROOT_DATA_DIR
+ITEMS_FILE: Path = settings.ITEMS_FILE
+SYNC_LOG_FILE: Path = settings.SYNC_LOG_FILE
+EXTERNAL_API_BASE_URL = settings.EXTERNAL_API_BASE_URL
+EXTERNAL_API_KEY_ENV = settings.EXTERNAL_API_KEY_ENV
 
 
 def _load_json(path: Path) -> Any:

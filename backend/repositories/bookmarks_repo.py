@@ -8,11 +8,14 @@ from datetime import datetime, timezone
 from typing import Dict, List
 from uuid import UUID
 
+from backend import settings
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
-# Configuration
-BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
-BOOKMARKS_EXPORT_DIR = os.getenv("BOOKMARKS_EXPORT_DIR", "backend/data/exports")
+# Configuration (centralized) with env overrides for tests
+BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", str(settings.BOOKMARKS_PATH))
+BOOKMARKS_EXPORT_DIR = os.getenv(
+    "BOOKMARKS_EXPORT_DIR", str(settings.BOOKMARKS_EXPORT_DIR)
+)
 
 
 # Helpers
@@ -48,9 +51,14 @@ class JSONBookmarkRepo:
     Provides CRUD operations and supports exporting to CSV.
     '''
 
-    def __init__(self, storage_path: str = BOOKMARKS_PATH):
-        '''Initialize repository with file path and ensure directory exists.'''
-        self.storage_path = storage_path
+    def __init__(self, storage_path: str | None = None):
+        '''Initialize repository with file path and ensure directory exists.
+
+        If `storage_path` is not provided, read from env `BOOKMARKS_PATH` or
+        fall back to centralized settings. This makes tests able to monkeypatch
+        `BOOKMARKS_PATH` without reloading the settings module.
+        '''
+        self.storage_path = storage_path or os.getenv("BOOKMARKS_PATH", BOOKMARKS_PATH)
         dirpath = os.path.dirname(self.storage_path) or "."
         os.makedirs(dirpath, exist_ok=True)
         if not os.path.exists(self.storage_path):
