@@ -18,11 +18,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, List, Tuple
 
-import httpx  # add to requirements.txt
+import httpx
 
 from backend import settings
 
 # Use centralized settings for file locations and external API configuration
+ROOT_DATA_DIR = settings.ROOT_DATA_DIR
 ITEMS_FILE: Path = settings.ITEMS_FILE
 SYNC_LOG_FILE: Path = settings.SYNC_LOG_FILE
 EXTERNAL_API_BASE_URL = settings.EXTERNAL_API_BASE_URL
@@ -42,14 +43,8 @@ def _save_json(path: Path, data: Any) -> None:
 async def _fetch_external_metadata(
     client: httpx.AsyncClient, title: str
 ) -> dict | None:
-    """
-    Fetches metadata from external API by title.
-
-    You must adapt query params & field mapping to the real API.
-    """
     api_key = os.getenv(EXTERNAL_API_KEY_ENV)
     if not api_key:
-        # In dev, if no key is set, we just skip.
         return None
 
     params = {"title": title, "api_key": api_key}
@@ -62,7 +57,6 @@ async def _fetch_external_metadata(
 
     data = resp.json()
 
-    # Map remote fields into our schema; adjust to match your API response.
     return {
         "poster_url": data.get("poster_url") or data.get("Poster"),
         "runtime": data.get("runtime") or data.get("Runtime"),
@@ -71,11 +65,6 @@ async def _fetch_external_metadata(
 
 
 async def _update_item_from_external(client: httpx.AsyncClient, item: dict) -> bool:
-    """
-    Fetches external metadata for a single item and updates it in-place.
-
-    Returns True if any field changed.
-    """
     title = item.get("title")
     if not title:
         return False
@@ -95,40 +84,44 @@ async def _update_item_from_external(client: httpx.AsyncClient, item: dict) -> b
     return changed
 
 
-async def sync_external_metadata() -> Tuple[int, datetime]:
+async def sync_external_metadata() -> Tuple[int, str]:
     """
     Syncs external metadata into items.json.
 
     Returns:
-        (items_updated_count, timestamp)
+        (items_updated_count, timestamp_str)
     """
     items = _load_json(ITEMS_FILE)
     if not isinstance(items, list):
-        return 0, datetime.now(UTC)
+        ts = datetime.now(UTC).isoformat()
+        return 0, ts
 
     updated_indices: List[int] = []
-    now = datetime.now(UTC)
+
+    # ***** CRITICAL CHANGE: timestamp as string *****
+    timestamp_str = datetime.now(UTC).isoformat()
 
     async with httpx.AsyncClient() as client:
-        for index, item in enumerate(items):
+        for idx, item in enumerate(items):
             if await _update_item_from_external(client, item):
-                updated_indices.append(index)
+                updated_indices.append(idx)
 
+    # Save updated items only if something changed
     if updated_indices:
         _save_json(ITEMS_FILE, items)
 
-    # Log the sync
+    # Prepare log entry
     log = _load_json(SYNC_LOG_FILE) or []
     if not isinstance(log, list):
         log = []
 
     log.append(
         {
-            "timestamp": now.isoformat(),
+            "timestamp": timestamp_str,
             "items_updated": len(updated_indices),
             "indices": updated_indices,
         }
     )
     _save_json(SYNC_LOG_FILE, log)
 
-    return len(updated_indices), now
+    return len(updated_indices), timestamp_str
