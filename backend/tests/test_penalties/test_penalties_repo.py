@@ -28,7 +28,7 @@ def memory_store():
 
 
 @pytest.fixture
-def repo(mocker, memory_store) -> JSONPenaltyRepository:
+def repo(mocker, memory_store, tmp_path) -> JSONPenaltyRepository:
     """
     Repository instance whose load/save are patched to use memory_store
     instead of the real filesystem.
@@ -41,13 +41,10 @@ def repo(mocker, memory_store) -> JSONPenaltyRepository:
         lambda path: None,
     )
 
-    def fake_load_raw_penalties(path: str):
-        return memory_store["data"]
-
     mocker.patch.object(
         penalties_repo_module,
         "_load_raw_penalties",
-        side_effect=fake_load_raw_penalties,
+        side_effect=lambda path: memory_store["data"],
     )
 
     def fake_save(self, penalties):
@@ -55,7 +52,7 @@ def repo(mocker, memory_store) -> JSONPenaltyRepository:
 
     mocker.patch.object(JSONPenaltyRepository, "_save", fake_save)
 
-    return JSONPenaltyRepository(storage_path="ignored.json")
+    return JSONPenaltyRepository(storage_path=str(tmp_path / "penalties.json"))
 
 
 @pytest.fixture
@@ -152,12 +149,13 @@ class TestPenaltyHelpers:
 class TestJSONPenaltyRepository:
     """Test JSONPenaltyRepository class functionality."""
 
-    def test_init_calls_ensure_storage_file(self, mocker):
+    def test_init_calls_ensure_storage_file(self, mocker, tmp_path):
         """Test that repository init calls _ensure_storage_file with the given path."""
         spy = mocker.spy(penalties_repo_module, "_ensure_storage_file")
-        repo = JSONPenaltyRepository(storage_path="some/path/penalties.json")
-        assert repo.storage_path == "some/path/penalties.json"
-        spy.assert_called_once_with("some/path/penalties.json")
+        storage_path = tmp_path / "penalties.json"
+        repo = JSONPenaltyRepository(storage_path=str(storage_path))
+        assert repo.storage_path == str(storage_path)
+        spy.assert_called_once_with(str(storage_path))
 
     def test_create_penalty_success(self, repo, sample_penalty_data):
         """Test successful creation of a penalty."""
@@ -539,7 +537,7 @@ class TestPenaltyRepositorySummary:
 class TestPenaltyRepositoryEdgeCases:
     """Test edge cases and error conditions."""
 
-    def test_handles_corrupted_json_file(self, mocker):
+    def test_handles_corrupted_json_file(self, mocker, tmp_path):
         """Test that repository handles corrupted JSON file (JSONDecodeError) gracefully."""
         mocker.patch(
             "backend.repositories.penalties_repo.os.path.exists", return_value=True
@@ -555,12 +553,12 @@ class TestPenaltyRepositoryEdgeCases:
             side_effect=json.JSONDecodeError("msg", "doc", 0),
         )
 
-        repo = JSONPenaltyRepository(storage_path="dummy.json")
+        repo = JSONPenaltyRepository(storage_path=str(tmp_path / "p.json"))
         penalties, total = repo.list_by_user("user1")
         assert penalties == []
         assert total == 0
 
-    def test_handles_empty_file(self, mocker):
+    def test_handles_empty_file(self, mocker, tmp_path):
         """Test that repository handles empty file as empty list (via JSONDecodeError)."""
         mocker.patch(
             "backend.repositories.penalties_repo.os.path.exists", return_value=True
@@ -576,19 +574,19 @@ class TestPenaltyRepositoryEdgeCases:
             side_effect=json.JSONDecodeError("msg", "doc", 0),
         )
 
-        repo = JSONPenaltyRepository(storage_path="dummy.json")
+        repo = JSONPenaltyRepository(storage_path=str(tmp_path / "p.json"))
         penalties, total = repo.list_by_user("user1")
         assert penalties == []
         assert total == 0
 
-    def test_handles_missing_file(self, mocker):
+    def test_handles_missing_file(self, mocker, tmp_path):
         """Test that repository handles missing file correctly (os.path.exists=False)."""
         mocker.patch(
             "backend.repositories.penalties_repo.os.path.exists", return_value=False
         )
         mocker.patch("backend.repositories.penalties_repo.os.makedirs")
 
-        repo = JSONPenaltyRepository(storage_path="dummy.json")
+        repo = JSONPenaltyRepository(storage_path=str(tmp_path / "p.json"))
         penalties, total = repo.list_by_user("user1")
         assert penalties == []
         assert total == 0
