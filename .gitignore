@@ -18,3 +18,7 @@ data/
 # Environment configuration
 .env
 mnl_backend.egg-info/
+htmlcov/
+coverage/
+.coverage
+backend/.coverage
