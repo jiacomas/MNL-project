@@ -4,18 +4,20 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from pytest_mock import MockerFixture
 
 from backend.services import recommendations_service as rec_mod
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:
+    """Utility to write JSON content (as raw string) to a named file."""
     p = tmp_path / name
     p.write_text(content, encoding="utf-8")
     return p
 
 
-def test_requires_minimum_three_ratings(tmp_path, monkeypatch) -> None:
-    """Recommendations only appear after the user has rated at least 3 movies."""
+def test_requires_minimum_three_ratings(tmp_path: Path, mocker: MockerFixture) -> None:
+    """User must have at least 3 ratings before recommendations are generated."""
     items_file = _write(
         tmp_path,
         "items.json",
@@ -27,8 +29,8 @@ def test_requires_minimum_three_ratings(tmp_path, monkeypatch) -> None:
         '[{"user_id": "u1", "movie_id": "m1", "rating": 5}]',
     )
 
-    monkeypatch.setattr(rec_mod, "ITEMS_FILE", items_file)
-    monkeypatch.setattr(rec_mod, "REVIEWS_FILE", reviews_file)
+    mocker.patch.object(rec_mod, "ITEMS_FILE", items_file)
+    mocker.patch.object(rec_mod, "REVIEWS_FILE", reviews_file)
 
     with pytest.raises(HTTPException) as exc:
         rec_mod.get_recommendations_for_user("u1")
@@ -37,8 +39,14 @@ def test_requires_minimum_three_ratings(tmp_path, monkeypatch) -> None:
     assert "Rate at least 3 movies" in exc.value.detail
 
 
-def test_recommendations_based_on_top_genres(tmp_path, monkeypatch) -> None:
-    """At least 5 recs; based on genres from high-rated movies; reasons included."""
+def test_recommendations_based_on_top_genres(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """
+    At least 5 recommendations should appear if enough movies exist.
+    Recommendations should prioritize the user's top genres.
+    All returned RecommendationOut objects should have a reason string.
+    """
     items_file = _write(
         tmp_path,
         "items.json",
@@ -55,7 +63,7 @@ def test_recommendations_based_on_top_genres(tmp_path, monkeypatch) -> None:
         """,
     )
 
-    # u1 has three ratings; two are high-rated Action / Adventure movies
+    # User u1 has 3 ratings; their top genres are Action + Adventure.
     reviews_file = _write(
         tmp_path,
         "reviews.json",
@@ -68,22 +76,22 @@ def test_recommendations_based_on_top_genres(tmp_path, monkeypatch) -> None:
         """,
     )
 
-    monkeypatch.setattr(rec_mod, "ITEMS_FILE", items_file)
-    monkeypatch.setattr(rec_mod, "REVIEWS_FILE", reviews_file)
+    mocker.patch.object(rec_mod, "ITEMS_FILE", items_file)
+    mocker.patch.object(rec_mod, "REVIEWS_FILE", reviews_file)
 
     recs = rec_mod.get_recommendations_for_user("u1")
 
-    # At least 5 movies recommended (if available)
+    # Expect at least 5 recommendations (when enough items exist)
     assert len(recs) >= 5
 
-    # All recs must have a reason string
+    # Every recommendation must have a reason
     for r in recs:
-        assert r.reason
+        assert r.reason, "All recommendations must include a reason."
 
-    # Top recommendations should be in the user's preferred genres
+    # The top few recommendations should align with preferred genres:
     top_titles = {r.title for r in recs[:3]}
     assert {"Action Three", "Adventure X"} & top_titles
 
-    # Endpoint returns RecommendationOut objects
+    # All returned objects should expose expected attributes
     assert all(hasattr(r, "movie_id") for r in recs)
     assert all(hasattr(r, "title") for r in recs)
