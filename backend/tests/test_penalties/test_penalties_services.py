@@ -1,5 +1,3 @@
-# backend/tests/test_penalties/test_penalties_services.py
-
 from datetime import datetime, timedelta, timezone
 from typing import List
 from unittest.mock import Mock

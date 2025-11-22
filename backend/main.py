@@ -9,6 +9,7 @@ from backend.routers.bookmarks import router as bookmarks_router
 from backend.routers.movies import router as movies_router
 from backend.routers.recommendations import router as recommendations_router
 from backend.routers.reviews import router as reviews_router
+from backend.routers.penalties import router as penalties_router
 
 app = FastAPI()
 
@@ -39,3 +40,6 @@ app.include_router(bookmarks_router)
 
 # Movies router
 app.include_router(movies_router)
+
+# Penalties router
+app.include_router(penalties_router)
