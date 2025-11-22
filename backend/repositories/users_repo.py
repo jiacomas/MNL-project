@@ -5,7 +5,7 @@ from typing import Any, List
 
 from backend.schemas.users import Admin, Customers, User
 
-DATA_PATH = "backend/data/users.json"
+DATA_PATH = os.getenv("USER_DATA_PATH", "backend/data/users.json")
 
 
 def load_all(path: str = DATA_PATH) -> List[User]:
