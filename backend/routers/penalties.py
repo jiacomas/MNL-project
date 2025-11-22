@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
+from backend.deps import require_admin
 from backend.schemas.penalties import (
     PenaltyCreate,
     PenaltyListResponse,
@@ -13,7 +14,6 @@ from backend.schemas.penalties import (
     UserPenaltySummary,
 )
 from backend.services import penalties_services
-from backend.deps import require_admin
 from backend.services.auth_service import get_current_user
 
 router = APIRouter(
@@ -23,6 +23,7 @@ router = APIRouter(
 
 
 # ---------- Utility: Get authentication context ----------
+
 
 def get_auth_context(user: dict = Depends(get_current_user)) -> dict:
     """
@@ -37,6 +38,7 @@ def get_auth_context(user: dict = Depends(get_current_user)) -> dict:
 
 
 # ---------- Create / Update / Delete / Deactivate ----------
+
 
 @router.post(
     "/",
@@ -116,6 +118,7 @@ def deactivate_penalty_endpoint(
 # ---------- Global search (admin only) ----------
 # IMPORTANT: this must be defined BEFORE `/{penalty_id}` to avoid route conflicts.
 
+
 @router.get(
     "/search",
     response_model=PenaltyListResponse,
@@ -155,6 +158,7 @@ def search_penalties_endpoint(
 
 # ---------- Retrieve a single penalty ----------
 
+
 @router.get(
     "/{penalty_id}",
     response_model=PenaltyOut,
@@ -177,6 +181,7 @@ def get_penalty_endpoint(
 
 
 # ---------- User-level listing and summary ----------
+
 
 @router.get(
     "/users/{user_id}",

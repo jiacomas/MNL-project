@@ -1,17 +1,16 @@
-import pytest
 from datetime import datetime, timezone
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.routers.penalties import router, get_auth_context
 from backend.deps import require_admin
+from backend.routers.penalties import get_auth_context, router
 from backend.schemas.penalties import (
-    PenaltyOut,
     PenaltyListResponse,
+    PenaltyOut,
     UserPenaltySummary,
 )
-
 
 # ---------- FastAPI app & client fixtures ----------
 
@@ -52,7 +51,9 @@ def client(app):
 
 
 class TestCreatePenaltyRouter:
-    def test_create_penalty_calls_service_and_returns_penalty(self, client, monkeypatch):
+    def test_create_penalty_calls_service_and_returns_penalty(
+        self, client, monkeypatch
+    ):
         """
         Ensure that:
         - The router calls penalties_services.create_penalty with correct arguments.
