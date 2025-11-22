@@ -1,31 +1,36 @@
 import json
 import os
 import uuid
-from typing import Any, Dict, List
+from typing import Any, List
 
 from backend.schemas.users import Admin, Customers, User
 
-DATA_PATH = "backend/data/users.json"
+DATA_PATH = os.getenv("USER_DATA_PATH", "backend/data/users.json")
 
 
 def load_all(path: str = DATA_PATH) -> List[User]:
-    users = []
+    """Load users.json into User/Pydantic objects."""
     if not os.path.exists(path):
         return []
+
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-        for item in data:
-            if item.get("user_type") == "admin":
-                users.append(Admin(**item))
-            elif item.get("user_type") == "customer":
-                users.append(Customers(**item))
-            else:
-                raise ValueError(f"Unknown user type: {item.get('user_type')}")
+
+    users: List[User] = []
+    for item in data:
+        user_type = item.get("user_type")
+        if user_type == "admin":
+            users.append(Admin(**item))
+        elif user_type == "customer":
+            users.append(Customers(**item))
+        else:
+            raise ValueError(f"Unknown user type: {user_type}")
+
     return users
 
 
-def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
-    # ensure directory exists
+def save_all(items: List[Any], path: str = DATA_PATH) -> None:
+    """Serialize list of users (Pydantic models) into JSON."""
     dirpath = os.path.dirname(path)
     if dirpath:
         os.makedirs(dirpath, exist_ok=True)
@@ -39,65 +44,68 @@ def save_all(items: List[Dict[str, Any]], path: str = DATA_PATH) -> None:
             return {k: _to_serializable(v) for k, v in obj.items()}
         if isinstance(obj, list):
             return [_to_serializable(v) for v in obj]
-        # pydantic models / dataclasses / objects with dict-like API
-        if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
-            return _to_serializable(obj.model_dump())
-        if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
-            return _to_serializable(obj.to_dict())
+        # Pydantic model
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+        # Generic object
         if hasattr(obj, "__dict__"):
-            return _to_serializable(
-                {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
-            )
-        # fallback to string representation
+            return {
+                k: _to_serializable(v)
+                for k, v in obj.__dict__.items()
+                if not k.startswith("_")
+            }
         return str(obj)
 
-    serializable_items = [_to_serializable(item) for item in items]
+    serializable = [_to_serializable(item) for item in items]
+
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(serializable_items, f, ensure_ascii=False, indent=2)
+        json.dump(serializable, f, ensure_ascii=False, indent=2)
 
 
 class UserRepository:
+    """Primary user repository used throughout backend code."""
+
     def __init__(self, file_path: str = DATA_PATH):
-        self.users = load_all(file_path)
-        # remember where this repository loads/saves data so services can persist
         self.file_path = file_path
+        self.users = load_all(file_path)
+
+    # ------------------------------------------------------------
+    # Creation + persistence
+    # ------------------------------------------------------------
 
     def new_user_id(self) -> str:
         return uuid.uuid4().hex
 
     def save(self) -> None:
-        """Persist current users list to the configured data file."""
         save_all(self.users, path=self.file_path)
 
-    def user_exists(self, user_id: str):
-        return any(user for user in self.users if user.user_id == user_id)
+    # ------------------------------------------------------------
+    # Lookups
+    # ------------------------------------------------------------
+
+    def user_exists(self, user_id: str) -> bool:
+        return any(u.user_id == user_id for u in self.users)
 
     def username_exists(self, username: str) -> bool:
-        return any(user for user in self.users if user.username == username)
+        return any(u.username == username for u in self.users)
 
     def get_user_by_username(self, username: str) -> User | None:
-        for user in self.users:
-            if user.username == username:
-                return user
-        return None
-
-    def add_user(self, user: User) -> None:
-        """Add a new user instance."""
-        self.users.append(user)
-        self.save()
+        return next((u for u in self.users if u.username == username), None)
 
     def get_by_id(self, user_id: str) -> User | None:
-        """Retrieve a user by user_id."""
-        for user in self.users:
-            if user.user_id == user_id:
-                return user
-        return None
+        return next((u for u in self.users if u.user_id == user_id), None)
 
     def get_by_email(self, email: str) -> User | None:
-        for user in self.users:
-            if user.email == email:
-                return user
-        return None
+        return next((u for u in self.users if u.email == email), None)
+
+    # ------------------------------------------------------------
+    # Mutations
+    # ------------------------------------------------------------
+
+    def add_user(self, user: User) -> None:
+        """Append new user and persist."""
+        self.users.append(user)
+        self.save()
 
     def update_password_hash(self, user_id: str, new_hash: str) -> None:
         for user in self.users:
@@ -105,3 +113,14 @@ class UserRepository:
                 user.passwordHash = new_hash
                 self.save()
                 return
+
+
+# -------------------------------------------------------------------
+# BACKWARD COMPATIBILITY (IMPORTANT!)
+#
+# Some older code still imports:
+#     from backend.repositories.users_repo import UsersRepo
+#
+# To avoid import errors (like the one you hit), we alias it.
+# -------------------------------------------------------------------
+UsersRepo = UserRepository
