@@ -14,6 +14,7 @@ kagglehub
 
 # Testing
 pytest
+pytest-cov
 
 # Development tools (optional)
 flake8
