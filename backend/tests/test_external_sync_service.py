@@ -62,7 +62,7 @@ async def test_sync_external_metadata_updates_items_and_logs(
     _write_json(items_file, items)
 
     # ------------------------------------------------------------------
-    # 3. Monkeypatch external fetch to avoid real HTTP calls
+    # 3. Mocker external fetch to avoid real HTTP calls
     # ------------------------------------------------------------------
     async def fake_fetch(client, title: str) -> Dict[str, Any] | None:
         if title == "Avengers Endgame":
