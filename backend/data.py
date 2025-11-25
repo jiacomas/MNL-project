@@ -11,12 +11,12 @@ import shutil
 from pathlib import Path
 
 import kagglehub
-from dotenv import load_dotenv
 
-# read .env
-load_dotenv()
-dataset_slug = os.getenv("KAGGLE_DATASET", "sadmadlad/imdb-user-reviews")
-target_root = Path(os.getenv("MOVIE_DATA_PATH", "backend/data/movies"))
+from backend import settings
+
+# read dataset & target path from centralized settings
+dataset_slug = settings.KAGGLE_DATASET
+target_root = settings.MOVIE_DATA_PATH
 
 # Download dataset from Kaggle to cache
 cache_root = Path(kagglehub.dataset_download(dataset_slug))

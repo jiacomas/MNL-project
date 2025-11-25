@@ -31,3 +31,10 @@ def token(form_data: OAuth2PasswordRequestForm = Depends()):
 def me(user: dict = Depends(auth_svc.get_current_user)) -> dict:
     """Return current authenticated user information (from JWT)."""
     return user
+
+
+@router.post("/logout")
+def logout(token: str = Depends(auth_svc.oauth2_scheme)) -> dict:
+    """Logout by invalidating the current session/token."""
+    auth_svc.logout_token(token)
+    return {"message": "Logged out"}

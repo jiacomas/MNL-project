@@ -7,13 +7,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend import settings
 from backend.schemas.movies import MovieCreate, MovieOut, MovieUpdate
 
-# Configuration
-MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", "backend/data/movies/movies.csv")
-MOVIES_JSON_PATH = os.getenv("MOVIES_JSON_PATH", "backend/data/movies/movies.json")
+# Configuration from centralized settings, allow env overrides (useful for tests)
+MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", str(settings.MOVIES_CSV_PATH))
+MOVIES_JSON_PATH = os.getenv("MOVIES_JSON_PATH", str(settings.MOVIES_JSON_PATH))
 EXTERNAL_METADATA_DIR = os.getenv(
-    "EXTERNAL_METADATA_DIR", "backend/data/movies/external_metadata"
+    "EXTERNAL_METADATA_DIR", str(settings.EXTERNAL_METADATA_DIR)
 )
 
 # Global Fields for consistent CSV header/order

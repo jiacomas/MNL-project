@@ -7,10 +7,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from backend import settings
 from backend.schemas.reviews import ReviewOut
 
 # Config & CSV columns to match raw data structure
-BASE_PATH = os.getenv("MOVIE_DATA_PATH", "data/movies")
+# Prefer explicit env var (tests monkeypatch this), otherwise fall back to settings
+BASE_PATH = os.getenv("MOVIE_DATA_PATH", str(settings.MOVIE_DATA_PATH))
 CSV_HEADERS = [
     "Date of Review",
     "User",

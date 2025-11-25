@@ -3,8 +3,7 @@ from datetime import datetime, timezone
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
-# Field definitions for review schemas
-UserIdField = Field(..., min_length=1, description="ID of the user who bookmarked.")
+# Field definitions
 MovieIdField = Field(..., min_length=1, description="ID of the bookmarked movie.")
 
 
@@ -13,29 +12,16 @@ class BookmarkBase(BaseModel):
     '''Common fields shared by all bookmark schemas.
     Represents a single bookmark linking a user and a movie.'''
 
-    user_id: str = UserIdField
     movie_id: str = MovieIdField
 
     model_config = ConfigDict(
         from_attributes=True,
         str_strip_whitespace=True,
         extra="forbid",
-        json_schema_extra={
-            "example": [
-                {
-                    "user_id": "user_12345",
-                    "movie_id": "movie_67890",
-                },
-                {
-                    "user_id": "user_54321",
-                    "movie_id": "movie_09876",
-                },
-            ]
-        },
     )
 
     # normalize blank strings -> error
-    @field_validator("user_id", "movie_id", mode="before")
+    @field_validator("movie_id", mode="before")
     @classmethod
     def non_blank(cls, v: str) -> str:
         if v is None:
@@ -57,7 +43,6 @@ class BookmarkCreate(BookmarkBase):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "user_id": "user_12345",
                 "movie_id": "movie_67890",
             }
         },
@@ -69,6 +54,7 @@ class BookmarkOut(BookmarkBase):
     '''Schema representing a bookmark returned to the client.'''
 
     id: UUID4 = Field(..., description="System-generated unique bookmark ID (UUIDv4).")
+    user_id: str = Field(..., description="Owner user ID of this bookmark.")
     created_at: datetime = Field(
         ..., description="Timestamp when the bookmark was created."
     )
@@ -80,17 +66,6 @@ class BookmarkOut(BookmarkBase):
         from_attributes=True,
         str_strip_whitespace=True,
         extra="ignore",
-        json_schema_extra={
-            "example": [
-                {
-                    "id": "bookmark_abc123",
-                    "user_id": "user_12345",
-                    "movie_id": "movie_67890",
-                    "created_at": "2024-01-01T12:00:00Z",
-                    "updated_at": "2024-01-02T12:00:00Z",
-                }
-            ]
-        },
     )
 
     # enforce timezone-aware datetimes

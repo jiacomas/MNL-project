@@ -8,11 +8,14 @@ from datetime import datetime, timezone
 from typing import Dict, List
 from uuid import UUID
 
+from backend import settings
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
 
-# Configuration
-BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", "backend/data/bookmarks.json")
-BOOKMARKS_EXPORT_DIR = os.getenv("BOOKMARKS_EXPORT_DIR", "backend/data/exports")
+# Configuration (centralized) with env overrides for tests
+BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", str(settings.BOOKMARKS_PATH))
+BOOKMARKS_EXPORT_DIR = os.getenv(
+    "BOOKMARKS_EXPORT_DIR", str(settings.BOOKMARKS_EXPORT_DIR)
+)
 
 
 # Helpers
@@ -41,6 +44,18 @@ def _serialize_for_json(obj: Dict) -> Dict:
     return out
 
 
+def _fill_missing_fields(raw: Dict) -> Dict:
+    """Make loading robust against missing fields in stored JSON."""
+    now = datetime.now(timezone.utc)
+    return {
+        "id": raw.get("id") or uuid.uuid4(),
+        "user_id": raw.get("user_id"),
+        "movie_id": raw.get("movie_id"),
+        "created_at": raw.get("created_at", now),
+        "updated_at": raw.get("updated_at", now),
+    }
+
+
 # Repository Implementation
 class JSONBookmarkRepo:
     '''
@@ -48,9 +63,14 @@ class JSONBookmarkRepo:
     Provides CRUD operations and supports exporting to CSV.
     '''
 
-    def __init__(self, storage_path: str = BOOKMARKS_PATH):
-        '''Initialize repository with file path and ensure directory exists.'''
-        self.storage_path = storage_path
+    def __init__(self, storage_path: str | None = None):
+        '''Initialize repository with file path and ensure directory exists.
+
+        If `storage_path` is not provided, read from env `BOOKMARKS_PATH` or
+        fall back to centralized settings. This makes tests able to monkeypatch
+        `BOOKMARKS_PATH` without reloading the settings module.
+        '''
+        self.storage_path = storage_path or os.getenv("BOOKMARKS_PATH", BOOKMARKS_PATH)
         dirpath = os.path.dirname(self.storage_path) or "."
         os.makedirs(dirpath, exist_ok=True)
         if not os.path.exists(self.storage_path):
@@ -59,14 +79,14 @@ class JSONBookmarkRepo:
 
     # Internal helpers
     def _load(self) -> List[Dict]:
-        '''Load all bookmarks from JSON file.'''
+        '''Load all bookmarks from JSON file. Fill missing fields defensively.'''
         if not os.path.exists(self.storage_path):
             return []
         try:
             with open(self.storage_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            # Corrupted or empty file
+                raw = json.load(f)
+            return [_fill_missing_fields(b) for b in raw if isinstance(b, dict)]
+        except (json.JSONDecodeError, TypeError):
             return []
 
     def _save(self, bookmarks: List[Dict]) -> None:
@@ -99,33 +119,47 @@ class JSONBookmarkRepo:
     def list_all(self) -> List[BookmarkOut]:
         '''Return all bookmark data as BookmarkOut instances.'''
         data = self._load()
-        return [BookmarkOut.model_validate(b) for b in data]
+        filled = [_fill_missing_fields(b) for b in data]
+        return [BookmarkOut.model_validate(b) for b in filled]
 
-    def create(self, bookmark_in: BookmarkCreate) -> BookmarkOut:
-        '''Add a new bookmark entry (system generates id and timestamps).'''
-
+    def create(self, bookmark_in: BookmarkCreate, user_id: str) -> BookmarkOut:
+        '''Create bookmark for a specific user, preventing duplicates.'''
         # System-generated timestamp
         now = datetime.now(timezone.utc)
+        data = self._load()
+
+        # Prevent duplicates
+        if any(
+            b
+            for b in data
+            if b.get("user_id") == user_id and b.get("movie_id") == bookmark_in.movie_id
+        ):
+            raise ValueError("Bookmark already exists for this user and movie")
+
         payload = {
             "id": uuid.uuid4(),
-            "user_id": bookmark_in.user_id,
+            "user_id": user_id,
             "movie_id": bookmark_in.movie_id,
             "created_at": now,
             "updated_at": now,
         }
 
-        data = self._load()
         data.append(payload)  # raw python objects, no serialization here
         self._save(data)
         return BookmarkOut.model_validate(payload)
 
-    def get_by_user(self, user_id: str) -> List[BookmarkOut]:
+    def get_bookmarks_by_user(self, user_id: str) -> List[BookmarkOut]:
         '''Retrieve all bookmarks for a specific user.'''
         data = self._load()
-        results = [
-            BookmarkOut.model_validate(b) for b in data if b.get("user_id") == user_id
-        ]
-        return results
+        filtered = [b for b in data if b.get("user_id") == user_id]
+        filled = [_fill_missing_fields(b) for b in filtered]
+        return [BookmarkOut.model_validate(b) for b in filled]
+
+    def get_bookmarks_by_movie(self, movie_id: str) -> List[BookmarkOut]:
+        data = self._load()
+        filtered = [b for b in data if b.get("movie_id") == movie_id]
+        filled = [_fill_missing_fields(b) for b in filtered]
+        return [BookmarkOut.model_validate(b) for b in filled]
 
     def delete(self, bookmark_id: str) -> bool:
         '''Delete a bookmark by its ID. Returns True if deleted, False if not found.'''
@@ -161,7 +195,7 @@ class JSONBookmarkRepo:
                 fieldnames = ["id", "user_id", "movie_id", "created_at", "updated_at"]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-                writer.writerows(rows)
+                writer.writerows([_serialize_for_json(r) for r in rows])
                 csvfile.flush()  # flush internal buffer
                 os.fsync(csvfile.fileno())  # flush to disk
 
