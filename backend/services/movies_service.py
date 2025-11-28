@@ -64,15 +64,19 @@ def search_movies(
     filters: MovieSearchFilters,
     page: int = 1,
     page_size: int = 50,
+    sort_by: Optional[str] = None,
+    sort_desc: bool = False,
     repo: MovieRepository = movie_repo,
 ) -> MovieListResponse:
-    """Search movies using simple filters."""
+    """Search movies using simple filters with optional sorting."""
     if page < 1:
         raise HTTPException(status_code=400, detail="Page must be greater than 0")
     if page_size < 1 or page_size > 200:
         raise HTTPException(
             status_code=400, detail="Page size must be between 1 and 200"
         )
+    if sort_by and sort_by not in ALLOWED_SORT_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Invalid sort field: {sort_by}")
 
     skip = (page - 1) * page_size
     params = filters.model_dump(exclude_none=True)
@@ -83,8 +87,8 @@ def search_movies(
         release_year=params.get("release_year"),
         skip=skip,
         limit=page_size,
-        sort_by=None,
-        sort_desc=False,
+        sort_by=sort_by,
+        sort_desc=sort_desc,
     )
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
