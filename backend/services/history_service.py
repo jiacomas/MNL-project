@@ -13,8 +13,8 @@ JsonObj = Dict[str, Any]
 # File locations (can be overridden in tests via mocker.patch.object)
 # ---------------------------------------------------------------------------
 
-HISTORY_FILE: Path = settings.HISTORY_FILE          # e.g. backend/data/history.json
-ITEMS_FILE: Path = settings.ITEMS_FILE             # existing items/movies file
+HISTORY_FILE: Path = settings.HISTORY_FILE  # e.g. backend/data/history.json
+ITEMS_FILE: Path = settings.ITEMS_FILE  # existing items/movies file
 
 
 # ---------------------------------------------------------------------------
@@ -111,9 +111,7 @@ def list_history(user_id: str) -> List[JsonObj]:
     history = _load_json_list(HISTORY_FILE)
     items_by_id = _load_items_index()
 
-    user_rows = [
-        row for row in history if row.get("user_id") == user_id
-    ]
+    user_rows = [row for row in history if row.get("user_id") == user_id]
 
     # Sort by timestamp string (ISO-8601 sorts correctly)
     user_rows.sort(key=lambda r: r.get("last_viewed_at") or "", reverse=True)

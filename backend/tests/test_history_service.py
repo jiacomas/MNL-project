@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-import pytest
 from pytest_mock import MockerFixture
 
 from backend.services import history_service as svc
@@ -121,9 +120,21 @@ def test_clear_history_item_and_all(
     _write_json(
         history_file,
         [
-            {"user_id": "u1", "movie_id": "m1", "last_viewed_at": "2025-01-01T00:00:00"},
-            {"user_id": "u1", "movie_id": "m2", "last_viewed_at": "2025-01-02T00:00:00"},
-            {"user_id": "u2", "movie_id": "m3", "last_viewed_at": "2025-01-03T00:00:00"},
+            {
+                "user_id": "u1",
+                "movie_id": "m1",
+                "last_viewed_at": "2025-01-01T00:00:00",
+            },
+            {
+                "user_id": "u1",
+                "movie_id": "m2",
+                "last_viewed_at": "2025-01-02T00:00:00",
+            },
+            {
+                "user_id": "u2",
+                "movie_id": "m3",
+                "last_viewed_at": "2025-01-03T00:00:00",
+            },
         ],
     )
 
