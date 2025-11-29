@@ -54,3 +54,6 @@ EXTERNAL_METADATA_DIR = Path(
         "EXTERNAL_METADATA_DIR", str(ROOT_DATA_DIR / "movies" / "external_metadata")
     )
 )
+
+ROOT_DATA_DIR = Path("backend/data")
+HISTORY_FILE = ROOT_DATA_DIR / "history.json"
