@@ -23,13 +23,13 @@ def mock_repo_all(mocker):
     sample = MovieOut(
         movie_id="m1",
         title="Mock Movie",
-        genre="Drama",
-        release_year=2000,
-        rating=8.5,
-        runtime=120,
-        director="Director",
-        cast="Cast",
-        plot="A mock movie.",
+        movieGenres="Drama",
+        datePublished="2000-01-01",
+        movieIMDbRating=8.5,
+        duration=120,
+        directors="Director",
+        mainStars="Cast",
+        description="A mock movie.",
         poster_url="url",
         created_at="2024-01-01T00:00:00Z",
         updated_at="2024-01-01T00:00:00Z",
@@ -80,10 +80,11 @@ class TestMoviesRouterIntegration:
         assert r.status_code == 200
 
         r = client.patch(
-            f"/api/movies/{mid}", json={"rating": 9.9}, headers=admin_headers
+            f"/api/movies/{mid}", json={"movieIMDbRating": 9.9}, headers=admin_headers
         )
         assert r.status_code == 200
-        assert "rating" in r.json()
+        # The API surfaces the canonical field name `movieIMDbRating` in responses
+        assert "movieIMDbRating" in r.json()
 
         r = client.delete(f"/api/movies/{mid}", headers=admin_headers)
         assert r.status_code == 204

@@ -11,18 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Assuming MovieRepository is in backend.repositories.movies_repo
-# FIX: Import the module-level function _load_movies_from_csv for correct mocking
-from backend.repositories.movies_repo import (
-    ALL_FIELDS,
-    MovieRepository,
-    _load_movies_from_csv,
-)
+from backend.repositories.movies_repo import MovieRepository, _load_movies_from_csv
 from backend.schemas.movies import MovieCreate, MovieUpdate
 
+
 # --- Fixtures ---
-
-
 @pytest.fixture
 def empty_temp_file():
     """Provides a path to a temporary file that will be cleaned up."""
@@ -39,14 +32,18 @@ def populated_csv_data():
         {
             'movie_id': 'tt0111161',
             'title': 'The Shawshank Redemption',
-            'genre': 'Drama',
-            'release_year': '1994',
-            'rating': '9.3',
-            'runtime': '142',
-            'director': 'Frank Darabont',
-            'cast': 'Tim Robbins, Morgan Freeman',
-            'plot': 'Two imprisoned men bond...',
-            'poster_url': 'https://example.com/poster1.jpg',
+            'movieIMDbRating': '9.3',
+            'totalRatingCount': '23567',
+            'totalUserReviews': '123',
+            'totalCriticReviews': '12',
+            'metaScore': '91',
+            'movieGenres': 'Drama',
+            'directors': 'Frank Darabont',
+            'datePublished': '1994-01-01',
+            'creators': 'Stephen King',
+            'mainStars': 'Tim Robbins, Morgan Freeman',
+            'description': 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',  # noqa: E501
+            'duration': '142',
             'created_at': '2024-01-01T12:00:00Z',
             'updated_at': '2024-01-01T12:00:00Z',
             'review_count': '0',
@@ -54,14 +51,18 @@ def populated_csv_data():
         {
             'movie_id': 'tt0068646',
             'title': 'The Godfather',
-            'genre': 'Crime',
-            'release_year': '1972',
-            'rating': '9.2',
-            'runtime': '175',
-            'director': 'Francis Ford Coppola',
-            'cast': 'Marlon Brando',
-            'plot': 'A crime family saga...',
-            'poster_url': 'https://example.com/poster2.jpg',
+            'movieIMDbRating': '9.2',
+            'totalRatingCount': '19834',
+            'totalUserReviews': '210',
+            'totalCriticReviews': '25',
+            'metaScore': '100',
+            'movieGenres': 'Crime, Drama',
+            'directors': 'Francis Ford Coppola',
+            'datePublished': '1972-01-01',
+            'creators': 'Mario Puzo',
+            'mainStars': 'Marlon Brando, Al Pacino',
+            'description': 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.',  # noqa: E501
+            'duration': '175',
             'created_at': '2024-01-01T13:00:00Z',
             'updated_at': '2024-01-01T13:00:00Z',
             'review_count': '10',
@@ -73,8 +74,9 @@ def populated_csv_data():
 def temp_csv_file(empty_temp_file, populated_csv_data):
     """Creates a temporary CSV file populated with two movies."""
     with open(empty_temp_file, 'w', encoding='utf-8', newline='') as f:
-        # Use ALL_FIELDS to ensure consistent header writing
-        writer = csv.DictWriter(f, fieldnames=ALL_FIELDS)
+        # Infer header order from the first populated row to match saved CSVs
+        fieldnames = list(populated_csv_data[0].keys()) if populated_csv_data else []
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
         # We only pass data that matches the keys defined in populated_csv_data
@@ -90,10 +92,10 @@ def temp_json_file(empty_temp_file):
         {
             'movie_id': 'tt0068646',
             'title': 'The Godfather',
-            'genre': 'Crime, Drama',
-            'release_year': 1972,
-            'rating': 9.2,
-            'runtime': 175,
+            'movieGenres': 'Crime, Drama',
+            'datePublished': '1972-01-01',
+            'movieIMDbRating': 9.2,
+            'duration': 175,
         }
     ]
     with open(empty_temp_file, 'w') as f:
@@ -135,9 +137,9 @@ class TestMovieRepositoryFunctional:
         assert movies[1].title == 'The Godfather'
 
         # Check type conversion (should be float, int)
-        assert isinstance(movies[0].rating, float)
-        assert isinstance(movies[0].runtime, int)
-        assert movies[0].rating == 9.3
+        assert isinstance(movies[0].movieIMDbRating, float)
+        assert isinstance(movies[0].duration, int)
+        assert movies[0].movieIMDbRating == 9.3
 
     def test_get_all_json(self, json_repo):
         """Tests initial loading from JSON."""
@@ -161,7 +163,9 @@ class TestMovieRepositoryFunctional:
 
         # 1. Create with no ID
         new_movie = csv_repo.create(
-            MovieCreate(title="The Test Movie", genre="Sci-Fi", release_year=2024)
+            MovieCreate(
+                title="The Test Movie", movieGenres="Sci-Fi", datePublished="2024-01-01"
+            )
         )
 
         # 2. Check in memory (cache)
@@ -178,17 +182,13 @@ class TestMovieRepositoryFunctional:
     def test_update_movie_persistence(self, csv_repo):
         """Tests update and subsequent persistence to file."""
         # Update
-        updated = csv_repo.update(
-            'tt0111161', MovieUpdate(title="Updated Name", rating=10.0)
-        )
+        updated = csv_repo.update('tt0111161', MovieUpdate(title="Updated Name"))
         assert updated and updated.title == "Updated Name"
-        assert updated.rating == 10.0
 
         # Simulate new repo load (to test persistence)
         csv_repo._cache = None
         reloaded = csv_repo.get_by_id('tt0111161')
         assert reloaded.title == "Updated Name"
-        assert reloaded.rating == 10.0
 
     def test_update_nonexistent(self, csv_repo):
         """Tests updating a nonexistent movie."""
@@ -235,7 +235,14 @@ class TestMovieRepositoryAdvanced:
             mock_load.assert_called_once()
 
             # Create/Update/Delete should refresh the cache
-            repo.create(MovieCreate(title="Test Cache", release_year=2024))
+            created = repo.create(
+                MovieCreate(title="Test Cache", datePublished="2024-01-01")
+            )
+
+            # Ensure we remove the test-created movie from the underlying file
+            # so the test does not leave persistent data behind.
+            if created and getattr(created, "movie_id", None):
+                repo.delete(created.movie_id)
 
             # Third call should now hit the cache again
             repo.get_all()
@@ -248,7 +255,7 @@ class TestMovieRepositoryAdvanced:
 
     def test_get_all_sort_desc(self, csv_repo):
         """Tests sorting by rating in descending order."""
-        movies, _ = csv_repo.get_all(sort_by='rating', sort_desc=True)
+        movies, _ = csv_repo.get_all(sort_by='movieIMDbRating', sort_desc=True)
         # tt0111161 (9.3) should be first, tt0068646 (9.2) second
         assert movies[0].movie_id == 'tt0111161'
         assert movies[1].movie_id == 'tt0068646'

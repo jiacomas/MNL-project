@@ -246,8 +246,30 @@ def _serialize_created_at(value: Any) -> str:
     return str(value)
 
 
-def write_reviews_csv(rows: List[Dict[str, Any]], out_path: Path) -> Path:
-    """Write search results to a CSV for admin download."""
+def write_reviews_csv(
+    rows: List[Dict[str, Any]],
+    out_path: Path | None = None,
+    filename: str | None = None,
+) -> Path:
+    """Write search results to a CSV for admin download.
+
+    Backwards-compatible signature:
+    - `write_reviews_csv(rows, out_path=Path(...))` (existing callers)
+    - `write_reviews_csv(rows, filename="foo.csv")` (tests expect this)
+    If neither `out_path` nor `filename` are provided, the function writes
+    to `EXPORT_DIR / 'reviews_export.csv'`.
+    """
+    # Determine the output path according to provided args
+    if filename and out_path is not None:
+        # If both provided, prefer explicit out_path but ensure filename used if out_path is a directory
+        if out_path.is_dir():
+            out_path = out_path / filename
+    elif filename:
+        out_path = EXPORT_DIR / filename
+    elif out_path is None:
+        out_path = EXPORT_DIR / "reviews_export.csv"
+
+    out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", newline="", encoding="utf-8") as f:

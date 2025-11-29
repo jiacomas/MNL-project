@@ -11,7 +11,6 @@ def _assert_or_skip_for_empty_rows(rows, skip_message: str) -> None:
         pytest.skip(skip_message)
 
 
-@pytest.mark.integration
 def test_search_case_insensitive() -> None:
     """
     Searching by lowercase query should match titles regardless of case.
@@ -28,7 +27,6 @@ def test_search_case_insensitive() -> None:
         assert "avengers" in row["movie_title"].lower()
 
 
-@pytest.mark.integration
 def test_sort_by_rating_desc() -> None:
     """
     Sorting by rating descending should produce ratings from high → low.
@@ -42,7 +40,6 @@ def test_sort_by_rating_desc() -> None:
     assert ratings == sorted(ratings, reverse=True)
 
 
-@pytest.mark.integration
 def test_write_reviews_csv(tmp_path) -> None:
     """
     Writing review search results to CSV should produce a file

@@ -49,8 +49,8 @@ def test_movie_update_requires_at_least_one():
 
 
 def test_movie_update_valid_partial():
-    m = MovieUpdate(genre="  Drama  ")
-    assert m.genre == "Drama"
+    m = MovieUpdate(movieGenres="  Drama  ")
+    assert m.movieGenres == "Drama"
 
 
 # ---------- MovieOut ----------
@@ -95,6 +95,6 @@ def test_movie_list_response_basic():
 
 
 def test_movie_base_unicode_and_html():
-    m = MovieBase(title="测试 🎬", genre="<script>alert(1)</script>")
+    m = MovieBase(title="测试 🎬", movieGenres="<script>alert(1)</script>")
     assert "🎬" in m.title
-    assert "<script>" in m.genre
+    assert "<script>" in m.movieGenres

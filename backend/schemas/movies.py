@@ -10,14 +10,22 @@ from pydantic import BaseModel, Field, field_validator
 # ---------- Base ----------
 class MovieBase(BaseModel):
     title: str = Field(..., min_length=1)
-    genre: Optional[str] = None
-    release_year: Optional[int] = None
-    rating: Optional[float] = None
-    runtime: Optional[int] = None
-    director: Optional[str] = None
-    cast: Optional[str] = None
-    plot: Optional[str] = None
-    poster_url: Optional[str] = None
+    movieIMDbRating: Optional[float] = None
+    totalRatingCount: Optional[int] = None
+    totalUserReviews: Optional[int] = None
+    totalCriticReviews: Optional[int] = None
+    metaScore: Optional[int] = None
+    movieGenres: Optional[str] = None
+    directors: Optional[str] = None
+    datePublished: Optional[str] = None
+    creators: Optional[str] = None
+    mainStars: Optional[str] = None
+    description: Optional[str] = None
+    duration: Optional[int] = None
+    movie_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    review_count: Optional[int] = 0
 
     # strip title
     @field_validator("title")
@@ -45,13 +53,14 @@ class MovieCreate(MovieBase):
 # ---------- Update ----------
 class MovieUpdate(BaseModel):
     title: Optional[str] = None
-    genre: Optional[str] = None
-    release_year: Optional[int] = None
-    rating: Optional[float] = None
-    runtime: Optional[int] = None
-    director: Optional[str] = None
-    cast: Optional[str] = None
-    plot: Optional[str] = None
+    # Canonical update fields matching MovieBase
+    movieIMDbRating: Optional[float] = None
+    movieGenres: Optional[str] = None
+    datePublished: Optional[str] = None
+    duration: Optional[int] = None
+    directors: Optional[str] = None
+    mainStars: Optional[str] = None
+    description: Optional[str] = None
     poster_url: Optional[str] = None
 
     @field_validator("*", mode="before")

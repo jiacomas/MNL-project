@@ -25,12 +25,13 @@ def test_full_movie_crud_flow(jwt_admin_headers):
     assert r.status_code == 200
     assert r.json()["title"] == "A Movie"
 
-    # Update
+    # Update - use canonical field name
     r = client.patch(
-        f"/api/movies/{mid}", json={"rating": 9.0}, headers=jwt_admin_headers
+        f"/api/movies/{mid}", json={"movieIMDbRating": 9.0}, headers=jwt_admin_headers
     )
     assert r.status_code == 200
-    assert r.json()["rating"] == 9.0
+    # responses use canonical `movieIMDbRating`
+    assert r.json().get("movieIMDbRating") == 9.0
 
     # Delete
     r = client.delete(f"/api/movies/{mid}", headers=jwt_admin_headers)
@@ -69,7 +70,7 @@ def test_non_admin_cannot_create_update_delete(jwt_user_headers):
     """Normal users forbidden from admin operations."""
     endpoints = [
         ("post", "/api/movies/", {"title": "Forbidden"}),
-        ("patch", "/api/movies/tt0001", {"rating": 5}),
+        ("patch", "/api/movies/tt0001", {"movieIMDbRating": 5}),
         ("delete", "/api/movies/tt0001", None),
     ]
     for method, url, payload in endpoints:

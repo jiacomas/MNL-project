@@ -17,23 +17,6 @@ EXTERNAL_METADATA_DIR = os.getenv(
     "EXTERNAL_METADATA_DIR", str(settings.EXTERNAL_METADATA_DIR)
 )
 
-# Global Fields for consistent CSV header/order
-ALL_FIELDS = [
-    "movie_id",
-    "title",
-    "genre",
-    "release_year",
-    "rating",
-    "runtime",
-    "director",
-    "cast",
-    "plot",
-    "poster_url",
-    "created_at",
-    "updated_at",
-    "review_count",
-]
-
 
 def _ensure_data_dir() -> None:
     os.makedirs(os.path.dirname(MOVIES_CSV_PATH), exist_ok=True)
@@ -56,32 +39,42 @@ def _parse_date_field(date_str: Any) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _safe_to_int(value: Any) -> Optional[int]:
+    """Safely parse an int-like value using existing helpers."""
+    try:
+        return _parse_int_like(value)
+    except Exception:
+        return None
+
+
+def _safe_to_float(value: Any) -> Optional[float]:
+    """Safely parse a float, tolerant of commas and bad input."""
+    if value is None:
+        return None
+    try:
+        return float(str(value).replace(",", ""))
+    except Exception:
+        return None
+
+
 def _process_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """Convert csv row strings to correct types (int/float/datetime)."""
     movie_data = {k: (v if v else None) for k, v in row.items()}
 
-    # Convert numeric fields
-    try:
-        if movie_data.get("release_year") is not None:
-            movie_data["release_year"] = int(movie_data["release_year"])
-    except (ValueError, TypeError):
-        movie_data["release_year"] = None
-
-    try:
-        if movie_data.get("runtime") is not None:
-            movie_data["runtime"] = int(movie_data["runtime"])
-    except (ValueError, TypeError):
-        movie_data["runtime"] = None
-
-    try:
-        if movie_data.get("rating") is not None:
-            movie_data["rating"] = float(movie_data["rating"])
-    except (ValueError, TypeError):
-        movie_data["rating"] = None
+    # Numeric fields (use small helpers to keep complexity low)
+    movie_data["datePublished"] = _safe_to_int(movie_data.get("datePublished"))
+    movie_data["duration"] = _safe_to_int(movie_data.get("duration"))
+    movie_data["movieIMDbRating"] = _safe_to_float(movie_data.get("movieIMDbRating"))
 
     # Dates
     movie_data["created_at"] = _parse_date_field(movie_data.get("created_at"))
     movie_data["updated_at"] = _parse_date_field(movie_data.get("updated_at"))
+
+    # Coerce/normalize additional fields to match Movie schema expectations
+    try:
+        _normalize_movie_fields(movie_data)
+    except Exception:
+        pass
 
     return movie_data
 
@@ -102,13 +95,26 @@ def _load_movies_from_csv() -> List[Dict[str, Any]]:
 
 
 def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
+    """Save a list of movie dicts to MOVIES_CSV_PATH"""
     _ensure_data_dir()
 
-    fieldnames = ALL_FIELDS
+    fieldnames: List[str] = []
+    seen: set = set()
+    for m in movies:
+        if not isinstance(m, dict):
+            continue
+        for k in m.keys():
+            if k not in seen:
+                fieldnames.append(k)
+                seen.add(k)
 
     with open(MOVIES_CSV_PATH, "w", encoding="utf-8", newline="") as f:
-        # Use ALL_FIELDS for consistent header and ignore extra keys
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+        if not fieldnames:
+            # create an empty file and return
+            f.truncate(0)
+            return
+
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
 
         for m in movies:
@@ -127,10 +133,24 @@ def _load_movies_from_json() -> List[Dict[str, Any]]:
     try:
         with open(MOVIES_JSON_PATH, "r", encoding="utf-8") as f:
             movies = json.load(f)
+
+        normalized: List[Dict[str, Any]] = []
         for m in movies:
+            if not isinstance(m, dict):
+                continue
+
+            # Normalize fields (ids, numeric parsing, etc.) before parsing dates
+            try:
+                _normalize_movie_fields(m)
+            except Exception:
+                pass
+
             for d in ["created_at", "updated_at"]:
                 m[d] = _parse_date_field(m.get(d))
-        return movies
+
+            normalized.append(m)
+
+        return normalized
     except Exception:
         return []
 
@@ -164,12 +184,118 @@ def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _parse_suffix_number(s: str) -> Optional[int]:
+    """Parse suffixes like '1.2K' or '3M' into integers, return None if not applicable."""
+    if not s:
+        return None
+    s = s.strip()
+    if s == "":
+        return None
+    last = s[-1].upper()
+    if last not in ("K", "M"):
+        return None
+    try:
+        num = float(s[:-1].replace(",", ""))
+        return int(num * (1_000 if last == "K" else 1_000_000))
+    except Exception:
+        return None
+
+
+def _clean_numeric_string(s: str) -> str:
+    """Keep only digits, dot and minus from a numeric-like string."""
+    return "".join(ch for ch in s if ch.isdigit() or ch in "-.")
+
+
+def _parse_int_like(value: Any) -> Optional[int]:
+    """Parse values like '1.8K', '2,345', '10' into integers when possible."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+
+    s = str(value).strip()
+    if s == "":
+        return None
+
+    # Try suffix parsing first (1.2K, 3M, etc.)
+    parsed = _parse_suffix_number(s)
+    if parsed is not None:
+        return parsed
+
+    # Remove commas then clean remaining characters
+    cleaned = _clean_numeric_string(s.replace(",", ""))
+    if cleaned == "" or cleaned in ("-", "."):
+        return None
+
+    try:
+        if "." in cleaned:
+            return int(float(cleaned))
+        return int(cleaned)
+    except Exception:
+        return None
+
+
+def _normalize_movie_fields(movie: Dict[str, Any]) -> None:
+    """Normalize/coerce incoming movie dict to the shapes expected by schemas.
+
+    - Ensure `movie_id` exists and is a string.
+    - Parse 'K'/'M' suffixed numeric strings into integers for totalUserReviews etc.
+    - Coerce rating-like fields to float.
+    """
+    # Ensure movie_id is string for MovieOut
+    if movie.get("movie_id") is not None:
+        movie["movie_id"] = str(movie["movie_id"])
+
+    # Numeric fields: convert common fields to ints/floats
+    int_keys = [
+        "totalUserReviews",
+        "totalCriticReviews",
+        "totalRatingCount",
+        "metaScore",
+        "duration",
+    ]
+    for k in int_keys:
+        if k in movie:
+            parsed = _parse_int_like(movie.get(k))
+            if k == "duration":
+                movie[k] = int(parsed) if parsed is not None else None
+            else:
+                movie[k] = parsed
+
+    # rating fields
+    for k in ("movieIMDbRating", "rating"):
+        if k in movie and movie.get(k) is not None:
+            try:
+                movie[k] = float(str(movie.get(k)).replace(",", ""))
+            except Exception:
+                movie[k] = None
+
+
 class MovieRepository:
     """Movie storage using CSV/JSON. Includes caching for performance."""
 
     def __init__(self, use_json: bool = False):
         self.use_json = use_json
         self._cache: Optional[List[Dict[str, Any]]] = None  # In-memory data cache
+
+    # def clear_cache(self) -> None:
+    #     """Clear the in-memory cache so the next read reloads from disk.
+
+    #     This is useful when the underlying CSV/JSON file has been modified
+    #     by another process and you want the repository to pick up changes.
+    #     """
+    #     self._cache = None
+
+    # def refresh(self) -> None:
+    #     """Force a reload from the backing store into the cache.
+
+    #     This clears the cache and immediately reloads data so `self._cache`
+    #     contains the latest content from the configured file.
+    #     """
+    #     self._cache = None
+    #     self._load_movies()
 
     def _load_movies(self) -> List[Dict[str, Any]]:
         # Check cache first
@@ -269,14 +395,22 @@ class MovieRepository:
 
     def get_popular(self, limit: int = 10) -> List[MovieOut]:
         movies = self._load_movies()
-        movies_with_rating = [m for m in movies if m.get("rating") is not None]
-        movies_with_rating.sort(
-            key=lambda x: (x.get("rating", 0), x.get("title") or ""), reverse=True
+
+        # Validate movie dicts into MovieOut instances, collecting those with ratings
+        validated: List[MovieOut] = []
+        for m in movies:
+            try:
+                mo = MovieOut.model_validate(_movie_to_dict(m))
+            except Exception:
+                continue
+            if getattr(mo, "movieIMDbRating", None) is not None:
+                validated.append(mo)
+
+        # Sort by movieIMDbRating descending, then title
+        validated.sort(
+            key=lambda x: (x.movieIMDbRating or 0, x.title or ""), reverse=True
         )
-        return [
-            MovieOut.model_validate(_movie_to_dict(m))
-            for m in movies_with_rating[:limit]
-        ]
+        return validated[:limit]
 
     def get_recent(self, limit: int = 10) -> List[MovieOut]:
         movies = self._load_movies()

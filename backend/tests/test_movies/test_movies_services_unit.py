@@ -43,13 +43,13 @@ def sample_movie_out():
     return MovieOut(
         movie_id="tt011",
         title="Sample Movie",
-        genre="Action",
-        release_year=2000,
-        rating=8.5,
-        runtime=120,
-        director="Director X",
-        cast="Actor Y",
-        plot="A plot.",
+        movieGenres="Action",
+        datePublished="2000-01-01",
+        movieIMDbRating=8.5,
+        duration=120,
+        directors="Director X",
+        mainStars="Actor Y",
+        description="A plot.",
         poster_url="url",
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
@@ -120,30 +120,30 @@ class TestMoviesServiceUnit:
         movie1 = MovieOut(
             movie_id="1",
             title="A",
-            genre="Drama, Comedy",
-            rating=10.0,
-            release_year=2000,
-            runtime=90,
+            movieGenres="Drama, Comedy",
+            movieIMDbRating=10.0,
+            datePublished="2000-01-01",
+            duration=90,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
         movie2 = MovieOut(
             movie_id="2",
             title="B",
-            genre="Drama",
-            rating=8.0,
-            release_year=2000,
-            runtime=90,
+            movieGenres="Drama",
+            movieIMDbRating=8.0,
+            datePublished="2000-01-01",
+            duration=90,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
         movie3 = MovieOut(
             movie_id="3",
             title="C",
-            genre="Action",
-            rating=6.0,
-            release_year=2024,
-            runtime=90,
+            movieGenres="Action",
+            movieIMDbRating=6.0,
+            datePublished="2024-01-01",
+            duration=90,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -183,7 +183,7 @@ class TestMoviesServiceUnit:
             create_movie(MovieCreate(title="x"), is_admin=True, repo=mock_repo)
 
     def test_movie_lifecycle(self, mock_repo, sample_movie_out):
-        updated = sample_movie_out.model_copy(update={"rating": 8.8})
+        updated = sample_movie_out.model_copy(update={"movieIMDbRating": 8.8})
         mock_repo.create.return_value = sample_movie_out
         mock_repo.get_by_id.return_value = sample_movie_out
         mock_repo.update.return_value = updated
@@ -193,8 +193,8 @@ class TestMoviesServiceUnit:
         assert get_movie("tt011", repo=mock_repo)
         assert (
             update_movie(
-                "tt011", MovieUpdate(rating=8.8), is_admin=True, repo=mock_repo
-            ).rating
+                "tt011", MovieUpdate(movieIMDbRating=8.8), is_admin=True, repo=mock_repo
+            ).movieIMDbRating
             == 8.8
         )
         delete_movie("tt011", is_admin=True, repo=mock_repo)
