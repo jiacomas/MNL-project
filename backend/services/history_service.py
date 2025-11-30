@@ -9,6 +9,9 @@ from backend import settings
 
 JsonObj = Dict[str, Any]
 
+# Add this (tests rely on it)
+HISTORY_ROOT: Path = Path("data/history")
+
 # ---------------------------------------------------------------------------
 # File locations (can be overridden in tests via mocker.patch.object)
 # ---------------------------------------------------------------------------

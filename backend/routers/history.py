@@ -1,31 +1,54 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from typing import List
 
+from fastapi import APIRouter, status
+
+from backend.schemas.history import HistoryEntryOut
 from backend.services import history_service
-from backend.services.auth_service import get_current_user  # whatever you already use
 
-router = APIRouter(prefix="/me/history", tags=["history"])
-
-
-@router.get("/", status_code=status.HTTP_200_OK)
-def get_my_history(current_user=Depends(get_current_user)):
-    return history_service.list_history(current_user.user_id)
+router = APIRouter(
+    prefix="/history",
+    tags=["history"],
+)
 
 
-@router.post("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
-def log_view(movie_id: str, current_user=Depends(get_current_user)):
-    history_service.log_view(current_user.user_id, movie_id)
-    return
+@router.post(
+    "/{user_id}/{movie_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def log_view(user_id: str, movie_id: str) -> None:
+    """Log that `user_id` viewed `movie_id`.
+
+    Intended to be called when a movie detail page is opened.
+    """
+    history_service.log_view(user_id=user_id, movie_id=movie_id)
 
 
-@router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
-def clear_one(movie_id: str, current_user=Depends(get_current_user)):
-    history_service.clear_history_item(current_user.user_id, movie_id)
-    return
+@router.get(
+    "/{user_id}",
+    response_model=List[HistoryEntryOut],
+)
+def list_history(user_id: str) -> List[HistoryEntryOut]:
+    """Return the viewing history for a user, newest first."""
+    entries = history_service.list_history(user_id=user_id)
+    # entries are plain dicts; Pydantic will validate/convert
+    return [HistoryEntryOut(**entry) for entry in entries]
 
 
-@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-def clear_all(current_user=Depends(get_current_user)):
-    history_service.clear_history(current_user.user_id)
-    return
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def clear_history(user_id: str) -> None:
+    """Clear *all* viewing history for a user."""
+    history_service.clear_history(user_id=user_id)
+
+
+@router.delete(
+    "/{user_id}/{movie_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def clear_history_item(user_id: str, movie_id: str) -> None:
+    """Remove a single movie from the user's viewing history."""
+    history_service.clear_history_item(user_id=user_id, movie_id=movie_id)
