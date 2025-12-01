@@ -20,7 +20,8 @@ CSV_HEADERS = [
     "Total Votes",
     "User's Rating out of 10",
     "Review Title",
-    "id",  # added by our system
+    "Review",
+    "review_id",  # added by our system
 ]
 
 DATE_INPUT_FORMATS = ["%d %B %Y", "%d %b %y", "%Y-%m-%d"]
@@ -114,7 +115,7 @@ def _row_to_dict(movie_id: str, row: Dict[str, str]) -> Dict[str, Any]:
     usefulness = row.get("Usefulness Vote", "").strip()
     total_votes = row.get("Total Votes", "").strip()
     title = row.get("Review Title", "").strip()
-    review_id = row.get("id", "").strip()
+    review = row.get("Review", "").strip()
 
     # rating
     raw_rating = row.get("User's Rating out of 10", "").strip() or ""
@@ -123,20 +124,22 @@ def _row_to_dict(movie_id: str, row: Dict[str, str]) -> Dict[str, Any]:
     except Exception:
         rating = None
 
-    create_dt = _parse_date(date_str)
+    # Prefer stored ID, fallback to stable ID
+    review_id = row.get("review_id", "").strip()
     if not review_id:
         review_id = _stable_uuid5(movie_id, user, date_str, title)
 
     return {
-        "id": str(review_id or ""),
+        "review_id": review_id,
         "movie_id": movie_id,
-        "user_id": user or "",
+        "username": user or "",
         "rating": rating or 0,
-        "comment": title if title else None,
-        "created_at": create_dt,
-        "updated_at": create_dt,
-        "csv_usefulness_vote": usefulness,
-        "csv_total_votes": total_votes,
+        "title_review": title or "",
+        "comment": review or "",
+        "created_at": _parse_date(date_str),
+        "updated_at": datetime.now(timezone.utc),
+        "usefulness": usefulness,
+        "total_votes": total_votes,
     }
 
 
@@ -158,14 +161,21 @@ def _dict_to_row(data: Dict[str, Any]) -> Dict[str, str]:
 
     return {
         "Date of Review": _format_date_for_csv(created_dt),
-        "User": data.get("user_id", ""),
-        "Usefulness Vote": data.get("csv_usefulness_vote", ""),
-        "Total Votes": data.get("csv_total_votes", ""),
+        "User": data.get("username", ""),
+        "Usefulness Vote": str(data.get("usefulness", 0)),
+        "Total Votes": str(data.get("total_votes", 0)),
         "User's Rating out of 10": (
-            data.get("rating", "") if data.get("rating") is not None else ""
+            str(data.get("rating")) if data.get("rating") is not None else ""
         ),
-        "Review Title": data.get("comment", "") or "",
-        "id": data.get("id", "") or str(uuid.uuid4()),
+        "Review Title": data.get("title_review", "") or "",
+        "Review": data.get("comment", "") or "",
+        "review_id": data.get("review_id", "")
+        or _stable_uuid5(
+            data.get("movie_id", ""),
+            data.get("username", ""),
+            data.get("created_at", ""),
+            data.get("title_review", ""),
+        ),
     }
 
 
@@ -183,7 +193,7 @@ class CSVReviewRepo:
         self,
         movie_id: str,
         limit: int = 50,
-        cursor: Optional[int] = None,
+        cursor: Optional[int] = 0,
         min_rating: Optional[int] = None,
     ) -> tuple[List[ReviewOut], Optional[int]]:
         '''List reviews for a given movie with pagination and optional rating filter
@@ -203,7 +213,7 @@ class CSVReviewRepo:
         if not os.path.exists(path):
             return [], None
 
-        start_row = cursor or 0
+        start_row: int = cursor if cursor is not None else 0
         out: List[ReviewOut] = []
         next_cursor: Optional[int] = None
 
@@ -253,9 +263,9 @@ class CSVReviewRepo:
                 reader = csv.DictReader(csvfile)
                 for i, row in enumerate(reader):
                     d = _row_to_dict(movie_id, row)
-                    by_id[str(d["id"])] = i  # row number
-                    if d["user_id"] and d["user_id"] not in by_user:
-                        by_user[d["user_id"]] = d["id"]
+                    by_id[str(d["review_id"])] = i  # row number
+                    if d["username"] and d["username"] not in by_user:
+                        by_user[d["username"]] = d["review_id"]
         idx = {
             "by_id": by_id,
             "by_user": by_user,
@@ -321,7 +331,7 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("id") or "").strip() == review.id:
+                if (row.get("review_id") or "").strip() == review.review_id:
                     # Replace with updated row
                     new_row = _dict_to_row(review.model_dump())
                     rows.append(new_row)
@@ -355,7 +365,7 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("id") or "").strip() == review_id:
+                if (row.get("review_id") or "").strip() == review_id:
                     removed = True
                     continue  # skip this row
                 rows.append(row)
@@ -392,8 +402,3 @@ class CSVReviewRepo:
                 reviews, _ = self.list_by_movie(movie_id, limit=1000000)
                 all_reviews.extend(reviews)
         return all_reviews
-
-
-# .. note::
-#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-#    Core logic and subsequent modifications were implemented by the author(s).

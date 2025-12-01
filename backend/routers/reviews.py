@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/movies", tags=["reviews"])
 def list_reviews(
     movie_id: str = Path(..., description="Movie ID"),
     limit: int = Query(50, ge=1, le=200, description="Max number of reviews to return"),
-    cursor: Optional[int] = Query(None, description="Pagination cursor"),
+    cursor: Optional[int] = Query(0, description="Pagination cursor"),
     min_rating: Optional[int] = Query(
         None, ge=1, le=10, description="Minimum rating filter"
     ),
@@ -42,7 +42,7 @@ def create_review(
 ):
     """Create a new review for a specific movie."""
     payload.movie_id = movie_id
-    return svc.create_review(payload.model_dump(), user_id)
+    return svc.create_review(payload, user_id)
 
 
 @router.patch("/{movie_id}/reviews/{review_id}", response_model=ReviewOut)
@@ -53,9 +53,7 @@ def update_review(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update an existing review (only the author can update)."""
-    return svc.update_review(
-        movie_id, review_id, user_id, payload.model_dump(exclude_none=True)
-    )
+    return svc.update_review(movie_id, review_id, user_id, payload)
 
 
 @router.delete(
@@ -88,3 +86,6 @@ def get_review_by_user(
 ):
     """Retrieve a specific user's review for a movie."""
     return svc.get_review_by_user(movie_id, user_id)
+
+
+# list_reviews("Avengers Endgame", cursor = 0)

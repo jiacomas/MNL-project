@@ -121,7 +121,9 @@ class AnalyticsRepository:
 
         with out_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["id", "movie_title", "rating", "created_at", "user_id"])
+            writer.writerow(
+                ["review_id", "movie_title", "rating", "created_at", "username"]
+            )
 
             for row in rows:
                 # Format created_at if it's a datetime
@@ -131,11 +133,11 @@ class AnalyticsRepository:
 
                 writer.writerow(
                     [
-                        row.get("id"),
+                        row.get("review_id"),
                         row.get("movie_title"),
                         row.get("rating"),
                         created_at,
-                        row.get("user_id"),
+                        row.get("username"),
                     ]
                 )
 

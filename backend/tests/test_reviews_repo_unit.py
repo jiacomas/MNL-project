@@ -35,7 +35,8 @@ def _seed_csv(dir_path, rows):
         "Total Votes",
         "User's Rating out of 10",
         "Review Title",
-        "id",
+        "Review",
+        "review_id",
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=headers)
@@ -62,7 +63,8 @@ def seeded_repo(repo_with_tmp_dir):
                 "Total Votes": "5",
                 "User's Rating out of 10": "8",
                 "Review Title": "funny & colorful",
-                "id": "",
+                "Review": "great movie",
+                "review_id": "",
             },
             {
                 "Date of Review": "26 October 2025",
@@ -71,7 +73,8 @@ def seeded_repo(repo_with_tmp_dir):
                 "Total Votes": "2",
                 "User's Rating out of 10": "6",
                 "Review Title": "good",
-                "id": "",
+                "Review": "not bad",
+                "review_id": "",
             },
         ],
     )
@@ -88,7 +91,7 @@ def test_filter_and_list(seeded_repo):
 
     only_good, _ = repo.list_by_movie(movie_id, min_rating=7)
     assert len(only_good) == 1
-    assert only_good[0].user_id == "u1"
+    assert only_good[0].username == "u1"
 
 
 def test_pagination(seeded_repo):
@@ -99,7 +102,7 @@ def test_pagination(seeded_repo):
 
     p2, c2 = repo.list_by_movie(movie_id, limit=1, cursor=c1)
     assert len(p2) == 1 and c2 is None
-    assert p2[0].user_id == "u2"
+    assert p2[0].username == "u2"
 
 
 def test_get_review_by_user(seeded_repo):
@@ -116,13 +119,16 @@ def test_crud_cycle(seeded_repo):
 
     now = datetime.now(timezone.utc)
     rev = ReviewOut(
-        id="x9",
-        user_id="u9",
+        review_id="x9",
+        username="u9",
         movie_id=movie_id,
         rating=9,
-        comment="wow",
+        title_review="wow",
+        comment="amazing",
         created_at=now,
         updated_at=now,
+        usefulness=0,
+        total_votes=0,
     )
     repo.create(rev)
     assert repo.get_review_by_user(movie_id, "u9").rating == 9

@@ -42,6 +42,7 @@ def normalize_row(m: Dict[str, Any]) -> Dict[str, str]:
         "description": str(m.get("description", "")),
         "duration": str(m.get("duration", "")),
         "movie_id": str(m.get("movie_id", "")),
+        "review_count": str(m.get("review_count", "")),
     }
 
 
@@ -76,6 +77,7 @@ def main() -> None:
                 "description",
                 "duration",
                 "movie_id",
+                "review_count",
             ],
             quoting=csv.QUOTE_MINIMAL,
         )

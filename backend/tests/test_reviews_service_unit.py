@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -21,13 +20,16 @@ def _to_out(r) -> ReviewOut:
 
     # Prefer attribute access (works for mocks)
     data = {
-        "id": getattr(r, "id", None),
-        "user_id": getattr(r, "user_id", None),
+        "review_id": getattr(r, "review_id", None),
+        "username": getattr(r, "username", None),
         "movie_id": getattr(r, "movie_id", None),
         "rating": getattr(r, "rating", None),
+        "title_review": getattr(r, "title_review", ""),
         "comment": getattr(r, "comment", None),
         "created_at": getattr(r, "created_at", None),
         "updated_at": getattr(r, "updated_at", None),
+        "usefulness": getattr(r, "usefulness", 0),
+        "total_votes": getattr(r, "total_votes", 0),
     }
     return ReviewOut(**data)
 
@@ -43,13 +45,16 @@ def create_review(payload: ReviewCreate, current_user_id: str) -> ReviewOut:
 
     now = datetime.now(timezone.utc)
     new_review = ReviewOut(
-        id=str(uuid.uuid4()),
-        user_id=current_user_id,
+        review_id=_repo._stable_uuid5(payload.movie_id, current_user_id, now, ""),
+        username=current_user_id,
         movie_id=payload.movie_id,
         rating=payload.rating,
+        title_review="",
         comment=payload.comment,
         created_at=now,
         updated_at=now,
+        usefulness=0,
+        total_votes=0,
     )
 
     saved = _repo.create(new_review)
@@ -73,7 +78,7 @@ def update_review(
     payload: ReviewUpdate,
 ) -> Optional[ReviewOut]:
     existing = _repo.get_by_id(movie_id, review_id)
-    if not existing or getattr(existing, "user_id", None) != current_user_id:
+    if not existing or getattr(existing, "username", None) != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to modify this review.",
@@ -100,7 +105,7 @@ def delete_review(
     is_admin: bool = False,
 ) -> bool:
     existing = _repo.get_by_id(movie_id, review_id)
-    owner = getattr(existing, "user_id", None)
+    owner = getattr(existing, "username", None)
 
     if not existing or (owner != current_user_id and not is_admin):
         raise HTTPException(

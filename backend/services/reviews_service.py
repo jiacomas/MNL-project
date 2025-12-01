@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
@@ -23,7 +22,7 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     if review is None:
         reviews, _ = _repo.list_by_movie(movie_id, limit=2000)
         for candidate in reviews:
-            if candidate.id == review_id:
+            if candidate.review_id == review_id:
                 review = candidate
                 break
 
@@ -49,13 +48,18 @@ def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
 
     now = datetime.now(timezone.utc)
     review = ReviewOut(
-        id=str(uuid.uuid4()),
-        user_id=user_id,  # inject from auth dependency
+        review_id=_repo._stable_uuid5(
+            payload.movie_id, user_id, now, payload.title_review
+        ),
+        username=user_id,  # inject from auth dependency
         movie_id=payload.movie_id,
         rating=payload.rating,
+        title_review=payload.title_review or "",  # Default empty title
         comment=payload.comment,
         created_at=now,
         updated_at=now,
+        usefulness=0,
+        total_votes=0,
     )
     return _repo.create(review)
 
@@ -85,7 +89,7 @@ def update_review(
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    if existing.user_id != user_id:
+    if existing.username != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this review.",
@@ -107,7 +111,7 @@ def delete_review(
     review_id = str(review_id)
     existing = _get_review_or_404(movie_id, review_id)
 
-    if not is_admin and existing.user_id != user_id:
+    if not is_admin and existing.username != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this review.",
