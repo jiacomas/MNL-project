@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
-from backend.repositories.reviews_repo import CSVReviewRepo
+from backend.repositories.reviews_repo import CSVReviewRepo, _stable_uuid5
 from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 
 _repo = CSVReviewRepo()
@@ -13,14 +13,14 @@ _repo = CSVReviewRepo()
 # Helpers
 
 
-def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
+def _get_review_or_404(movie_name: str, review_id: str) -> ReviewOut:
     """Return a review for a movie, or raise 404 with 'Review not found.'."""
     # Primary lookup
-    review = _repo.get_review_by_id(movie_id, review_id)
+    review = _repo.get_review_by_id(movie_name, review_id)
 
     # Fallback: scan current movie reviews in case repo index differs by type
     if review is None:
-        reviews, _ = _repo.list_by_movie(movie_id, limit=2000)
+        reviews, _ = _repo.list_by_movie(movie_name, limit=2000)
         for candidate in reviews:
             if candidate.review_id == review_id:
                 review = candidate
@@ -34,12 +34,9 @@ def _get_review_or_404(movie_id: str, review_id: str) -> ReviewOut:
     return review
 
 
-# Public API
-
-
 def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
     """Create a new review (one per user per movie)."""
-    existing = _repo.get_review_by_user(payload.movie_id, user_id)
+    existing = _repo.get_review_by_user(payload.movie_name, user_id)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -48,11 +45,9 @@ def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
 
     now = datetime.now(timezone.utc)
     review = ReviewOut(
-        review_id=_repo._stable_uuid5(
-            payload.movie_id, user_id, now, payload.title_review
-        ),
+        review_id=_stable_uuid5(payload.movie_name, user_id, now, payload.title_review),
         username=user_id,  # inject from auth dependency
-        movie_id=payload.movie_id,
+        movie_name=payload.movie_name,
         rating=payload.rating,
         title_review=payload.title_review or "",  # Default empty title
         comment=payload.comment,
@@ -65,14 +60,14 @@ def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
 
 
 def list_reviews(
-    movie_id: str,
+    movie_name: str,
     limit: int = 50,
     cursor: Optional[int] = None,
     min_rating: Optional[int] = None,
 ) -> Tuple[List[ReviewOut], Optional[int]]:
     """List reviews for a movie with pagination and optional filters."""
     return _repo.list_by_movie(
-        movie_id,
+        movie_name,
         limit=limit,
         cursor=cursor,
         min_rating=min_rating,
@@ -80,14 +75,14 @@ def list_reviews(
 
 
 def update_review(
-    movie_id: str,
+    movie_name: str,
     review_id: str,
     user_id: str,
     payload: ReviewUpdate,
 ) -> ReviewOut:
     """Update an existing review (only the author may do this)."""
     review_id = str(review_id)
-    existing = _get_review_or_404(movie_id, review_id)
+    existing = _get_review_or_404(movie_name, review_id)
 
     if existing.username != user_id:
         raise HTTPException(
@@ -105,11 +100,11 @@ def update_review(
 
 
 def delete_review(
-    movie_id: str, review_id: str, user_id: str, is_admin: bool = False
+    movie_name: str, review_id: str, user_id: str, is_admin: bool = False
 ) -> None:
     """Delete a review; only the author or an admin may delete."""
     review_id = str(review_id)
-    existing = _get_review_or_404(movie_id, review_id)
+    existing = _get_review_or_404(movie_name, review_id)
 
     if not is_admin and existing.username != user_id:
         raise HTTPException(
@@ -117,9 +112,9 @@ def delete_review(
             detail="Not authorized to delete this review.",
         )
 
-    _repo.delete(movie_id, review_id)
+    _repo.delete(movie_name, review_id)
 
 
-def get_review_by_user(movie_id: str, user_id: str) -> Optional[ReviewOut]:
+def get_review_by_user(movie_name: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
-    return _repo.get_review_by_user(movie_id, user_id)
+    return _repo.get_review_by_user(movie_name, user_id)

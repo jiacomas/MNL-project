@@ -9,7 +9,7 @@ def test_list_reviews(client, mock_reviews_service):
             {
                 "review_id": "r1",
                 "username": "u1",
-                "movie_id": "m1",
+                "movie_name": "m1",
                 "rating": 5,
                 "title_review": "ok",
                 "comment": None,
@@ -30,7 +30,7 @@ def test_list_reviews(client, mock_reviews_service):
 
 
 def test_create_review(client, mock_reviews_service, jwt_user_headers):
-    payload = {"movie_id": "m1", "rating": 9, "comment": "Loved it!"}
+    payload = {"movie_name": "m1", "rating": 9, "comment": "Loved it!"}
     mock_reviews_service.create_review.return_value = {
         "review_id": "r1",
         **payload,
@@ -44,7 +44,7 @@ def test_create_review(client, mock_reviews_service, jwt_user_headers):
     r = client.post("/api/movies/m1/reviews", json=payload, headers=jwt_user_headers)
     assert r.status_code in (200, 201)
     args, _ = mock_reviews_service.create_review.call_args
-    assert args[0].movie_id == "m1"
+    assert args[0].movie_name == "m1"
     assert args[0].rating == 9
     assert args[0].comment == "Loved it!"
     assert args[1] == "u1"
@@ -56,7 +56,7 @@ def test_update_review(client, mock_reviews_service, jwt_user_headers):
         "review_id": "r1",
         "rating": 10,
         "username": "u1",
-        "movie_id": "m1",
+        "movie_name": "m1",
         "title_review": "",
         "created_at": now_iso(),
         "updated_at": now_iso(),
@@ -87,7 +87,7 @@ def test_get_my_review(client, mock_reviews_service, jwt_user_headers):
         "review_id": "r1",
         "rating": 8,
         "username": "u1",
-        "movie_id": "m1",
+        "movie_name": "m1",
         "title_review": "",
         "created_at": now_iso(),
         "updated_at": now_iso(),
@@ -102,7 +102,7 @@ def test_get_my_review(client, mock_reviews_service, jwt_user_headers):
 def test_get_review_by_user(client, mock_reviews_service):
     mock_reviews_service.get_review_by_user.return_value = {
         "review_id": "r1",
-        "movie_id": "m1",
+        "movie_name": "m1",
         "rating": 8,
         "username": "u1",
         "title_review": "",

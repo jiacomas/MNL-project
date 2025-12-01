@@ -11,7 +11,7 @@ RatingField = Field(..., ge=0, le=10, description="Rating score from 0 to 10")
 class ReviewBase(BaseModel):
     # Common fields for review schemas
     review_id: str
-    movie_id: str
+    movie_name: str
     username: str
     rating: int = RatingField
     title_review: str
@@ -45,7 +45,9 @@ class ReviewCreate(BaseModel):
       (temporary header-based auth or future JWT auth).
     """
 
-    movie_id: str = Field(..., min_length=1, description="ID of the reviewed movie.")
+    movie_name: str = Field(
+        ..., min_length=1, description="Name of the reviewed movie."
+    )
     rating: int = RatingField
     title_review: Optional[str] = Field("", description="Title of the review")
     comment: Optional[str] = Field(
@@ -68,7 +70,7 @@ class ReviewCreate(BaseModel):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "movie_id": "movie_67890",
+                "movie_name": "Avengers Endgame",
                 "rating": 9,
                 "title_review": "Amazing",
                 "comment": "An masterpiece!",
@@ -83,6 +85,7 @@ class ReviewUpdate(BaseModel):
     Allows partial update but requires at least one field.
     """
 
+    title_review: Optional[str] = Field("", description="Title of the review")
     rating: Optional[int] = Field(
         None, ge=1, le=10, description="Updated rating score from 1 to 10"
     )
@@ -135,7 +138,7 @@ class ReviewOut(ReviewBase):
                 {
                     "review_id": "review_abc123",
                     "username": "user_12345",
-                    "movie_id": "movie_67890",
+                    "movie_name": "Avengers Endgame",
                     "rating": 9,
                     "title_review": "Amazing",
                     "comment": "An masterpiece!",

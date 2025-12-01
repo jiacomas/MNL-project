@@ -121,7 +121,7 @@ def test_crud_cycle(seeded_repo):
     rev = ReviewOut(
         review_id="x9",
         username="u9",
-        movie_id=movie_id,
+        movie_name=movie_id,
         rating=9,
         title_review="wow",
         comment="amazing",

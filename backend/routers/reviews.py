@@ -33,59 +33,58 @@ def list_reviews(
 
 
 @router.post(
-    "/{movie_id}/reviews", response_model=ReviewOut, status_code=status.HTTP_201_CREATED
+    "/{movie_name}/reviews",
+    response_model=ReviewOut,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_review(
-    movie_id: str,
+    movie_name: str,
     payload: ReviewCreate,
     user_id: str = Depends(get_current_user_id),
 ):
     """Create a new review for a specific movie."""
-    payload.movie_id = movie_id
+    payload.movie_name = movie_name
     return svc.create_review(payload, user_id)
 
 
-@router.patch("/{movie_id}/reviews/{review_id}", response_model=ReviewOut)
+@router.patch("/{movie_name}/reviews/{review_id}", response_model=ReviewOut)
 def update_review(
-    movie_id: str,
+    movie_name: str,
     review_id: str,
     payload: ReviewUpdate,
     user_id: str = Depends(get_current_user_id),
 ):
     """Update an existing review (only the author can update)."""
-    return svc.update_review(movie_id, review_id, user_id, payload)
+    return svc.update_review(movie_name, review_id, user_id, payload)
 
 
 @router.delete(
-    "/{movie_id}/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/{movie_name}/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 def delete_review(
-    movie_id: str,
+    movie_name: str,
     review_id: str,
     user_id: str = Depends(get_current_user_id),
     _: Dict = Depends(require_admin),
 ):
     """Delete a review (owner or admin)."""
-    svc.delete_review(movie_id, review_id, user_id, is_admin=True)
+    svc.delete_review(movie_name, review_id, user_id, is_admin=True)
     return None
 
 
-@router.get("/{movie_id}/reviews/me", response_model=Optional[ReviewOut])
+@router.get("/{movie_name}/reviews/me", response_model=Optional[ReviewOut])
 def get_my_review(
-    movie_id: str,
+    movie_name: str,
     user_id: str = Depends(get_current_user_id),
 ):
     """Retrieve the current user's review for a movie."""
-    return svc.get_review_by_user(movie_id, user_id)
+    return svc.get_review_by_user(movie_name, user_id)
 
 
-@router.get("/{movie_id}/reviews/user/{user_id}", response_model=Optional[ReviewOut])
+@router.get("/{movie_name}/reviews/user/{user_id}", response_model=Optional[ReviewOut])
 def get_review_by_user(
-    movie_id: str,
+    movie_name: str,
     user_id: str,
 ):
     """Retrieve a specific user's review for a movie."""
-    return svc.get_review_by_user(movie_id, user_id)
-
-
-list_reviews("Avengers Endgame", 50, 0, 0)
+    return svc.get_review_by_user(movie_name, user_id)
