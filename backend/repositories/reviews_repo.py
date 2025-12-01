@@ -237,7 +237,7 @@ class CSVReviewRepo:
                     continue
 
                 if len(d["comment"]) > 2000:
-                    d["comment"] = d["comment"][:2000] + "..."
+                    d["comment"] = d["comment"][:1997] + "..."
                 out.append(ReviewOut.model_validate(d))
 
                 if len(out) >= limit:
@@ -333,7 +333,7 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("review_id") or "").strip() == review.review_id:
+                if (row.get("User") or "").strip() == review.username:
                     # Replace with updated row
                     new_row = _dict_to_row(review.model_dump())
                     rows.append(new_row)
@@ -373,7 +373,7 @@ class CSVReviewRepo:
                 rows.append(row)
 
         if not removed:
-            return  # nothing to delete
+            raise KeyError("Review not found for delete")
 
         tmp = path + ".tmp"
         with open(tmp, "w", newline="", encoding="utf-8") as csvfile:

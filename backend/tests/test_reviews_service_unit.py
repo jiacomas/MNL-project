@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -73,12 +71,11 @@ def get_review_by_user(movie_id: str, user_id: str) -> Optional[ReviewOut]:
 # UPDATE (owner only)
 def update_review(
     movie_id: str,
-    review_id: str,
-    current_user_id: str,
+    user_id: str,
     payload: ReviewUpdate,
 ) -> Optional[ReviewOut]:
-    existing = _repo.get_by_id(movie_id, review_id)
-    if not existing or getattr(existing, "username", None) != current_user_id:
+    existing = _repo.get_by_user(movie_id, user_id)
+    if not existing or getattr(existing, "username", None) != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to modify this review.",
@@ -91,7 +88,7 @@ def update_review(
         "updated_at": datetime.now(timezone.utc),
     }
 
-    updated = _repo.update(movie_id, review_id, updated_data)
+    updated = _repo.update(movie_id, user_id, updated_data)
     return _to_out(updated)
 
 
@@ -100,18 +97,17 @@ def update_review(
 
 def delete_review(
     movie_id: str,
-    review_id: str,
-    current_user_id: str,
+    user_id: str,
     is_admin: bool = False,
 ) -> bool:
-    existing = _repo.get_by_id(movie_id, review_id)
+    existing = _repo.get_by_user(movie_id, user_id)
     owner = getattr(existing, "username", None)
 
-    if not existing or (owner != current_user_id and not is_admin):
+    if not existing or (owner != user_id and not is_admin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this review.",
         )
 
-    _repo.delete(movie_id, review_id)
+    _repo.delete(movie_id, user_id)
     return True

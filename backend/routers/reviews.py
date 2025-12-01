@@ -50,25 +50,21 @@ def create_review(
 @router.patch("/{movie_name}/reviews/{review_id}", response_model=ReviewOut)
 def update_review(
     movie_name: str,
-    review_id: str,
     payload: ReviewUpdate,
     user_id: str = Depends(get_current_user_id),
 ):
     """Update an existing review (only the author can update)."""
-    return svc.update_review(movie_name, review_id, user_id, payload)
+    return svc.update_review(movie_name, user_id, payload)
 
 
-@router.delete(
-    "/{movie_name}/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/{movie_name}/reviews", status_code=status.HTTP_204_NO_CONTENT)
 def delete_review(
     movie_name: str,
-    review_id: str,
     user_id: str = Depends(get_current_user_id),
-    _: Dict = Depends(require_admin),
+    is_admin: Dict = Depends(require_admin),
 ):
     """Delete a review (owner or admin)."""
-    svc.delete_review(movie_name, review_id, user_id, is_admin=True)
+    svc.delete_review(movie_name, user_id, is_admin=bool(is_admin))
     return None
 
 

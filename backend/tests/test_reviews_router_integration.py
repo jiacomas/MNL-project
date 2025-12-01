@@ -80,7 +80,6 @@ def get_my_review_endpoint(
 @router.patch("/movie/{movie_id}/{review_id}", response_model=ReviewOut)
 def update_review_endpoint(
     movie_id: str,
-    review_id: str,
     payload: ReviewUpdate,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -90,9 +89,8 @@ def update_review_endpoint(
     """
     updated = svc.update_review(
         movie_id=movie_id,
-        review_id=review_id,
+        user_id=user_id,
         payload=payload,
-        current_user_id=user_id,
     )
     if updated is None:
         raise HTTPException(status_code=403, detail="Not allowed to edit this review.")

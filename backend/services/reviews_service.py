@@ -13,18 +13,29 @@ _repo = CSVReviewRepo()
 # Helpers
 
 
-def _get_review_or_404(movie_name: str, review_id: str) -> ReviewOut:
-    """Return a review for a movie, or raise 404 with 'Review not found.'."""
+def _get_review_or_404(movie_name: str, user_id: str) -> ReviewOut:
+    """Return a review for a movie, or raise 404 (assuming each user can only review it ones)"""
     # Primary lookup
-    review = _repo.get_review_by_id(movie_name, review_id)
+    review = _repo.get_review_by_user(movie_name, user_id)
 
     # Fallback: scan current movie reviews in case repo index differs by type
     if review is None:
-        reviews, _ = _repo.list_by_movie(movie_name, limit=2000)
-        for candidate in reviews:
-            if candidate.review_id == review_id:
-                review = candidate
-                break
+        next_cursor = 0
+        page_size = 100  # Define a suitable page size
+        while True:
+            reviews, next_cursor = _repo.list_by_movie(
+                movie_name, cursor=next_cursor, limit=page_size
+            )
+            if not reviews:
+                break  # No more reviews to fetch
+
+            for candidate in reviews:
+                if candidate.username == user_id:
+                    review = candidate
+                    break
+
+            if review is not None:
+                break  # Exit outer loop if review was found
 
     if review is None:
         raise HTTPException(
@@ -76,13 +87,11 @@ def list_reviews(
 
 def update_review(
     movie_name: str,
-    review_id: str,
     user_id: str,
     payload: ReviewUpdate,
 ) -> ReviewOut:
     """Update an existing review (only the author may do this)."""
-    review_id = str(review_id)
-    existing = _get_review_or_404(movie_name, review_id)
+    existing = _get_review_or_404(movie_name, user_id)
 
     if existing.username != user_id:
         raise HTTPException(
@@ -91,7 +100,14 @@ def update_review(
         )
 
     updated = ReviewOut(
-        **existing.model_dump(exclude={"rating", "comment", "updated_at"}),
+        **existing.model_dump(
+            exclude={"rating", "title_review", "comment", "updated_at"}
+        ),
+        title_review=(
+            payload.title_review
+            if payload.title_review is not None
+            else existing.title_review
+        ),
         rating=payload.rating if payload.rating is not None else existing.rating,
         comment=payload.comment if payload.comment is not None else existing.comment,
         updated_at=datetime.now(timezone.utc),
@@ -99,12 +115,9 @@ def update_review(
     return _repo.update(updated)
 
 
-def delete_review(
-    movie_name: str, review_id: str, user_id: str, is_admin: bool = False
-) -> None:
+def delete_review(movie_name: str, user_id: str, is_admin: bool = False) -> None:
     """Delete a review; only the author or an admin may delete."""
-    review_id = str(review_id)
-    existing = _get_review_or_404(movie_name, review_id)
+    existing = _get_review_or_404(movie_name, user_id)
 
     if not is_admin and existing.username != user_id:
         raise HTTPException(
@@ -112,7 +125,7 @@ def delete_review(
             detail="Not authorized to delete this review.",
         )
 
-    _repo.delete(movie_name, review_id)
+    _repo.delete(movie_name, existing.review_id)
 
 
 def get_review_by_user(movie_name: str, user_id: str) -> Optional[ReviewOut]:

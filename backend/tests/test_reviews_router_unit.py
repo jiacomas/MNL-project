@@ -69,16 +69,15 @@ def test_update_review(client, mock_reviews_service, jwt_user_headers):
     assert r.status_code == 200
     args, _ = mock_reviews_service.update_review.call_args
     assert args[0] == "m1"
-    assert args[1] == "r1"
-    assert args[2] == "u1"
-    assert args[3].rating == 10
+    assert args[1] == "u1"
+    assert args[2].rating == 10
 
 
 def test_delete_review(client, mock_reviews_service, jwt_admin_headers):
-    r = client.delete("/api/movies/m1/reviews/r1", headers=jwt_admin_headers)
+    r = client.delete("/api/movies/m1/reviews", headers=jwt_admin_headers)
     assert r.status_code in (200, 204)
     mock_reviews_service.delete_review.assert_called_once_with(
-        "m1", "r1", "admin", is_admin=True
+        "m1", "admin", is_admin=True
     )
 
 
