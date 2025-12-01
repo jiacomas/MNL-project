@@ -418,7 +418,7 @@ class MovieRepository:
         )
         return [MovieOut.model_validate(_movie_to_dict(m)) for m in movies[:limit]]
 
-    def search(
+    def search(  # noqa: C901
         self,
         title: str | None = None,
         genre: str | None = None,
@@ -434,12 +434,29 @@ class MovieRepository:
         # Basic filtering
         filtered = []
         for m in movies:
+            # Title search (case-insensitive)
             if title and title.lower() not in (m.get("title") or "").lower():
                 continue
-            if genre and genre.lower() not in (m.get("genre") or "").lower():
-                continue
-            if release_year and m.get("release_year") != release_year:
-                continue
+
+            # Genre search (case-insensitive, partial match in movieGenres)
+            if genre:
+                movie_genres = (m.get("movieGenres") or "").lower()
+                if genre.lower() not in movie_genres:
+                    continue
+
+            # Release year search (parse datePublished YYYY-MM-DD)
+            if release_year:
+                date_pub = m.get("datePublished")
+                if not date_pub:
+                    continue
+                try:
+                    # Extract year from YYYY-MM-DD
+                    pub_year = int(date_pub.split("-")[0])
+                    if pub_year != release_year:
+                        continue
+                except (ValueError, IndexError):
+                    continue
+
             filtered.append(m)
 
         # Optional sorting
