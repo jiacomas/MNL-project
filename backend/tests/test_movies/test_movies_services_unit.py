@@ -9,7 +9,6 @@ import pytest
 from fastapi import HTTPException
 
 from backend.schemas.movies import (
-    MovieCreate,
     MovieListResponse,
     MovieOut,
     MovieSearchFilters,
@@ -26,6 +25,7 @@ from backend.services.movies_service import (
     search_movies,
     update_movie,
 )
+from backend.tests.test_movies.conftest import create_valid_movie_create
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ class TestMoviesServiceUnit:
 
     def test_create_movie_admin_only(self, mock_repo):
         with pytest.raises(HTTPException):
-            create_movie(MovieCreate(title="x"), is_admin=False, repo=mock_repo)
+            create_movie(create_valid_movie_create(), is_admin=False, repo=mock_repo)
 
     def test_update_movie_not_found(self, mock_repo):
         mock_repo.update.return_value = None
@@ -180,21 +180,24 @@ class TestMoviesServiceUnit:
     def test_create_movie_repo_error(self, mock_repo):
         mock_repo.create.side_effect = ValueError("constraint fail")
         with pytest.raises(HTTPException):
-            create_movie(MovieCreate(title="x"), is_admin=True, repo=mock_repo)
+            create_movie(create_valid_movie_create(), is_admin=True, repo=mock_repo)
 
     def test_movie_lifecycle(self, mock_repo, sample_movie_out):
-        updated = sample_movie_out.model_copy(update={"movieIMDbRating": 8.8})
+        updated = sample_movie_out.model_copy(update={"title": "Updated Title"})
         mock_repo.create.return_value = sample_movie_out
         mock_repo.get_by_id.return_value = sample_movie_out
         mock_repo.update.return_value = updated
         mock_repo.delete.return_value = True
 
-        assert create_movie(MovieCreate(title="x"), is_admin=True, repo=mock_repo)
+        assert create_movie(create_valid_movie_create(), is_admin=True, repo=mock_repo)
         assert get_movie("tt011", repo=mock_repo)
         assert (
             update_movie(
-                "tt011", MovieUpdate(movieIMDbRating=8.8), is_admin=True, repo=mock_repo
-            ).movieIMDbRating
-            == 8.8
+                "tt011",
+                MovieUpdate(title="Updated Title"),
+                is_admin=True,
+                repo=mock_repo,
+            ).title
+            == "Updated Title"
         )
         delete_movie("tt011", is_admin=True, repo=mock_repo)

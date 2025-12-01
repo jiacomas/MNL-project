@@ -72,7 +72,17 @@ def user_headers():
 class TestMoviesRouterIntegration:
     # ---------- CRUD ----------
     def test_full_movie_crud_flow(self, admin_headers):
-        r = client.post("/api/movies/", json={"title": "A"}, headers=admin_headers)
+        payload = {
+            "title": "A",
+            "movieGenres": "Action",
+            "directors": "Director",
+            "datePublished": "2024-01-01",
+            "creators": "Creator",
+            "mainStars": "Actor",
+            "description": "Description",
+            "duration": 120,
+        }
+        r = client.post("/api/movies/", json=payload, headers=admin_headers)
         assert r.status_code == 201
         mid = r.json()["movie_id"]
 
@@ -80,11 +90,10 @@ class TestMoviesRouterIntegration:
         assert r.status_code == 200
 
         r = client.patch(
-            f"/api/movies/{mid}", json={"movieIMDbRating": 9.9}, headers=admin_headers
+            f"/api/movies/{mid}", json={"title": "Updated"}, headers=admin_headers
         )
         assert r.status_code == 200
-        # The API surfaces the canonical field name `movieIMDbRating` in responses
-        assert "movieIMDbRating" in r.json()
+        assert r.json()["title"] == "Updated"
 
         r = client.delete(f"/api/movies/{mid}", headers=admin_headers)
         assert r.status_code == 204
@@ -114,6 +123,16 @@ class TestMoviesRouterIntegration:
 
     # ---------- Auth ----------
     def test_non_admin_cannot_create_update_delete(self, user_headers):
+        valid_payload = {
+            "title": "X",
+            "movieGenres": "Action",
+            "directors": "Director",
+            "datePublished": "2024-01-01",
+            "creators": "Creator",
+            "mainStars": "Actor",
+            "description": "Description",
+            "duration": 120,
+        }
         for method, endpoint in [
             ("post", "/api/movies/"),
             ("patch", "/api/movies/m1"),
@@ -122,8 +141,9 @@ class TestMoviesRouterIntegration:
             if method == "delete":
                 r = getattr(client, method)(endpoint, headers=user_headers)
             else:
+                payload = valid_payload if method == "post" else {"title": "Updated"}
                 r = getattr(client, method)(
-                    endpoint, json={"title": "X"}, headers=user_headers
+                    endpoint, json=payload, headers=user_headers
                 )
             assert r.status_code == 403
 

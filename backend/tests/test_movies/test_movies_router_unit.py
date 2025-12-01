@@ -14,9 +14,17 @@ client = TestClient(app)
 def test_full_movie_crud_flow(jwt_admin_headers):
     """Full admin CRUD lifecycle."""
     # Create
-    r = client.post(
-        "/api/movies/", json={"title": "A Movie"}, headers=jwt_admin_headers
-    )
+    payload = {
+        "title": "A Movie",
+        "movieGenres": "Action",
+        "directors": "Test Director",
+        "datePublished": "2024-01-01",
+        "creators": "Test Creator",
+        "mainStars": "Actor One",
+        "description": "A test movie",
+        "duration": 120,
+    }
+    r = client.post("/api/movies/", json=payload, headers=jwt_admin_headers)
     assert r.status_code == 201
     mid = r.json()["movie_id"]
 
@@ -25,13 +33,12 @@ def test_full_movie_crud_flow(jwt_admin_headers):
     assert r.status_code == 200
     assert r.json()["title"] == "A Movie"
 
-    # Update - use canonical field name
+    # Update - use allowed field
     r = client.patch(
-        f"/api/movies/{mid}", json={"movieIMDbRating": 9.0}, headers=jwt_admin_headers
+        f"/api/movies/{mid}", json={"title": "Updated Movie"}, headers=jwt_admin_headers
     )
     assert r.status_code == 200
-    # responses use canonical `movieIMDbRating`
-    assert r.json().get("movieIMDbRating") == 9.0
+    assert r.json().get("title") == "Updated Movie"
 
     # Delete
     r = client.delete(f"/api/movies/{mid}", headers=jwt_admin_headers)
@@ -68,9 +75,19 @@ def test_popular_and_recent_movies():
 # ----- Auth Protection -----
 def test_non_admin_cannot_create_update_delete(jwt_user_headers):
     """Normal users forbidden from admin operations."""
+    valid_payload = {
+        "title": "Forbidden",
+        "movieGenres": "Action",
+        "directors": "Director",
+        "datePublished": "2024-01-01",
+        "creators": "Creator",
+        "mainStars": "Actor",
+        "description": "Description",
+        "duration": 120,
+    }
     endpoints = [
-        ("post", "/api/movies/", {"title": "Forbidden"}),
-        ("patch", "/api/movies/tt0001", {"movieIMDbRating": 5}),
+        ("post", "/api/movies/", valid_payload),
+        ("patch", "/api/movies/tt0001", {"title": "Updated"}),
         ("delete", "/api/movies/tt0001", None),
     ]
     for method, url, payload in endpoints:
