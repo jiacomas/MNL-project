@@ -236,6 +236,8 @@ class CSVReviewRepo:
                 ):
                     continue
 
+                if len(d["comment"]) > 2000:
+                    d["comment"] = d["comment"][:2000] + "..."
                 out.append(ReviewOut.model_validate(d))
 
                 if len(out) >= limit:

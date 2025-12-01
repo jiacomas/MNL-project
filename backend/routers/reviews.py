@@ -18,9 +18,9 @@ router = APIRouter(prefix="/api/movies", tags=["reviews"])
 # ---------- Endpoints ----------
 
 
-@router.get("/{movie_id}/reviews", response_model=ReviewListResponse)
+@router.get("/{movie_name}/reviews", response_model=ReviewListResponse)
 def list_reviews(
-    movie_id: str = Path(..., description="Movie ID"),
+    movie_name: str = Path(..., description="Movie Name"),
     limit: int = Query(50, ge=1, le=200, description="Max number of reviews to return"),
     cursor: Optional[int] = Query(0, description="Pagination cursor"),
     min_rating: Optional[int] = Query(
@@ -28,7 +28,7 @@ def list_reviews(
     ),
 ):
     """List all reviews for a movie (cursor-based pagination)."""
-    items, next_cursor = svc.list_reviews(movie_id, limit, cursor, min_rating)
+    items, next_cursor = svc.list_reviews(movie_name, limit, cursor, min_rating)
     return ReviewListResponse(items=items, next_cursor=next_cursor)
 
 
@@ -88,4 +88,4 @@ def get_review_by_user(
     return svc.get_review_by_user(movie_id, user_id)
 
 
-# list_reviews("Avengers Endgame", cursor = 0)
+list_reviews("Avengers Endgame", 50, 0, 0)
