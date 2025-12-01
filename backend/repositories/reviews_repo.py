@@ -373,6 +373,26 @@ class CSVReviewRepo:
         # Rebuild index
         self._ensure_index(movie_id)  # it will detect mtime and rebuild
 
+    def get_all_reviews_flat(self) -> List[ReviewOut]:
+        """
+        Retrieve all reviews across all movies.
+        This is an expensive operation intended for analytics.
+        """
+        all_reviews: List[ReviewOut] = []
+        if not os.path.exists(BASE_PATH):
+            return []
+
+        # Iterate over all subdirectories in BASE_PATH
+        for entry in os.listdir(BASE_PATH):
+            full_path = os.path.join(BASE_PATH, entry)
+            if os.path.isdir(full_path):
+                # We assume the directory name is the movie_id (sanitized)
+                movie_id = entry
+
+                reviews, _ = self.list_by_movie(movie_id, limit=1000000)
+                all_reviews.extend(reviews)
+        return all_reviews
+
 
 # .. note::
 #    Parts of this file comments and basic scaffolding were auto-completed by VS Code.

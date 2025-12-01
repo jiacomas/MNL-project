@@ -62,6 +62,7 @@ class MovieUpdate(BaseModel):
     mainStars: Optional[str] = None
     description: Optional[str] = None
     poster_url: Optional[str] = None
+    mainStars: Optional[str] = None
 
     @field_validator("*", mode="before")
     @classmethod
