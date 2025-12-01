@@ -1,7 +1,8 @@
 import csv
 import json
 import os
-import zlib
+
+from backend.utils import make_movie_id
 
 MOVIE_METADATA = "metadata.json"
 MOVIE_REVIEWS = "movieReviews.csv"
@@ -25,9 +26,7 @@ def get_movie_metadata(movie_path, entry):  # noqa: C901
                     # accept ints or numeric strings -> coerce to string
                     metadata_content["movie_id"] = str(raw_id)
                 except (ValueError, TypeError):
-                    metadata_content["movie_id"] = str(
-                        zlib.crc32(entry.encode("utf-8")) & 0xFFFFFFFF
-                    )
+                    metadata_content["movie_id"] = make_movie_id(None, entry)
 
                 # write the updated metadata back to the JSON file
                 try:
@@ -73,7 +72,7 @@ def get_movie_reviews(movie_path, movie_id, entry):
     return reviews_content
 
 
-def explore_each_movie(original_path="backend/data"):  # noqa: C901
+def explore_each_movie(original_path="backend/data/movies"):  # noqa: C901
     root = os.path.abspath(original_path)
     if not os.path.isdir(root):
         return []
@@ -85,12 +84,14 @@ def explore_each_movie(original_path="backend/data"):  # noqa: C901
 
         metadata_content = get_movie_metadata(movie_path, entry)
         # Ensure movie_id is a string (consistent with MovieBase.movie_id)
-        movie_id = str(
-            metadata_content.get(
-                "movie_id", zlib.crc32(entry.encode("utf-8")) & 0xFFFFFFFF
-            )
-        )
+        movie_id = make_movie_id(metadata_content.get("movie_id"), entry)
         reviews_content = get_movie_reviews(movie_path, movie_id, entry)
+
+        # Ensure metadata is a dict and add review_count for this movie
+        if not isinstance(metadata_content, dict):
+            metadata_content = {}
+        reviews_len = len(reviews_content) if isinstance(reviews_content, list) else 0
+        metadata_content["review_count"] = reviews_len
 
         # persist metadata and reviews into JSON files under the data root
         movies_json_path = os.path.join(root, "movies.json")

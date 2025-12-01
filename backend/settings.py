@@ -54,3 +54,6 @@ EXTERNAL_METADATA_DIR = Path(
         "EXTERNAL_METADATA_DIR", str(ROOT_DATA_DIR / "movies" / "external_metadata")
     )
 )
+
+# Analytics
+EXPORT_DIR = Path(os.getenv("EXPORT_DIR", str(ROOT_DATA_DIR / "exports")))

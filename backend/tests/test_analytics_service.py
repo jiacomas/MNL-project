@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import Mock
 
 from pytest_mock import MockerFixture
 
@@ -16,63 +17,35 @@ def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> N
     - CSV schema (headers) and presence of generated_at row
     """
 
-    # ------------------------------------------------------------------
-    # 1. Point analytics_service to temporary data files
-    # ------------------------------------------------------------------
-    users_file = tmp_path / "users.json"
-    reviews_file = tmp_path / "reviews.json"
-    bookmarks_file = tmp_path / "bookmarks.json"
-    penalties_file = tmp_path / "penalties.json"
-    items_file = tmp_path / "items.json"
-    export_dir = tmp_path / "exports"
+    # Mock the AnalyticsRepository
+    mock_user_metrics = (10, 5, 2)  # total, active, locked
+    mock_counts = (100, 50, 5)  # reviews, bookmarks, penalties
+    mock_top_genres = [("Action", 10), ("Adventure", 5)]
 
-    mocker.patch.object(analytics, "USERS_FILE", users_file)
-    mocker.patch.object(analytics, "REVIEWS_FILE", reviews_file)
-    mocker.patch.object(analytics, "BOOKMARKS_FILE", bookmarks_file)
-    mocker.patch.object(analytics, "PENALTIES_FILE", penalties_file)
-    mocker.patch.object(analytics, "ITEMS_FILE", items_file)
-    mocker.patch.object(analytics, "EXPORT_DIR", export_dir)
+    # Mock the repo instance
+    mock_repo = Mock()
+    mock_repo.get_user_metrics.return_value = mock_user_metrics
+    mock_repo.get_counts.return_value = mock_counts
+    mock_repo.get_top_genres.return_value = mock_top_genres
 
-    # ------------------------------------------------------------------
-    # 2. Write minimal JSON fixtures for the test
-    # ------------------------------------------------------------------
-    # Users: one active, one locked
-    users_file.write_text(
-        '[{"id": "u1", "is_locked": false}, {"id": "u2", "is_locked": true}]',
-        encoding="utf-8",
+    mocker.patch.object(
+        analytics._analytics_repo, "get_user_metrics", return_value=mock_user_metrics
+    )
+    mocker.patch.object(
+        analytics._analytics_repo, "get_counts", return_value=mock_counts
+    )
+    mocker.patch.object(
+        analytics._analytics_repo, "get_top_genres", return_value=mock_top_genres
     )
 
-    # Single movie m1 with two genres
-    items_file.write_text(
-        '[{"id": "m1", "genres": ["Action", "Adventure"]}]',
-        encoding="utf-8",
-    )
+    # We also need to patch the export_dir of the global repo to use tmp_path
+    analytics._analytics_repo.export_dir = tmp_path
 
-    # One review and one bookmark for m1
-    reviews_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
-    )
-    bookmarks_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
-    )
-
-    # One penalty record
-    penalties_file.write_text(
-        '[{"user_id": "u2", "reason": "spam"}]',
-        encoding="utf-8",
-    )
-
-    # ------------------------------------------------------------------
-    # 3. Run the CSV export
-    # ------------------------------------------------------------------
+    #  Run the CSV export
     out_csv: Path = analytics.compute_stats_and_write_csv()
     assert out_csv.exists()
 
-    # ------------------------------------------------------------------
-    # 4. Basic content checks on the CSV
-    # ------------------------------------------------------------------
+    # Basic content checks on the CSV
     content = out_csv.read_text(encoding="utf-8")
 
     # Header / metric rows
@@ -83,9 +56,15 @@ def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> N
     assert "bookmarks" in content
     assert "penalties" in content
 
+    # Check values
+    assert "10" in content  # total users
+    assert "5" in content  # active users
+    assert "100" in content  # reviews
+
     # Top genres section
     assert "top_genre_rank,genre,count" in content
-    assert "Action" in content or "Adventure" in content
+    assert "Action" in content
+    assert "Adventure" in content
 
     # Tail row with generated_at
     assert "generated_at" in content

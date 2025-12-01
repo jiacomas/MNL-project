@@ -1,119 +1,23 @@
 from __future__ import annotations
 
-import csv
-import json
-import os
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, List, Tuple
 
+from backend.repositories.analytics_repo import AnalyticsRepository
 from backend.repositories.reviews_repo import CSVReviewRepo
 
-# Shared review repository (for reading review CSVs)
-_repo = CSVReviewRepo()
-
-# ---------------------------------------------------------------------------
-# File locations for analytics JSON data
-# These are patched in tests with monkeypatch.setattr(...)
-# ---------------------------------------------------------------------------
-
-USERS_FILE: Path = Path(os.environ.get("USERS_FILE", "data/users.json"))
-REVIEWS_FILE: Path = Path(os.environ.get("REVIEWS_FILE", "data/reviews.json"))
-BOOKMARKS_FILE: Path = Path(os.environ.get("BOOKMARKS_FILE", "data/bookmarks.json"))
-PENALTIES_FILE: Path = Path(os.environ.get("PENALTIES_FILE", "data/penalties.json"))
-ITEMS_FILE: Path = Path(os.environ.get("ITEMS_FILE", "data/items.json"))
-EXPORT_DIR: Path = Path(os.environ.get("EXPORT_DIR", "data/exports"))
+# Instantiate repositories
+_analytics_repo = AnalyticsRepository()
+_review_repo = (
+    CSVReviewRepo()
+)  # Still used for search helpers if needed, or we can move search to repo
 
 
-# ---------------------------------------------------------------------------
-# JSON helpers + core stats
-# ---------------------------------------------------------------------------
-
-
-def _read_json_list(path: Path) -> List[Dict[str, Any]]:
-    """Read a JSON file and always return a list of dicts.
-
-    The test suite writes simple JSON arrays; this helper also tolerates
-    slightly different shapes (single object, or dicts with "items"/"users").
-    """
-    if not path.exists():
-        return []
-
-    with path.open(encoding="utf-8") as f:
-        data = json.load(f)
-
-    if isinstance(data, list):
-        return list(data)
-
-    if isinstance(data, dict):
-        if "items" in data:
-            return list(data["items"])
-        if "users" in data:
-            return list(data["users"])
-
-    # Fallback – wrap a single object
-    return [data]
-
-
-def _basic_user_metrics(users: List[Dict[str, Any]]) -> Tuple[int, int, int]:
-    """Return (total, active, locked) user counts."""
-    total = len(users)
-    active = sum(1 for u in users if not u.get("is_locked"))
-    locked = sum(1 for u in users if u.get("is_locked"))
-    return total, active, locked
-
-
-def _activity_metrics(
-    reviews: List[Dict[str, Any]],
-    bookmarks: List[Dict[str, Any]],
-    penalties: List[Dict[str, Any]],
-) -> Tuple[int, int, int]:
-    """Return counts for reviews, bookmarks and penalties."""
-    return len(reviews), len(bookmarks), len(penalties)
-
-
-def _top_genres(
-    items: List[Dict[str, Any]],
-    reviews: List[Dict[str, Any]],
-) -> List[Tuple[str, int]]:
-    """Compute (genre, count) sorted by most common first.
-
-    The count is based on how often a genre appears for *reviewed* movies.
-    """
-    genres_by_item = {item.get("id"): item.get("genres", []) for item in items}
-    genre_counter: Counter[str] = Counter()
-
-    for review in reviews:
-        movie_id = review.get("movie_id")
-        for genre in genres_by_item.get(movie_id, []):
-            if genre:
-                genre_counter[genre] += 1
-
-    return list(genre_counter.most_common())
-
-
-def compute_stats_and_write_csv() -> Path:
-    """Compute platform stats and write them to a CSV file.
-
-    Layout (matches the tests):
-
-    - First line: "metric,value"
-    - Metric rows (users, reviews, bookmarks, penalties, etc.)
-    - Header row for top genres: "top_genre_rank,genre,count"
-    - One row per top genre
-    - Final row: "generated_at,<ISO-8601 timestamp>"
-    """
-    users = _read_json_list(USERS_FILE)
-    reviews = _read_json_list(REVIEWS_FILE)
-    bookmarks = _read_json_list(BOOKMARKS_FILE)
-    penalties = _read_json_list(PENALTIES_FILE)
-    items = _read_json_list(ITEMS_FILE)
-
-    user_total, user_active, user_locked = _basic_user_metrics(users)
-    reviews_count, bookmarks_count, penalties_count = _activity_metrics(
-        reviews, bookmarks, penalties
-    )
+def compute_stats() -> Tuple[List[Tuple[str, str]], List[Tuple[str, int]]]:
+    """Compute platform stats."""
+    user_total, user_active, user_locked = _analytics_repo.get_user_metrics()
+    reviews_count, bookmarks_count, penalties_count = _analytics_repo.get_counts()
 
     metrics = [
         ("users_count", str(user_total)),
@@ -125,30 +29,15 @@ def compute_stats_and_write_csv() -> Path:
         ("penalties_count", str(penalties_count)),
     ]
 
-    top_genres = _top_genres(items, reviews)
+    top_genres = _analytics_repo.get_top_genres()
+    return metrics, top_genres
 
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = EXPORT_DIR / "analytics_export.csv"
 
+def compute_stats_and_write_csv() -> Path:
+    """Compute platform stats and write them to a CSV file."""
+    metrics, top_genres = compute_stats()
     now = datetime.now(timezone.utc)
-
-    with out_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-
-        # Metrics section
-        writer.writerow(["metric", "value"])
-        for name, value in metrics:
-            writer.writerow([name, value])
-
-        # Top-genres section header that the test checks for
-        writer.writerow(["top_genre_rank", "genre", "count"])
-        for idx, (genre, count) in enumerate(top_genres, start=1):
-            writer.writerow([idx, genre, count])
-
-        # Footer row with generation timestamp
-        writer.writerow(["generated_at", now.isoformat()])
-
-    return out_path
+    return _analytics_repo.write_stats_csv(metrics, top_genres, now.isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -156,94 +45,57 @@ def compute_stats_and_write_csv() -> Path:
 # ---------------------------------------------------------------------------
 
 
-def _discover_movie_root() -> str:
-    """Return the directory where per-movie review CSVs live."""
-    # The project normally uses MOVIE_DATA_PATH; fall back to data/movies.
-    env_root = os.environ.get("MOVIE_DATA_PATH")
-    return env_root or "data/movies"
-
-
-def _iter_matching_movie_ids(root: str, normalized_q: str) -> Iterable[str]:
-    """Yield movie ids under *root* whose folder name matches the query."""
-    if not os.path.isdir(root):
-        return []
-
-    for entry in sorted(os.listdir(root)):
-        if normalized_q and normalized_q not in entry.lower():
-            continue
-        yield entry
-
-
-def _load_review_rows_for_movie(movie_id: str) -> List[Dict[str, Any]]:
-    """Return review rows for a single movie as plain dicts.
-
-    Any problems reading the CSV for a movie are treated as “no data”.
-    """
-    try:
-        reviews, _ = _repo.list_by_movie(movie_id=movie_id, limit=1_000_000, cursor=0)
-    except Exception:
-        return []
-
-    rows: List[Dict[str, Any]] = []
-    for review in reviews:
-        rows.append(
-            {
-                "id": review.id,
-                "movie_title": movie_id,
-                "rating": review.rating,
-                "created_at": review.created_at,
-                "user_id": review.user_id,
-            }
-        )
-    return rows
-
-
-def _sort_review_rows(
-    rows: List[Dict[str, Any]],
-    sort_by: str,
-    order: str,
-) -> List[Dict[str, Any]]:
-    """Sort review rows by rating or created_at according to the tests."""
-    reverse = order != "asc"
-
-    if sort_by == "rating":
-        key = lambda x: (x.get("rating") or 0)  # noqa: E731
-    else:
-        key = lambda x: x.get("created_at") or 0  # noqa: E731
-
-    rows.sort(key=key, reverse=reverse)
-    return rows
-
-
 def search_reviews_by_title(
     title_query: str,
     sort_by: str = "date",
     order: str = "desc",
 ) -> List[Dict[str, Any]]:
-    """Search reviews by (partial, case-insensitive) movie title.
+    """Search reviews by (partial, case-insensitive) movie title."""
+    # This logic is a bit complex to move entirely to repo without changing signatures significantly
+    # because it involves "discovering" movies matching a title and then loading their reviews.
+    # We can keep the orchestration here but use repos for data access.
 
-    Returns a list of dicts with keys:
-    id, movie_title, rating, created_at, user_id.
+    # We need to find movies that match the title.
+    # MovieRepository has search, but it returns MovieOut objects.
+    # We can use that.
+    from backend.repositories.movies_repo import MovieRepository
 
-    Behaviour matches the admin analytics tests:
-    - substring, case-insensitive matching on folder / movie id
-    - optional sorting by date or rating
-    """
-    root = _discover_movie_root()
-    normalized_q = (title_query or "").strip().lower()
+    movie_repo = MovieRepository()
+
+    # Search movies by title
+    movies, _ = movie_repo.search(title=title_query, limit=1000)
 
     rows: List[Dict[str, Any]] = []
-    for movie_id in _iter_matching_movie_ids(root, normalized_q):
-        rows.extend(_load_review_rows_for_movie(movie_id))
+    for movie in movies:
+        # Get reviews for each movie
+        reviews, _ = _review_repo.list_by_movie(movie.movie_id, limit=10000)
+        for review in reviews:
+            rows.append(
+                {
+                    "id": review.id,
+                    "movie_title": movie.movie_id,  # The original code used movie_id as title in some places or directory name
+                    "rating": review.rating,
+                    "created_at": review.created_at,
+                    "user_id": review.user_id,
+                }
+            )
 
-    return _sort_review_rows(rows, sort_by, order)
+    # Sort
+    reverse = order != "asc"
 
+    def _key_by_rating(x):
+        return x.get("rating") or 0
 
-def _serialize_created_at(value: Any) -> str:
-    """Convert created_at to a string suitable for CSV output."""
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
+    def _key_by_created_at(x):
+        return x.get("created_at") or datetime.min.replace(tzinfo=timezone.utc)
+
+    if sort_by == "rating":
+        key = _key_by_rating
+    else:
+        key = _key_by_created_at
+
+    rows.sort(key=key, reverse=reverse)
+    return rows
 
 
 def write_reviews_csv(
@@ -251,40 +103,31 @@ def write_reviews_csv(
     out_path: Path | None = None,
     filename: str | None = None,
 ) -> Path:
-    """Write search results to a CSV for admin download.
+    """Write search results to a CSV for admin download."""
+    # If out_path is provided, we might need to handle it, but repo expects filename or uses default in export dir.
+    # The original code handled out_path flexibility.
+    # Let's try to map it.
 
-    Backwards-compatible signature:
-    - `write_reviews_csv(rows, out_path=Path(...))` (existing callers)
-    - `write_reviews_csv(rows, filename="foo.csv")` (tests expect this)
-    If neither `out_path` nor `filename` are provided, the function writes
-    to `EXPORT_DIR / 'reviews_export.csv'`.
-    """
-    # Determine the output path according to provided args
-    if filename and out_path is not None:
-        # If both provided, prefer explicit out_path but ensure filename used if out_path is a directory
+    if out_path:
+        # If out_path is a directory, use filename or default
         if out_path.is_dir():
-            out_path = out_path / filename
-    elif filename:
-        out_path = EXPORT_DIR / filename
-    elif out_path is None:
-        out_path = EXPORT_DIR / "reviews_export.csv"
+            fname = filename or "reviews_export.csv"
+            final_path = out_path / fname
+        else:
+            final_path = out_path
 
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+        # We can't easily force repo to write to arbitrary path if it's locked to export_dir
+        # But we can just write it here using the repo's logic or just use the repo's method if it allows path override?
+        # My new repo method takes filename and writes to export_dir.
+        # To maintain exact backward compatibility with tests that might pass a full path:
+        # We might need to adjust the repo or just handle it here.
 
-    with out_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["id", "movie_title", "rating", "created_at", "user_id"])
+        # Actually, let's just use the repo's method but we might need to be careful about the path.
+        # If the test passes a tmp_path, we want to write there.
+        # The repo uses self.export_dir.
+        # We can temporarily override export_dir or just instantiate a new repo with that dir.
 
-        for row in rows:
-            writer.writerow(
-                [
-                    row.get("id"),
-                    row.get("movie_title"),
-                    row.get("rating"),
-                    _serialize_created_at(row.get("created_at")),
-                    row.get("user_id"),
-                ]
-            )
+        repo = AnalyticsRepository(export_dir=final_path.parent)
+        return repo.write_reviews_csv(rows, filename=final_path.name)
 
-    return out_path
+    return _analytics_repo.write_reviews_csv(rows, filename=filename)

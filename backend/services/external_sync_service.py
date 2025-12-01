@@ -12,32 +12,24 @@ with timestamp + items updated.
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import httpx
 
 from backend import settings
+from backend.repositories.movies_repo import MovieRepository
+from backend.repositories.sync_repo import SyncLogRepository
+from backend.schemas.movies import MovieUpdate
 
-# Use centralized settings for file locations and external API configuration
-ROOT_DATA_DIR = settings.ROOT_DATA_DIR
-ITEMS_FILE: Path = settings.ITEMS_FILE
-SYNC_LOG_FILE: Path = settings.SYNC_LOG_FILE
+# Use centralized settings for external API configuration
 EXTERNAL_API_BASE_URL = settings.EXTERNAL_API_BASE_URL
 EXTERNAL_API_KEY_ENV = settings.EXTERNAL_API_KEY_ENV
 
-
-def _load_json(path: Path) -> Any:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _save_json(path: Path, data: Any) -> None:
-    path.write_text(json.dumps(data, indent=4), encoding="utf-8")
+# Repositories
+_movie_repo = MovieRepository(use_json=True)
+_sync_repo = SyncLogRepository()
 
 
 async def _fetch_external_metadata(
@@ -64,8 +56,8 @@ async def _fetch_external_metadata(
     }
 
 
-async def _update_item_from_external(client: httpx.AsyncClient, item: dict) -> bool:
-    title = item.get("title")
+async def _update_item_from_external(client: httpx.AsyncClient, item: Any) -> bool:
+    title = getattr(item, "title", None)
     if not title:
         return False
 
@@ -73,55 +65,54 @@ async def _update_item_from_external(client: httpx.AsyncClient, item: dict) -> b
     if not external:
         return False
 
-    changed = False
+    update_data = {}
 
     for key in ("poster_url", "runtime", "cast"):
-        value = external.get(key)
-        if value and item.get(key) != value:
-            item[key] = value
+        new_val = external.get(key)
+        # We need to handle potential attribute error if field missing on model
+        curr_val = getattr(item, key, None)
+
+        if new_val and curr_val != new_val:
+            update_data[key] = new_val
             changed = True
+
+    if changed:
+        # Perform update
+        try:
+            _movie_repo.update(item.movie_id, MovieUpdate(**update_data))
+        except Exception:
+            # If validation fails (e.g. field doesn't exist in schema), we skip
+            return False
 
     return changed
 
 
 async def sync_external_metadata() -> Tuple[int, str]:
     """
-    Syncs external metadata into items.json.
+    Syncs external metadata into items.json (via MovieRepository).
 
     Returns:
         (items_updated_count, timestamp_str)
     """
-    items = _load_json(ITEMS_FILE)
-    if not isinstance(items, list):
-        ts = datetime.now(UTC).isoformat()
-        return 0, ts
+    items, _ = _movie_repo.get_all(limit=10000)  # Get all movies
 
-    updated_indices: List[int] = []
-
-    # ***** CRITICAL CHANGE: timestamp as string *****
     timestamp_str = datetime.now(UTC).isoformat()
+    count = 0
+    updated_idxs = []
 
     async with httpx.AsyncClient() as client:
         for idx, item in enumerate(items):
             if await _update_item_from_external(client, item):
-                updated_indices.append(idx)
+                count += 1
+                updated_idxs.append(idx)
 
-    # Save updated items only if something changed
-    if updated_indices:
-        _save_json(ITEMS_FILE, items)
-
-    # Prepare log entry
-    log = _load_json(SYNC_LOG_FILE) or []
-    if not isinstance(log, list):
-        log = []
-
-    log.append(
+    # Log
+    _sync_repo.append_log(
         {
             "timestamp": timestamp_str,
-            "items_updated": len(updated_indices),
-            "indices": updated_indices,
+            "items_updated": count,
+            "indices": updated_idxs,
         }
     )
-    _save_json(SYNC_LOG_FILE, log)
 
-    return len(updated_indices), timestamp_str
+    return count, timestamp_str
