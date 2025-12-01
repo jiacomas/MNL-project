@@ -62,7 +62,7 @@ def _process_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
     movie_data = {k: (v if v else None) for k, v in row.items()}
 
     # Numeric fields (use small helpers to keep complexity low)
-    movie_data["datePublished"] = _safe_to_int(movie_data.get("datePublished"))
+    # datePublished is a string (e.g. "2019-04-26"), not an int
     movie_data["duration"] = _safe_to_int(movie_data.get("duration"))
     movie_data["movieIMDbRating"] = _safe_to_float(movie_data.get("movieIMDbRating"))
 

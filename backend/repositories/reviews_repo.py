@@ -20,27 +20,28 @@ CSV_HEADERS = [
     "Total Votes",
     "User's Rating out of 10",
     "Review Title",
-    "id",  # added by our system
+    "Review",
+    "review_id",  # added by our system
 ]
 
 DATE_INPUT_FORMATS = ["%d %B %Y", "%d %b %y", "%Y-%m-%d"]
 
 
 # Helpers
-def _movie_dir(movie_id: str) -> str:
+def _movie_dir(movie_name: str) -> str:
     '''Return the directory path on disk where a movie's CSV and index live'''
-    safe = movie_id.strip().replace("/", "_")
+    safe = movie_name.strip().replace("/", "_")
     return os.path.join(BASE_PATH, safe)
 
 
-def _movie_csv_path(movie_id: str) -> str:
+def _movie_csv_path(movie_name: str) -> str:
     '''Compute the full CSV file path for a given movie'''
-    return os.path.join(_movie_dir(movie_id), "movieReviews.csv")
+    return os.path.join(_movie_dir(movie_name), "movieReviews.csv")
 
 
-def _index_path(movie_id: str) -> str:
+def _index_path(movie_name: str) -> str:
     '''Compute the full JSON index file path for a given movie'''
-    return os.path.join(_movie_dir(movie_id), "index.json")
+    return os.path.join(_movie_dir(movie_name), "index.json")
 
 
 def _ensure_dir(path: str) -> None:
@@ -66,9 +67,9 @@ def _format_date_for_csv(dt: datetime) -> str:
     return dt.strftime("%d %B %Y")
 
 
-def _stable_uuid5(movie_id: str, user: str, date_str: str, title: str) -> str:
+def _stable_uuid5(movie_name: str, user: str, date_str: str, title: str) -> str:
     '''Generate a stable, name-based UUIDv5 for a review row'''
-    key = f"{movie_id}||{user}||{date_str}||{title}"
+    key = f"{movie_name}||{user}||{date_str}||{title}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
@@ -100,21 +101,21 @@ def _save_index(movie_id: str, index: Dict[str, Any]) -> None:
     os.replace(tmp, idx_path)
 
 
-def _csv_mtime(movie_id: str) -> float:
+def _csv_mtime(movie_name: str) -> float:
     '''Get the last modified time of the movie's CSV file'''
-    csv_path = _movie_csv_path(movie_id)
+    csv_path = _movie_csv_path(movie_name)
     return os.path.getmtime(csv_path) if os.path.exists(csv_path) else 0.0
 
 
 # Model mapping
-def _row_to_dict(movie_id: str, row: Dict[str, str]) -> Dict[str, Any]:
+def _row_to_dict(movie_name: str, row: Dict[str, str]) -> Dict[str, Any]:
     '''Convert a CSV row to a dictionary suitable for ReviewOut'''
     date_str = row.get("Date of Review", "").strip()
     user = row.get("User", "").strip()
     usefulness = row.get("Usefulness Vote", "").strip()
     total_votes = row.get("Total Votes", "").strip()
     title = row.get("Review Title", "").strip()
-    review_id = row.get("id", "").strip()
+    review = row.get("Review", "").strip()
 
     # rating
     raw_rating = row.get("User's Rating out of 10", "").strip() or ""
@@ -123,20 +124,22 @@ def _row_to_dict(movie_id: str, row: Dict[str, str]) -> Dict[str, Any]:
     except Exception:
         rating = None
 
-    create_dt = _parse_date(date_str)
+    # Prefer stored ID, fallback to stable ID
+    review_id = row.get("review_id", "").strip()
     if not review_id:
-        review_id = _stable_uuid5(movie_id, user, date_str, title)
+        review_id = _stable_uuid5(movie_name, user, date_str, title)
 
     return {
-        "id": str(review_id or ""),
-        "movie_id": movie_id,
-        "user_id": user or "",
+        "review_id": review_id,
+        "movie_name": movie_name,
+        "username": user or "",
         "rating": rating or 0,
-        "comment": title if title else None,
-        "created_at": create_dt,
-        "updated_at": create_dt,
-        "csv_usefulness_vote": usefulness,
-        "csv_total_votes": total_votes,
+        "title_review": title or "",
+        "comment": review or "",
+        "created_at": _parse_date(date_str),
+        "updated_at": datetime.now(timezone.utc),
+        "usefulness": usefulness,
+        "total_votes": total_votes,
     }
 
 
@@ -158,14 +161,21 @@ def _dict_to_row(data: Dict[str, Any]) -> Dict[str, str]:
 
     return {
         "Date of Review": _format_date_for_csv(created_dt),
-        "User": data.get("user_id", ""),
-        "Usefulness Vote": data.get("csv_usefulness_vote", ""),
-        "Total Votes": data.get("csv_total_votes", ""),
+        "User": data.get("username", ""),
+        "Usefulness Vote": str(data.get("usefulness", 0)),
+        "Total Votes": str(data.get("total_votes", 0)),
         "User's Rating out of 10": (
-            data.get("rating", "") if data.get("rating") is not None else ""
+            str(data.get("rating")) if data.get("rating") is not None else ""
         ),
-        "Review Title": data.get("comment", "") or "",
-        "id": data.get("id", "") or str(uuid.uuid4()),
+        "Review Title": data.get("title_review", "") or "",
+        "Review": data.get("comment", "") or "",
+        "review_id": data.get("review_id", "")
+        or _stable_uuid5(
+            data.get("movie_id", ""),
+            data.get("username", ""),
+            data.get("created_at", ""),
+            data.get("title_review", ""),
+        ),
     }
 
 
@@ -181,9 +191,9 @@ class CSVReviewRepo:
     # List reviews
     def list_by_movie(
         self,
-        movie_id: str,
+        movie_name: str,
         limit: int = 50,
-        cursor: Optional[int] = None,
+        cursor: Optional[int] = 0,
         min_rating: Optional[int] = None,
     ) -> tuple[List[ReviewOut], Optional[int]]:
         '''List reviews for a given movie with pagination and optional rating filter
@@ -199,11 +209,11 @@ class CSVReviewRepo:
           For very large files as we designed (≈50,000+), consider returning a smaller default limit (e.g., 25),
           and/or moving to an append-log + compaction model.
         '''
-        path = _movie_csv_path(movie_id)
+        path = _movie_csv_path(movie_name)
         if not os.path.exists(path):
             return [], None
 
-        start_row = cursor or 0
+        start_row: int = cursor if cursor is not None else 0
         out: List[ReviewOut] = []
         next_cursor: Optional[int] = None
 
@@ -219,13 +229,15 @@ class CSVReviewRepo:
             row_index = start_row
             for row in reader:
                 row_index += 1
-                d = _row_to_dict(movie_id, row)
+                d = _row_to_dict(movie_name, row)
 
                 if min_rating is not None and (
                     d["rating"] is None or d["rating"] < min_rating
                 ):
                     continue
 
+                if len(d["comment"]) > 2000:
+                    d["comment"] = d["comment"][:1997] + "..."
                 out.append(ReviewOut.model_validate(d))
 
                 if len(out) >= limit:
@@ -236,10 +248,10 @@ class CSVReviewRepo:
         return out, next_cursor
 
     # Access with index
-    def _ensure_index(self, movie_id: str) -> Dict[str, Any]:
+    def _ensure_index(self, movie_name: str) -> Dict[str, Any]:
         '''Load the index, if the CSV mtime differs, rebuild and persist it.'''
-        csv_mtime = _csv_mtime(movie_id)
-        idx = _load_index(movie_id)
+        csv_mtime = _csv_mtime(movie_name)
+        idx = _load_index(movie_name)
 
         if idx.get("source_mtime", 0.0) == csv_mtime:
             return idx
@@ -247,31 +259,31 @@ class CSVReviewRepo:
         # Rebuild index
         by_id: Dict[str, int] = {}
         by_user: Dict[str, str] = {}
-        path = _movie_csv_path(movie_id)
+        path = _movie_csv_path(movie_name)
         if os.path.exists(path):
             with open(path, newline="", encoding="utf-8") as csvfile:
                 reader = csv.DictReader(csvfile)
                 for i, row in enumerate(reader):
-                    d = _row_to_dict(movie_id, row)
-                    by_id[str(d["id"])] = i  # row number
-                    if d["user_id"] and d["user_id"] not in by_user:
-                        by_user[d["user_id"]] = d["id"]
+                    d = _row_to_dict(movie_name, row)
+                    by_id[str(d["review_id"])] = i  # row number
+                    if d["username"] and d["username"] not in by_user:
+                        by_user[d["username"]] = d["review_id"]
         idx = {
             "by_id": by_id,
             "by_user": by_user,
             "source_mtime": csv_mtime,
         }
-        _save_index(movie_id, idx)
+        _save_index(movie_name, idx)
         return idx
 
-    def get_review_by_id(self, movie_id: str, review_id: str) -> Optional[ReviewOut]:
+    def get_review_by_id(self, movie_name: str, review_id: str) -> Optional[ReviewOut]:
         """Get a single review by its ID using the index for fast lookup"""
-        idx = self._ensure_index(movie_id)
+        idx = self._ensure_index(movie_name)
         pos = idx.get("by_id", {}).get(review_id)
         if pos is None:
             return None
 
-        path = _movie_csv_path(movie_id)
+        path = _movie_csv_path(movie_name)
         if not os.path.exists(path):
             return None  # prevent crash if CSV file missing
 
@@ -279,23 +291,23 @@ class CSVReviewRepo:
             reader = csv.DictReader(csvfile)
             for i, row in enumerate(reader):
                 if i == pos:
-                    return ReviewOut.model_validate(_row_to_dict(movie_id, row))
+                    return ReviewOut.model_validate(_row_to_dict(movie_name, row))
         return None
 
-    def get_review_by_user(self, movie_id: str, user_id: str) -> Optional[ReviewOut]:
+    def get_review_by_user(self, movie_name: str, user_id: str) -> Optional[ReviewOut]:
         '''Get the first review by a given user'''
-        idx = self._ensure_index(movie_id)
+        idx = self._ensure_index(movie_name)
         review_id = idx["by_user"].get(user_id)
         if not review_id:
             return None
-        return self.get_review_by_id(movie_id, review_id)
+        return self.get_review_by_id(movie_name, review_id)
 
     # Create/Update/Delete operations
     def create(self, review: ReviewOut) -> ReviewOut:
         '''Append a new review to the movie CSV file'''
-        dir_path = _movie_dir(review.movie_id)
+        dir_path = _movie_dir(review.movie_name)
         _ensure_dir(dir_path)
-        path = _movie_csv_path(review.movie_id)
+        path = _movie_csv_path(review.movie_name)
         exists = os.path.exists(path)
 
         row = _dict_to_row(review.model_dump())
@@ -306,13 +318,13 @@ class CSVReviewRepo:
             writer.writerow(row)
 
         # Update index
-        self._ensure_index(review.movie_id)  # it will detect mtime and rebuild
+        self._ensure_index(review.movie_name)  # it will detect mtime and rebuild
         return review
 
     def update(self, review: ReviewOut) -> ReviewOut:
         '''Update an existing review by rewriting the CSV file'''
-        movie_id = review.movie_id
-        path = _movie_csv_path(movie_id)
+        movie_name = review.movie_name
+        path = _movie_csv_path(movie_name)
         if not os.path.exists(path):
             raise KeyError("Review does not exist")
 
@@ -321,7 +333,7 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("id") or "").strip() == review.id:
+                if (row.get("User") or "").strip() == review.username:
                     # Replace with updated row
                     new_row = _dict_to_row(review.model_dump())
                     rows.append(new_row)
@@ -340,13 +352,13 @@ class CSVReviewRepo:
         os.replace(tmp, path)
 
         # Rebuild index
-        self._ensure_index(movie_id)  # it will detect mtime and rebuild
+        self._ensure_index(movie_name)  # it will detect mtime and rebuild
         return review
 
-    def delete(self, movie_id: str, review_id: str) -> None:
+    def delete(self, movie_name: str, review_id: str) -> None:
         '''Delete a review by id by rewriting the CSV file, rebuild index'''
         review_id = str(review_id).strip()
-        path = _movie_csv_path(movie_id)
+        path = _movie_csv_path(movie_name)
         if not os.path.exists(path):
             return
 
@@ -355,13 +367,13 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("id") or "").strip() == review_id:
+                if (row.get("review_id") or "").strip() == review_id:
                     removed = True
                     continue  # skip this row
                 rows.append(row)
 
         if not removed:
-            return  # nothing to delete
+            raise KeyError("Review not found for delete")
 
         tmp = path + ".tmp"
         with open(tmp, "w", newline="", encoding="utf-8") as csvfile:
@@ -371,7 +383,7 @@ class CSVReviewRepo:
         os.replace(tmp, path)
 
         # Rebuild index
-        self._ensure_index(movie_id)  # it will detect mtime and rebuild
+        self._ensure_index(movie_name)  # it will detect mtime and rebuild
 
     def get_all_reviews_flat(self) -> List[ReviewOut]:
         """
@@ -386,14 +398,9 @@ class CSVReviewRepo:
         for entry in os.listdir(BASE_PATH):
             full_path = os.path.join(BASE_PATH, entry)
             if os.path.isdir(full_path):
-                # We assume the directory name is the movie_id (sanitized)
-                movie_id = entry
+                # We assume the directory name is the movie_name (sanitized)
+                movie_name = entry
 
-                reviews, _ = self.list_by_movie(movie_id, limit=1000000)
+                reviews, _ = self.list_by_movie(movie_name, limit=1000000)
                 all_reviews.extend(reviews)
         return all_reviews
-
-
-# .. note::
-#    Parts of this file comments and basic scaffolding were auto-completed by VS Code.
-#    Core logic and subsequent modifications were implemented by the author(s).

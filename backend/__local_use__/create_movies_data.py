@@ -1,11 +1,16 @@
 import csv
 import json
 import os
-
-from backend.utils import make_movie_id
+import uuid
 
 MOVIE_METADATA = "metadata.json"
 MOVIE_REVIEWS = "movieReviews.csv"
+
+
+def make_movie_id(movie_id, entry):
+    if movie_id is not None:
+        return movie_id
+    return uuid.uuid5(uuid.NAMESPACE_DNS, entry)
 
 
 def get_movie_metadata(movie_path, entry):  # noqa: C901

@@ -5,33 +5,23 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # Field definitions for review schemas
-RatingField = Field(..., ge=1, le=10, description="Rating score from 1 to 10")
+RatingField = Field(..., ge=0, le=10, description="Rating score from 0 to 10")
 
 
 class ReviewBase(BaseModel):
     # Common fields for review schemas
+    review_id: str
+    movie_name: str
+    username: str
     rating: int = RatingField
-
+    title_review: str
     comment: Optional[str] = Field(
         None, max_length=2000, description="Optional review comment"
     )
-
-    # Model configuration
-    # 1. from_attributes: it allows populating models from ORM objects
-    # 2. str_strip_whitespace: it trims whitespace from string fields
-    # 3. extra="forbid": reject unexpected fields for safer inputs
-    # 4. json_schema_extra: example payloads
-    model_config = ConfigDict(
-        from_attributes=True,
-        str_strip_whitespace=True,
-        extra="forbid",
-        json_schema_extra={
-            "example": [
-                {"rating": 8, "comment": "Great movie with stunning visuals!"},
-                {"rating": 6},  # comment is optional
-            ]
-        },
-    )
+    created_at: datetime
+    updated_at: datetime
+    usefulness: int
+    total_votes: int
 
     @field_validator("comment", mode="before")
     @classmethod
@@ -45,17 +35,34 @@ class ReviewBase(BaseModel):
         return v
 
 
-class ReviewCreate(ReviewBase):
+class ReviewCreate(BaseModel):
     """
     Client payload for creating a new review.
 
     NOTE:
-    - `user_id` must NOT be provided by clients.
+    - `username` must NOT be provided by clients.
     - The backend injects the authenticated user ID using auth dependencies
       (temporary header-based auth or future JWT auth).
     """
 
-    movie_id: str = Field(..., min_length=1, description="ID of the reviewed movie.")
+    movie_name: str = Field(
+        ..., min_length=1, description="Name of the reviewed movie."
+    )
+    rating: int = RatingField
+    title_review: Optional[str] = Field("", description="Title of the review")
+    comment: Optional[str] = Field(
+        None, max_length=2000, description="Optional review comment"
+    )
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, v: Optional[str]) -> Optional[str]:
+        # Treat blank or whitespace-only comments as None.
+        if v is not None:
+            v = v.strip()
+            if v == "":
+                return None
+        return v
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -63,8 +70,9 @@ class ReviewCreate(ReviewBase):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "movie_id": "movie_67890",
+                "movie_name": "Avengers Endgame",
                 "rating": 9,
+                "title_review": "Amazing",
                 "comment": "An masterpiece!",
             }
         },
@@ -77,6 +85,7 @@ class ReviewUpdate(BaseModel):
     Allows partial update but requires at least one field.
     """
 
+    title_review: Optional[str] = Field("", description="Title of the review")
     rating: Optional[int] = Field(
         None, ge=1, le=10, description="Updated rating score from 1 to 10"
     )
@@ -119,11 +128,6 @@ class ReviewUpdate(BaseModel):
 
 class ReviewOut(ReviewBase):
     # What the API returns to clients
-    id: str
-    user_id: str  # reviewer identity (populated by backend)
-    movie_id: str
-    created_at: datetime
-    updated_at: datetime
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -132,13 +136,16 @@ class ReviewOut(ReviewBase):
         json_schema_extra={
             "examples": [
                 {
-                    "id": "review_abc123",
-                    "user_id": "user_12345",
-                    "movie_id": "movie_67890",
+                    "review_id": "review_abc123",
+                    "username": "user_12345",
+                    "movie_name": "Avengers Endgame",
                     "rating": 9,
+                    "title_review": "Amazing",
                     "comment": "An masterpiece!",
                     "created_at": "2024-01-01T12:00:00Z",
                     "updated_at": "2024-01-02T15:30:00Z",
+                    "usefulness": 5,
+                    "total_votes": 10,
                 }
             ]
         },
