@@ -9,7 +9,6 @@ import pytest
 from fastapi import HTTPException
 
 from backend.schemas.movies import (
-    MovieCreate,
     MovieListResponse,
     MovieOut,
     MovieSearchFilters,
@@ -26,6 +25,7 @@ from backend.services.movies_service import (
     search_movies,
     update_movie,
 )
+from backend.tests.test_movies.conftest import create_valid_movie_create
 
 
 @pytest.fixture
@@ -161,7 +161,7 @@ class TestMoviesServiceUnit:
 
     def test_create_movie_admin_only(self, mock_repo):
         with pytest.raises(HTTPException):
-            create_movie(MovieCreate(title="x"), is_admin=False, repo=mock_repo)
+            create_movie(create_valid_movie_create(), is_admin=False, repo=mock_repo)
 
     def test_update_movie_not_found(self, mock_repo):
         mock_repo.update.return_value = None
@@ -180,21 +180,107 @@ class TestMoviesServiceUnit:
     def test_create_movie_repo_error(self, mock_repo):
         mock_repo.create.side_effect = ValueError("constraint fail")
         with pytest.raises(HTTPException):
-            create_movie(MovieCreate(title="x"), is_admin=True, repo=mock_repo)
+            create_movie(create_valid_movie_create(), is_admin=True, repo=mock_repo)
 
     def test_movie_lifecycle(self, mock_repo, sample_movie_out):
-        updated = sample_movie_out.model_copy(update={"movieIMDbRating": 8.8})
+        updated = sample_movie_out.model_copy(update={"title": "Updated Title"})
         mock_repo.create.return_value = sample_movie_out
         mock_repo.get_by_id.return_value = sample_movie_out
         mock_repo.update.return_value = updated
         mock_repo.delete.return_value = True
 
-        assert create_movie(MovieCreate(title="x"), is_admin=True, repo=mock_repo)
+        assert create_movie(create_valid_movie_create(), is_admin=True, repo=mock_repo)
         assert get_movie("tt011", repo=mock_repo)
         assert (
             update_movie(
-                "tt011", MovieUpdate(movieIMDbRating=8.8), is_admin=True, repo=mock_repo
-            ).movieIMDbRating
-            == 8.8
+                "tt011",
+                MovieUpdate(title="Updated Title"),
+                is_admin=True,
+                repo=mock_repo,
+            ).title
+            == "Updated Title"
         )
         delete_movie("tt011", is_admin=True, repo=mock_repo)
+
+    def test_update_movie_admin_only(self, mock_repo):
+        """Test that update_movie requires admin privileges."""
+        with pytest.raises(HTTPException) as exc:
+            update_movie("id", MovieUpdate(title="x"), is_admin=False, repo=mock_repo)
+        assert exc.value.status_code == 403
+
+    def test_get_movie_stats_empty(self, mock_repo):
+        """Test get_movie_stats with no movies."""
+        mock_repo.get_all.side_effect = [([], 0), ([], 0)]
+        stats = get_movie_stats(repo=mock_repo)
+        assert stats["total_movies"] == 0
+        assert stats["average_rating"] == 0
+        assert stats["top_genres"] == []
+        assert stats["year_range"] == {"min": 0, "max": 0}
+
+    def test_collect_ratings_edge_cases(self):
+        """Test _collect_ratings with None/invalid ratings."""
+        from backend.services.movies_service import _collect_ratings
+
+        m1 = MagicMock()
+        m1.movieIMDbRating = None
+        m2 = MagicMock()
+        m2.movieIMDbRating = "bad"  # Should cause float() exception
+        m3 = MagicMock()
+        m3.movieIMDbRating = 8.5
+
+        ratings = _collect_ratings([m1, m2, m3])
+        assert len(ratings) == 1
+        assert ratings[0] == 8.5
+
+    def test_aggregate_genres_edge_cases(self):
+        """Test _aggregate_genres with None/empty/pipe/comma."""
+        from backend.services.movies_service import _aggregate_genres
+
+        m1 = MagicMock()
+        m1.movieGenres = None
+        m2 = MagicMock()
+        m2.movieGenres = "Action|Sci-Fi"
+        m3 = MagicMock()
+        m3.movieGenres = "Comedy, Drama"
+        m4 = MagicMock()
+        m4.movieGenres = ""
+
+        counts = _aggregate_genres([m1, m2, m3, m4])
+        assert counts["Action"] == 1
+        assert counts["Sci-Fi"] == 1
+        assert counts["Comedy"] == 1
+        assert counts["Drama"] == 1
+
+    def test_derive_years_edge_cases(self):
+        """Test _derive_years with invalid dates."""
+        from backend.services.movies_service import _derive_years
+
+        m1 = MagicMock()
+        m1.datePublished = None
+        m2 = MagicMock()
+        m2.datePublished = "2020-01-01"
+        m3 = MagicMock()
+        m3.datePublished = "bad"  # Too short/invalid
+        m4 = MagicMock()
+        m4.datePublished = "199"  # Too short
+
+        years = _derive_years([m1, m2, m3, m4])
+        assert len(years) == 1
+        assert years[0] == 2020
+
+    def test_search_movies_invalid_pagination(self, mock_repo):
+        """Test search_movies pagination validation."""
+        filters = MovieSearchFilters()
+        with pytest.raises(HTTPException):
+            search_movies(filters, page=0, repo=mock_repo)
+        with pytest.raises(HTTPException):
+            search_movies(filters, page_size=201, repo=mock_repo)
+
+    def test_derive_years_exception(self):
+        """Test _derive_years with string that is long enough but not an int."""
+        from backend.services.movies_service import _derive_years
+
+        m = MagicMock()
+        m.datePublished = "abcd"  # len 4, but int("abcd") raises ValueError
+        years = _derive_years([m])
+        assert years == []

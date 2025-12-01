@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend.repositories.movies_repo import MovieRepository, _load_movies_from_csv
-from backend.schemas.movies import MovieCreate, MovieUpdate
+from backend.schemas.movies import MovieUpdate
 
 
 # --- Fixtures ---
@@ -159,14 +159,12 @@ class TestMovieRepositoryFunctional:
 
     def test_create_movie_new_id_persistence(self, csv_repo):
         """Tests creation and subsequent persistence to file."""
+        from backend.tests.test_movies.conftest import create_valid_movie_create
+
         initial_count = csv_repo.get_all()[1]
 
-        # 1. Create with no ID
-        new_movie = csv_repo.create(
-            MovieCreate(
-                title="The Test Movie", movieGenres="Sci-Fi", datePublished="2024-01-01"
-            )
-        )
+        # 1. Create with all required fields
+        new_movie = csv_repo.create(create_valid_movie_create(title="The Test Movie"))
 
         # 2. Check in memory (cache)
         assert new_movie.movie_id
@@ -235,9 +233,9 @@ class TestMovieRepositoryAdvanced:
             mock_load.assert_called_once()
 
             # Create/Update/Delete should refresh the cache
-            created = repo.create(
-                MovieCreate(title="Test Cache", datePublished="2024-01-01")
-            )
+            from backend.tests.test_movies.conftest import create_valid_movie_create
+
+            created = repo.create(create_valid_movie_create(title="Test Cache"))
 
             # Ensure we remove the test-created movie from the underlying file
             # so the test does not leave persistent data behind.
@@ -249,9 +247,16 @@ class TestMovieRepositoryAdvanced:
             mock_load.assert_called_once()
 
     def test_create_duplicate_id_raises_error(self, csv_repo):
-        """Ensures creating a movie with an existing ID raises ValueError."""
+        """Ensures creating a movie with the same title raises ValueError."""
+        from backend.tests.test_movies.conftest import create_valid_movie_create
+
+        # First create a movie
+        movie1 = csv_repo.create(create_valid_movie_create(title="Unique Test Movie"))
+        assert movie1.movie_id
+
+        # Try to create another movie with the exact same title - should raise ValueError
         with pytest.raises(ValueError, match="already exists"):
-            csv_repo.create(MovieCreate(movie_id="tt0111161", title="Duplicate Movie"))
+            csv_repo.create(create_valid_movie_create(title="Unique Test Movie"))
 
     def test_get_all_sort_desc(self, csv_repo):
         """Tests sorting by rating in descending order."""

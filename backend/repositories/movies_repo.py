@@ -280,23 +280,6 @@ class MovieRepository:
         self.use_json = use_json
         self._cache: Optional[List[Dict[str, Any]]] = None  # In-memory data cache
 
-    # def clear_cache(self) -> None:
-    #     """Clear the in-memory cache so the next read reloads from disk.
-
-    #     This is useful when the underlying CSV/JSON file has been modified
-    #     by another process and you want the repository to pick up changes.
-    #     """
-    #     self._cache = None
-
-    # def refresh(self) -> None:
-    #     """Force a reload from the backing store into the cache.
-
-    #     This clears the cache and immediately reloads data so `self._cache`
-    #     contains the latest content from the configured file.
-    #     """
-    #     self._cache = None
-    #     self._load_movies()
-
     def _load_movies(self) -> List[Dict[str, Any]]:
         # Check cache first
         if self._cache is not None:
@@ -353,19 +336,32 @@ class MovieRepository:
     def create(self, movie_create: MovieCreate) -> MovieOut:
         movies = self._load_movies()  # Loads from cache
 
-        # Check for duplicate ID directly in the cached list
-        if movie_create.movie_id:
-            for m in movies:
-                if m.get("movie_id") == movie_create.movie_id:
-                    raise ValueError(
-                        f"Movie with ID {movie_create.movie_id} already exists"
-                    )
+        # Generate movie_id using UUID5 based on title (same as create_movies_data.py)
+        movie_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, movie_create.title))
 
+        # Check for duplicate ID
+        for m in movies:
+            if m.get("movie_id") == movie_id:
+                raise ValueError(
+                    f"Movie with title '{movie_create.title}' already exists"
+                )
+
+        # Create movie data with auto-generated fields
         data = movie_create.model_dump()
         now = datetime.now(timezone.utc)
-        data["movie_id"] = data.get("movie_id") or str(uuid.uuid4())
+
+        # Set auto-generated fields
+        data["movie_id"] = movie_id
         data["created_at"] = now
         data["updated_at"] = now
+
+        # Initialize calculated fields to 0
+        data["movieIMDbRating"] = 0.0
+        data["totalRatingCount"] = 0
+        data["totalUserReviews"] = 0
+        data["totalCriticReviews"] = 0
+        data["metaScore"] = 0
+        data["review_count"] = 0
 
         movies.append(data)
         self._save_movies(movies)  # Updates cache and file
@@ -422,7 +418,7 @@ class MovieRepository:
         )
         return [MovieOut.model_validate(_movie_to_dict(m)) for m in movies[:limit]]
 
-    def search(
+    def search(  # noqa: C901
         self,
         title: str | None = None,
         genre: str | None = None,
@@ -438,12 +434,29 @@ class MovieRepository:
         # Basic filtering
         filtered = []
         for m in movies:
+            # Title search (case-insensitive)
             if title and title.lower() not in (m.get("title") or "").lower():
                 continue
-            if genre and genre.lower() not in (m.get("genre") or "").lower():
-                continue
-            if release_year and m.get("release_year") != release_year:
-                continue
+
+            # Genre search (case-insensitive, partial match in movieGenres)
+            if genre:
+                movie_genres = (m.get("movieGenres") or "").lower()
+                if genre.lower() not in movie_genres:
+                    continue
+
+            # Release year search (parse datePublished YYYY-MM-DD)
+            if release_year:
+                date_pub = m.get("datePublished")
+                if not date_pub:
+                    continue
+                try:
+                    # Extract year from YYYY-MM-DD
+                    pub_year = int(date_pub.split("-")[0])
+                    if pub_year != release_year:
+                        continue
+                except (ValueError, IndexError):
+                    continue
+
             filtered.append(m)
 
         # Optional sorting

@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from backend.schemas.movies import (
     MovieBase,
-    MovieCreate,
     MovieListResponse,
     MovieOut,
     MovieSearchFilters,
@@ -33,11 +32,13 @@ def test_movie_base_rejects_empty_title():
 
 
 def test_movie_create_id_normalizes():
-    m = MovieCreate(title="Test", movie_id="  tt22  ")
-    assert m.movie_id == "tt22"
+    """Test that MovieCreate validates all required fields."""
+    from backend.tests.test_movies.conftest import create_valid_movie_create
 
-    m2 = MovieCreate(title="Test", movie_id="   ")
-    assert m2.movie_id is None
+    # Test with all required fields
+    m = create_valid_movie_create(title="Test Movie")
+    assert m.title == "Test Movie"
+    assert m.movieGenres == "Action, Adventure"
 
 
 # ---------- MovieUpdate ----------
