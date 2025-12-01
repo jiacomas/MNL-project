@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 SRC = Path(__file__).resolve().parents[1] / "data" / "movies.json"
-OUT = Path(__file__).resolve().parents[1] / "data" / "movies.csv"
+OUT = Path(__file__).resolve().parents[1] / "data" / "movies" / "movies.csv"
 
 
 def join_list(value: Any) -> str:
