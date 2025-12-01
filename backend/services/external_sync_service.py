@@ -2,9 +2,8 @@
 Service for syncing item/movie metadata from an external API.
 
 Enriches data/items.json with:
-- poster_url
-- runtime
-- cast
+- duration
+- mainStars
 
 Logs each sync in data/external_sync_log.json
 with timestamp + items updated.
@@ -50,9 +49,8 @@ async def _fetch_external_metadata(
     data = resp.json()
 
     return {
-        "poster_url": data.get("poster_url") or data.get("Poster"),
-        "runtime": data.get("runtime") or data.get("Runtime"),
-        "cast": data.get("cast") or data.get("Actors"),
+        "duration": data.get("duration"),
+        "mainStars": data.get("mainStars"),
     }
 
 
@@ -67,7 +65,7 @@ async def _update_item_from_external(client: httpx.AsyncClient, item: Any) -> bo
 
     update_data = {}
 
-    for key in ("poster_url", "runtime", "cast"):
+    for key in ("duration", "mainStars"):
         new_val = external.get(key)
         # We need to handle potential attribute error if field missing on model
         curr_val = getattr(item, key, None)

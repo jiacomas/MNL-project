@@ -32,18 +32,16 @@ async def test_sync_external_metadata_updates_items_and_logs(
 
     # Mock Repositories
     class MockMovie:
-        def __init__(self, id, title, poster_url=None, runtime=None, cast=None):
+        def __init__(self, id, title, duration=None, mainStars=None):
             self.movie_id = id
             self.title = title
-            self.poster_url = poster_url
-            self.runtime = runtime
-            self.cast = cast
+            self.duration = duration
+            self.mainStars = mainStars
 
     m1 = MockMovie("m1", "Avengers Endgame")
     m2 = MockMovie(
         "m2",
         "Some Other Movie",
-        "http://existing/poster.jpg",
         120,
         "Actor One, Actor Two",
     )
@@ -79,11 +77,8 @@ async def test_sync_external_metadata_updates_items_and_logs(
     # Mock external fetch to avoid real HTTP calls
     async def fake_fetch(client, title: str) -> Dict[str, Any] | None:
         if title == "Avengers Endgame":
-            return {
-                "poster_url": "http://example.com/avengers.jpg",
-                "runtime": 181,
-                "cast": "Robert Downey Jr., Chris Evans",
-            }
+            # Return fields that match the domain model: duration & mainStars
+            return {"duration": 181, "mainStars": "Robert Downey Jr., Chris Evans"}
         # no update for other titles
         return None
 
@@ -97,11 +92,12 @@ async def test_sync_external_metadata_updates_items_and_logs(
     assert timestamp is not None
 
     # Verify items were updated (in memory mock objects)
-    assert m1.poster_url == "http://example.com/avengers.jpg"
-    assert m1.runtime == 181
-    assert "Robert Downey Jr." in m1.cast
+    assert m1.duration == 181
+    assert "Robert Downey Jr." in m1.mainStars
 
-    assert m2.poster_url == "http://existing/poster.jpg"
+    # other movie remains unchanged
+    assert m2.duration == 120
+    assert "Actor One" in m2.mainStars
 
     # Verify MovieRepository update was called
     assert mock_movie_repo.update.call_count == 1
