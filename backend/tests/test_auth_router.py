@@ -58,7 +58,7 @@ def test_admin_sync_requires_admin_token():
 
     # Patch external sync to avoid network calls and return deterministic data
     with patch(
-        "backend.services.external_sync_service.sync_external_metadata"
+        "backend.services.external_sync_service.external_sync_service.sync_external_metadata"
     ) as mock_sync:
         mock_sync.return_value = (0, datetime.now(timezone.utc))
 

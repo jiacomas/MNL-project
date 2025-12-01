@@ -8,8 +8,6 @@ from unittest.mock import Mock
 import pytest
 from pytest_mock import MockerFixture
 
-from backend.services import external_sync_service as sync_mod
-
 
 @pytest.fixture
 def anyio_backend() -> str:
@@ -65,14 +63,16 @@ async def test_sync_external_metadata_updates_items_and_logs(
 
     mock_movie_repo.update.side_effect = fake_update
 
-    mocker.patch.object(sync_mod, "_movie_repo", mock_movie_repo)
-
     # Mock SyncLogRepository
     from backend.repositories.sync_repo import SyncLogRepository
 
     log_file = tmp_path / "external_sync_log.json"
     real_sync_repo = SyncLogRepository(storage_path=log_file)
-    mocker.patch.object(sync_mod, "_sync_repo", real_sync_repo)
+
+    # Instantiate Service with mocks
+    from backend.services.external_sync_service import ExternalSyncService
+
+    service = ExternalSyncService(movie_repo=mock_movie_repo, sync_repo=real_sync_repo)
 
     # Mock external fetch to avoid real HTTP calls
     async def fake_fetch(client, title: str) -> Dict[str, Any] | None:
@@ -82,10 +82,10 @@ async def test_sync_external_metadata_updates_items_and_logs(
         # no update for other titles
         return None
 
-    mocker.patch.object(sync_mod, "_fetch_external_metadata", fake_fetch)
+    mocker.patch.object(service, "_fetch_external_metadata", fake_fetch)
 
     # Run sync and assert result
-    updated_count, timestamp = await sync_mod.sync_external_metadata()
+    updated_count, timestamp = await service.sync_external_metadata()
 
     # Exactly one movie was updated
     assert updated_count == 1
