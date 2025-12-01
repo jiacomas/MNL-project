@@ -5,14 +5,12 @@ using kagglehub and store it in the local data directory.
 
 import os
 import shutil
-
-# backend/data.py
-# backend/data.py
 from pathlib import Path
 
 import kagglehub
 
 from backend import settings
+from backend.__local_use__ import convert_movies_json_to_csv, create_movies_data
 
 # read dataset & target path from centralized settings
 dataset_slug = settings.KAGGLE_DATASET
@@ -36,3 +34,9 @@ for dirpath, _, filenames in os.walk(cache_root):
         copied += 1
 
 print(f"Copied {copied} files to: {target_root}")
+
+print("\nCreating movies data...")
+create_movies_data.main()
+
+print("\nConverting movies JSON to CSV...")
+convert_movies_json_to_csv.main()

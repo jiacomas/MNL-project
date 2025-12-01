@@ -31,7 +31,7 @@ def get_movie_metadata(movie_path, entry):  # noqa: C901
                     # accept ints or numeric strings -> coerce to string
                     metadata_content["movie_id"] = str(raw_id)
                 except (ValueError, TypeError):
-                    metadata_content["movie_id"] = make_movie_id(None, entry)
+                    metadata_content["movie_id"] = str(make_movie_id(None, entry))
 
                 # write the updated metadata back to the JSON file
                 try:
@@ -98,9 +98,8 @@ def explore_each_movie(original_path="backend/data/movies"):  # noqa: C901
         reviews_len = len(reviews_content) if isinstance(reviews_content, list) else 0
         metadata_content["review_count"] = reviews_len
 
-        # persist metadata and reviews into JSON files under the data root
+        # persist metadata into JSON file under the data root
         movies_json_path = os.path.join(root, "movies.json")
-        # reviews_json_path = os.path.join(root, "reviews.json") # no needed
 
         # load existing movies.json (must be a list)
         try:
@@ -111,40 +110,23 @@ def explore_each_movie(original_path="backend/data/movies"):  # noqa: C901
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             existing_movies = []
 
-        # load existing reviews.json (must be a list)
-        # try:
-        #     with open(reviews_json_path, "r", encoding="utf-8") as rf:
-        #         existing_reviews = json.load(rf)
-        #         if not isinstance(existing_reviews, list):
-        #             existing_reviews = []
-        # except (FileNotFoundError, OSError, json.JSONDecodeError):
-        #     existing_reviews = []
-
         # append current movie metadata (include numeric movie_id and title)
         existing_movies.append(metadata_content)
 
-        # append reviews (reviews_content is expected to be a list)
-        # if isinstance(reviews_content, list):
-        #     existing_reviews.extend(reviews_content)
-
-        # write back both files (ignore write errors)
+        # write back movies.json (ignore write errors)
         try:
             with open(movies_json_path, "w", encoding="utf-8") as mf:
                 json.dump(existing_movies, mf, ensure_ascii=False, indent=2)
         except (OSError, TypeError):
             pass
 
-        # try:
-        #     with open(reviews_json_path, "w", encoding="utf-8") as rf:
-        #         json.dump(existing_reviews, rf, ensure_ascii=False, indent=2)
-        # except (OSError, TypeError):
-        #     pass
-
         yield entry, len(reviews_content)
 
 
-if __name__ == "__main__":
-    movies = []
-    reviews = []
+def main():
     for movie in explore_each_movie():
         print(movie)
+
+
+if __name__ == "__main__":
+    main()

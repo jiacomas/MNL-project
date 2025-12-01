@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-SRC = Path(__file__).resolve().parents[1] / "data" / "movies.json"
+SRC = Path(__file__).resolve().parents[1] / "data" / "movies" / "movies.json"
 OUT = Path(__file__).resolve().parents[1] / "data" / "movies" / "movies.csv"
 
 
@@ -84,6 +84,8 @@ def main() -> None:
         writer.writeheader()
         for r in rows:
             writer.writerow(r)
+
+    print(f"Wrote {len(rows)} rows to {OUT}")
 
 
 if __name__ == "__main__":
