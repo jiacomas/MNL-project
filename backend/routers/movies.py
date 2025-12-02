@@ -37,13 +37,27 @@ def search_movies(
     release_year: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    sort_by: str | None = Query(
+        None,
+        description="Sort field: rating or release_year (also supports title, genre, runtime, etc.)",
+    ),
+    sort_desc: bool = Query(
+        False,
+        description="Set to true for descending order (e.g., highest rating or newest year first)",
+    ),
 ):
     filters = MovieSearchFilters(
         title=title,
         genre=genre,
         release_year=release_year,
     )
-    return svc.search_movies(filters=filters, page=page, page_size=page_size)
+    return svc.search_movies(
+        filters=filters,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_desc=sort_desc,
+    )
 
 
 @router.get("/popular", response_model=list[MovieOut])
