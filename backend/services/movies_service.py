@@ -17,14 +17,15 @@ movie_repo = MovieRepository()
 
 ALLOWED_SORT_FIELDS = [
     "title",
-    "genre",
-    "release_year",
-    "rating",
-    "runtime",
-    "director",
+    "movieGenres",
+    "datePublished",
+    "movieIMDbRating",
+    "duration",
+    "directors",
     "created_at",
     "updated_at",
     "review_count",
+    "rating",
 ]
 
 
@@ -169,6 +170,50 @@ def get_recent_movies(
     return repo.get_recent(limit=limit)
 
 
+def _collect_ratings(movies: List[MovieOut]) -> List[float]:
+    """Return a list of numeric ratings from movies, skipping None values."""
+    ratings: List[float] = []
+    for m in movies:
+        r = getattr(m, "movieIMDbRating", None)
+        if r is not None:
+            try:
+                ratings.append(float(r))
+            except Exception:
+                # ignore non-numeric rating values
+                continue
+    return ratings
+
+
+def _aggregate_genres(movies: List[MovieOut]) -> Dict[str, int]:
+    """Aggregate genre counts from movie.movieGenres supporting pipe or comma separators."""
+    genre_count: Dict[str, int] = {}
+    for m in movies:
+        mg = getattr(m, "movieGenres", None) or ""
+        if not mg:
+            continue
+        if "|" in mg:
+            parts = [p.strip() for p in mg.split("|")]
+        else:
+            parts = [p.strip() for p in mg.split(",")]
+        for g in parts:
+            if g:
+                genre_count[g] = genre_count.get(g, 0) + 1
+    return genre_count
+
+
+def _derive_years(movies: List[MovieOut]) -> List[int]:
+    """Extract publication years (first 4 chars) from datePublished when possible."""
+    years: List[int] = []
+    for m in movies:
+        dp = getattr(m, "datePublished", None)
+        if isinstance(dp, str) and len(dp) >= 4:
+            try:
+                years.append(int(dp[:4]))
+            except Exception:
+                continue
+    return years
+
+
 def get_movie_stats(repo: MovieRepository = movie_repo) -> Dict[str, Any]:
     """Compute simple movie statistics."""
     MAX_STATS_LIMIT = 5000
@@ -183,19 +228,13 @@ def get_movie_stats(repo: MovieRepository = movie_repo) -> Dict[str, Any]:
             "year_range": {"min": 0, "max": 0},
         }
 
-    ratings = [m.rating for m in movies if m.rating is not None]
+    ratings = _collect_ratings(movies)
     avg_rating = sum(ratings) / len(ratings) if ratings else 0
 
-    genre_count: Dict[str, int] = {}
-    for m in movies:
-        if m.genre:
-            for g in m.genre.split(","):
-                g = g.strip()
-                if g:
-                    genre_count[g] = genre_count.get(g, 0) + 1
-
+    genre_count = _aggregate_genres(movies)
     top_genres = sorted(genre_count.items(), key=lambda x: x[1], reverse=True)[:5]
-    years = [m.release_year for m in movies if m.release_year is not None]
+
+    years = _derive_years(movies)
     return {
         "total_movies": total,
         "average_rating": round(avg_rating, 2),

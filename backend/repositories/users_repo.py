@@ -13,8 +13,14 @@ def load_all(path: str = DATA_PATH) -> List[User]:
     if not os.path.exists(path):
         return []
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+            if not content.strip():
+                return []
+            data = json.loads(content)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
 
     users: List[User] = []
     for item in data:

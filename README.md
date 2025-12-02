@@ -221,6 +221,36 @@ Persistence rules:
 - Schema validation via Pydantic
 - Admin-controlled penalty + sync + export logs
 
+Movie record shape (MovieBase)
+
+The backend expects movie records to follow the `MovieBase` schema used by the
+Pydantic models in `backend/schemas/movies.py`. Typical fields include:
+
+- `title` : str (required) — movie title
+- `movie_id` : str — canonical identifier used across reviews/bookmarks
+- `movieIMDbRating` : float — IMDb-style numeric rating
+- `totalRatingCount` : int — number of ratings
+- `totalUserReviews` : int — number of user reviews (may be abbreviated like "1.8K")
+- `totalCriticReviews` : int
+- `metaScore` : int
+- `movieGenres` : str — pipe-separated genres
+- `directors` : str — pipe-separated directors
+- `datePublished` : str — ISO date string
+- `creators` : str — pipe-separated creators
+- `mainStars` : str — pipe-separated main cast
+- `description` : str
+- `duration` : int — runtime in minutes
+- `created_at` / `updated_at` : ISO datetime strings (for persistence)
+
+Notes:
+
+- The repository will normalize common numeric formats (e.g. `"1.8K"`) to
+  integers when loading data. It prefers a provided `movie_id` and will use a
+  deterministic fallback derived from title+date when none is present.
+- If you produce CSV/JSON fixtures for the repo, prefer using `movie_id` as the
+  canonical id (strings) so that related records (reviews, bookmarks) can
+  reference them reliably.
+
 ---
 
 ## 10. External API Integration

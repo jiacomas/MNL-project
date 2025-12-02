@@ -47,7 +47,7 @@ MOVIES_CSV_PATH = Path(
     os.getenv("MOVIES_CSV_PATH", str(ROOT_DATA_DIR / "movies" / "movies.csv"))
 )
 MOVIES_JSON_PATH = Path(
-    os.getenv("MOVIES_JSON_PATH", str(ROOT_DATA_DIR / "movies" / "movies.json"))
+    os.getenv("MOVIES_JSON_PATH", str(ROOT_DATA_DIR / "movies.json"))
 )
 EXTERNAL_METADATA_DIR = Path(
     os.getenv(
@@ -55,5 +55,7 @@ EXTERNAL_METADATA_DIR = Path(
     )
 )
 
+# Analytics
+EXPORT_DIR = Path(os.getenv("EXPORT_DIR", str(ROOT_DATA_DIR / "exports")))
 ROOT_DATA_DIR = Path("backend/data")
 HISTORY_FILE = ROOT_DATA_DIR / "history.json"

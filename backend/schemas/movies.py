@@ -10,14 +10,22 @@ from pydantic import BaseModel, Field, field_validator
 # ---------- Base ----------
 class MovieBase(BaseModel):
     title: str = Field(..., min_length=1)
-    genre: Optional[str] = None
-    release_year: Optional[int] = None
-    rating: Optional[float] = None
-    runtime: Optional[int] = None
-    director: Optional[str] = None
-    cast: Optional[str] = None
-    plot: Optional[str] = None
-    poster_url: Optional[str] = None
+    movieIMDbRating: Optional[float] = None
+    totalRatingCount: Optional[int] = None
+    totalUserReviews: Optional[int] = None
+    totalCriticReviews: Optional[int] = None
+    metaScore: Optional[int] = None
+    movieGenres: Optional[str] = None
+    directors: Optional[str] = None
+    datePublished: Optional[str] = None
+    creators: Optional[str] = None
+    mainStars: Optional[str] = None
+    description: Optional[str] = None
+    duration: Optional[int] = None
+    movie_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    review_count: Optional[int] = 0
 
     # strip title
     @field_validator("title")
@@ -30,29 +38,84 @@ class MovieBase(BaseModel):
 
 
 # ---------- Create ----------
-class MovieCreate(MovieBase):
-    movie_id: Optional[str] = None
+class MovieCreate(BaseModel):
+    """
+    Schema for creating a new movie.
 
-    @field_validator("movie_id")
+    Required fields (provided by user):
+    - title: Movie title
+    - movieGenres: Genre(s) of the movie
+    - directors: Director(s) name(s)
+    - datePublished: Release date
+    - creators: Creator(s)/Writer(s) name(s)
+    - mainStars: Main cast members
+    - description: Movie description
+    - duration: Runtime in minutes
+
+    Auto-generated fields (set by backend):
+    - movie_id: Generated using UUID5 based on title
+    - movieIMDbRating: Starts at 0.0
+    - totalRatingCount: Starts at 0
+    - totalUserReviews: Starts at 0
+    - totalCriticReviews: Starts at 0
+    - metaScore: Starts at 0
+    - review_count: Starts at 0
+    - created_at, updated_at: Set to current time
+    """
+
+    # Required fields
+    title: str = Field(..., min_length=1, description="Movie title")
+    movieGenres: str = Field(..., min_length=1, description="Movie genre(s)")
+    directors: str = Field(..., min_length=1, description="Director(s)")
+    datePublished: str = Field(..., description="Release date")
+    creators: str = Field(..., min_length=1, description="Creator(s)/Writer(s)")
+    mainStars: str = Field(..., min_length=1, description="Main cast")
+    description: str = Field(..., min_length=1, description="Movie description")
+    duration: int = Field(..., gt=0, description="Runtime in minutes")
+
+    @field_validator(
+        "title", "movieGenres", "directors", "creators", "mainStars", "description"
+    )
     @classmethod
-    def normalize_movie_id(cls, v: Optional[str]):
-        if v is None:
-            return None
+    def strip_strings(cls, v: str) -> str:
         v = v.strip()
-        return v or None  # empty → None
+        if not v:
+            raise ValueError("Field cannot be empty or whitespace")
+        return v
 
 
 # ---------- Update ----------
 class MovieUpdate(BaseModel):
-    title: Optional[str] = None
-    genre: Optional[str] = None
-    release_year: Optional[int] = None
-    rating: Optional[float] = None
-    runtime: Optional[int] = None
-    director: Optional[str] = None
-    cast: Optional[str] = None
-    plot: Optional[str] = None
-    poster_url: Optional[str] = None
+    """
+    Schema for updating movie information.
+
+    Allowed fields (all optional):
+    - title
+    - movieGenres
+    - datePublished
+    - duration
+    - directors
+    - creators
+    - mainStars
+    - description
+
+    NOT allowed:
+    - movieIMDbRating (calculated from reviews)
+    - totalRatingCount (calculated)
+    - totalUserReviews (calculated)
+    - totalCriticReviews (calculated)
+    - metaScore (calculated)
+    - movie_id (immutable)
+    """
+
+    title: Optional[str] = Field(None, min_length=1)
+    movieGenres: Optional[str] = Field(None, min_length=1)
+    datePublished: Optional[str] = None
+    duration: Optional[int] = Field(None, gt=0)
+    directors: Optional[str] = Field(None, min_length=1)
+    creators: Optional[str] = Field(None, min_length=1)
+    mainStars: Optional[str] = Field(None, min_length=1)
+    description: Optional[str] = Field(None, min_length=1)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -63,7 +126,7 @@ class MovieUpdate(BaseModel):
 
     def model_post_init(self, _):
         if not any(getattr(self, f) is not None for f in self.__class__.model_fields):
-            raise ValueError("At least one field must be provided")
+            raise ValueError("At least one field must be provided for update")
 
 
 # ---------- Out ----------

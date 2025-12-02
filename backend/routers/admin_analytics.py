@@ -4,64 +4,80 @@ Admin analytics endpoints.
 Provides CSV export of platform statistics for offline analysis.
 """
 
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from backend.services import analytics_service
+from backend.services.analytics_service import analytics_service
+from backend.services.auth_service import require_role
 
-router = APIRouter()
+router = APIRouter(prefix="/admin/analytics", tags=["Admin Analytics"])
 
 
-@router.get("/admin/export-stats", response_class=FileResponse)
-def export_stats():
+@router.get("/stats")
+def get_platform_stats(admin=Depends(require_role("admin"))):
     """
-    Exports platform statistics as a CSV file.
-
-    Acceptance Criteria:
-    - Export includes user counts, reviews, bookmarks, penalties, top 10 genres.
-    - Export format: CSV with stable schema and headers.
-    - CSV includes generated_at timestamp.
+    Return platform statistics:
+    - users_count
+    - reviews_count
+    - bookmarks_count
+    - penalties_count
+    - top_genres (list of {genre, count})
     """
-    stats = analytics_service.compute_stats()
-    csv_path = analytics_service.write_stats_csv(stats)
+    metrics, top_genres = analytics_service.compute_stats()
 
-    if not csv_path.exists():
+    # Convert metrics list to dict for JSON response
+    metrics_dict = {k: v for k, v in metrics}
+
+    return {
+        "metrics": metrics_dict,
+        "top_genres": [{"genre": g, "count": c} for g, c in top_genres],
+    }
+
+
+@router.get("/stats/export")
+def export_platform_stats(admin=Depends(require_role("admin"))):
+    """
+    Generate and download a CSV of platform stats.
+    """
+    path = analytics_service.compute_stats_and_write_csv()
+    if not path.exists():
         raise HTTPException(status_code=500, detail="Failed to generate CSV")
-
     return FileResponse(
-        path=str(csv_path),
+        path,
         media_type="text/csv",
-        filename=csv_path.name,
+        filename="analytics_export.csv",
     )
 
 
-@router.get("/admin/reviews")
-def admin_search_reviews(
-    title: Optional[str] = Query(
-        None, description="Case-insensitive movie title search"
-    ),
-    sort: str = Query(
-        "date", pattern="^(date|rating)$", description="Sort by 'date' or 'rating'"
-    ),
-    order: str = Query(
-        "desc", pattern="^(asc|desc)$", description="Sort order: asc or desc"
-    ),
-    export: bool = Query(False, description="If true, return CSV file instead of JSON"),
+@router.get("/reviews/search")
+def search_reviews(
+    q: str = Query(..., min_length=1),
+    sort: str = "date",  # date, rating
+    order: str = "desc",  # asc, desc
+    admin=Depends(require_role("admin")),
 ):
-    """Admin endpoint to search reviews by movie title and optionally export to CSV.
-
-    Results include: id, movie_title, rating, created_at, user_id.
     """
-    rows = analytics_service.search_reviews_by_title(
-        title_query=title or "", sort_by=sort, order=order
+    Search reviews by movie title (partial match).
+    """
+    return analytics_service.search_reviews_by_title(q, sort_by=sort, order=order)
+
+
+@router.get("/reviews/export")
+def export_reviews_search(
+    q: str = Query(..., min_length=1),
+    sort: str = "date",
+    order: str = "desc",
+    admin=Depends(require_role("admin")),
+):
+    """
+    Search reviews and export results as CSV.
+    """
+    rows = analytics_service.search_reviews_by_title(q, sort_by=sort, order=order)
+    path = analytics_service.write_reviews_csv(rows)
+    if not path.exists():
+        raise HTTPException(status_code=500, detail="Failed to generate CSV")
+    return FileResponse(
+        path,
+        media_type="text/csv",
+        filename="reviews_export.csv",
     )
-
-    if export:
-        path = analytics_service.write_reviews_csv(rows)
-        if not path.exists():
-            raise HTTPException(status_code=500, detail="Failed to generate CSV")
-        return FileResponse(path=str(path), media_type="text/csv", filename=path.name)
-
-    return {"items": rows}

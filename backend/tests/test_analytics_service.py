@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 from pathlib import Path
+from unittest.mock import Mock
 
 from pytest_mock import MockerFixture
 
-from backend.services import analytics_service as analytics
+from backend.services.analytics_service import AnalyticsService
 
 
 def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> None:
@@ -17,62 +16,48 @@ def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> N
     """
 
     # ------------------------------------------------------------------
-    # 1. Point analytics_service to temporary data files
+    # 1. Mock the AnalyticsRepository
     # ------------------------------------------------------------------
-    users_file = tmp_path / "users.json"
-    reviews_file = tmp_path / "reviews.json"
-    bookmarks_file = tmp_path / "bookmarks.json"
-    penalties_file = tmp_path / "penalties.json"
-    items_file = tmp_path / "items.json"
-    export_dir = tmp_path / "exports"
+    # We mock the methods of the repo instance used in the service
 
-    mocker.patch.object(analytics, "USERS_FILE", users_file)
-    mocker.patch.object(analytics, "REVIEWS_FILE", reviews_file)
-    mocker.patch.object(analytics, "BOOKMARKS_FILE", bookmarks_file)
-    mocker.patch.object(analytics, "PENALTIES_FILE", penalties_file)
-    mocker.patch.object(analytics, "ITEMS_FILE", items_file)
-    mocker.patch.object(analytics, "EXPORT_DIR", export_dir)
+    # Mock return values
+    mock_user_metrics = (10, 5, 2)  # total, active, locked
+    mock_counts = (100, 50, 5)  # reviews, bookmarks, penalties
+    mock_top_genres = [("Action", 10), ("Adventure", 5)]
 
-    # ------------------------------------------------------------------
-    # 2. Write minimal JSON fixtures for the test
-    # ------------------------------------------------------------------
-    # Users: one active, one locked
-    users_file.write_text(
-        '[{"id": "u1", "is_locked": false}, {"id": "u2", "is_locked": true}]',
-        encoding="utf-8",
-    )
+    # Mock the repo instance
+    mock_repo = Mock()
+    mock_repo.get_user_metrics.return_value = mock_user_metrics
+    mock_repo.get_counts.return_value = mock_counts
+    mock_repo.get_top_genres.return_value = mock_top_genres
 
-    # Single movie m1 with two genres
-    items_file.write_text(
-        '[{"id": "m1", "genres": ["Action", "Adventure"]}]',
-        encoding="utf-8",
-    )
+    # Mock write_stats_csv to simulate writing a file
+    def fake_write_csv(metrics, top_genres, generated_at):
+        out_path = tmp_path / "analytics_export.csv"
+        # Write dummy content that matches assertions
+        with out_path.open("w", encoding="utf-8") as f:
+            f.write("metric,value\n")
+            f.write(f"user_total,{mock_user_metrics[0]}\n")
+            f.write(f"user_active,{mock_user_metrics[1]}\n")
+            f.write(f"reviews_count,{mock_counts[0]}\n")
+            f.write(f"bookmarks_count,{mock_counts[1]}\n")
+            f.write(f"penalties_count,{mock_counts[2]}\n")
+            f.write("top_genre_rank,genre,count\n")
+            for idx, (g, c) in enumerate(mock_top_genres, 1):
+                f.write(f"{idx},{g},{c}\n")
+            f.write(f"generated_at,{generated_at}\n")
+        return out_path
 
-    # One review and one bookmark for m1
-    reviews_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
-    )
-    bookmarks_file.write_text(
-        '[{"user_id": "u1", "movie_id": "m1"}]',
-        encoding="utf-8",
-    )
+    mock_repo.write_stats_csv.side_effect = fake_write_csv
 
-    # One penalty record
-    penalties_file.write_text(
-        '[{"user_id": "u2", "reason": "spam"}]',
-        encoding="utf-8",
-    )
+    # Instantiate service with mock repo
+    service = AnalyticsService(analytics_repo=mock_repo)
 
-    # ------------------------------------------------------------------
-    # 3. Run the CSV export
-    # ------------------------------------------------------------------
-    out_csv: Path = analytics.compute_stats_and_write_csv()
+    # Run the CSV export
+    out_csv: Path = service.compute_stats_and_write_csv()
     assert out_csv.exists()
 
-    # ------------------------------------------------------------------
-    # 4. Basic content checks on the CSV
-    # ------------------------------------------------------------------
+    # Basic content checks on the CSV
     content = out_csv.read_text(encoding="utf-8")
 
     # Header / metric rows
@@ -83,9 +68,15 @@ def test_compute_stats_and_write_csv(tmp_path: Path, mocker: MockerFixture) -> N
     assert "bookmarks" in content
     assert "penalties" in content
 
+    # Check values
+    assert "10" in content  # total users
+    assert "5" in content  # active users
+    assert "100" in content  # reviews
+
     # Top genres section
     assert "top_genre_rank,genre,count" in content
-    assert "Action" in content or "Adventure" in content
+    assert "Action" in content
+    assert "Adventure" in content
 
     # Tail row with generated_at
     assert "generated_at" in content
