@@ -4,12 +4,13 @@ Main FastAPI application entrypoint.
 
 from fastapi import FastAPI
 
-from backend.routers import admin_analytics, admin_sync, history, password_reset, users
+from backend.routers import admin_analytics, admin_sync, history, password_reset
 from backend.routers.bookmarks import router as bookmarks_router
 from backend.routers.movies import router as movies_router
 from backend.routers.penalties import router as penalties_router
 from backend.routers.recommendations import router as recommendations_router
 from backend.routers.reviews import router as reviews_router
+from backend.routers.users import router as users_router
 
 app = FastAPI()
 
@@ -33,7 +34,9 @@ app.include_router(recommendations_router)
 app.include_router(password_reset.router)
 
 # Users router (auth + user management + export)
-app.include_router(users.router)
+app.include_router(users_router)
+
+# Note: auth endpoints are provided by the `users` router (e.g., /auth/token)
 
 # Bookmarks router
 app.include_router(bookmarks_router)
