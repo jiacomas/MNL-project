@@ -4,9 +4,10 @@ from backend.services.auth_service import get_current_user
 
 
 def get_current_user_id(user: dict = Depends(get_current_user)):
-    if not user or "user_id" not in user:
+    user_id = user.get("user_id") or user.get("sub")
+    if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or missing token")
-    return user["user_id"]
+    return user_id
 
 
 def require_admin(user: dict = Depends(get_current_user)):
