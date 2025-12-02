@@ -131,3 +131,10 @@ def delete_review(movie_name: str, user_id: str, is_admin: bool = False) -> None
 def get_review_by_user(movie_name: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
     return _repo.get_review_by_user(movie_name, user_id)
+
+
+def get_all_reviews_for_user(user_id: str) -> List[ReviewOut]:
+    """Retrieve all reviews written by a specific user across all movies."""
+    # Note: This scans all movies, which is expensive.
+    all_reviews = _repo.get_all_reviews_flat()
+    return [r for r in all_reviews if r.username == user_id]
