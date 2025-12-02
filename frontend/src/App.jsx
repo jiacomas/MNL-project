@@ -6,6 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
+import Movies from './pages/Movies';
+import MovieDetail from './pages/MovieDetail';
 import './App.css';
 
 const RedirectToDashboard = () => {
@@ -51,6 +53,8 @@ function App() {
             />
 
             <Route path="/dashboard" element={<UserDashboard />} />
+            <Route path="/movies" element={<Movies />} />
+            <Route path="/movies/:movieId" element={<MovieDetail />} />
           </Route>
 
           <Route path="/" element={<RedirectToDashboard />} />

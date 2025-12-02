@@ -32,6 +32,16 @@ const Layout = () => {
             Dashboard
           </motion.button>
 
+          <motion.button
+            className="nav-link"
+            onClick={() => navigate('/movies')}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Film size={18} />
+            Movies
+          </motion.button>
+
           <div className="navbar-user">
             <div className="user-info">
               <div className="user-avatar-small">

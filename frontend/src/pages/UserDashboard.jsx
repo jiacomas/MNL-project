@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookMarked, Star, Clock, Download } from 'lucide-react';
+import { BookMarked, Star, Clock, Download, Film } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Recommendations from '../components/Recommendations';
 
 const UserDashboard = () => {
   const { user, API_URL } = useAuth();
+  const navigate = useNavigate();
   const [bookmarks, setBookmarks] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
@@ -129,6 +132,20 @@ const UserDashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      <div className="quick-actions">
+        <motion.button
+          className="action-btn"
+          onClick={() => navigate('/movies')}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <Film size={20} />
+          Browse Movies
+        </motion.button>
+      </div>
+
+      <Recommendations />
 
       <div className="content-sections">
         <motion.div
