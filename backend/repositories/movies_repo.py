@@ -312,14 +312,28 @@ class MovieRepository:
         total = len(movies)
 
         if sort_by:
-            # Sort handles None values by placing them first/last
             movies.sort(
                 key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
                 reverse=sort_desc,
             )
 
         page = movies[skip : skip + limit]
-        return [MovieOut.model_validate(_movie_to_dict(m)) for m in page], total
+
+        result: List[MovieOut] = []
+        for m in page:
+            d = _movie_to_dict(m)
+
+            # skip invalid movies
+            if not d.get("title") or not d.get("movie_id"):
+                continue
+
+            try:
+                result.append(MovieOut.model_validate(d))
+            except Exception:
+                # if validation fails, skip this movie
+                continue
+
+        return result, total
 
     def get_by_id(self, movie_id: str) -> Optional[MovieOut]:
         for m in self._load_movies():  # Loads from cache
