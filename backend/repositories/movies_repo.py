@@ -430,7 +430,25 @@ class MovieRepository:
             or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
-        return [MovieOut.model_validate(_movie_to_dict(m)) for m in movies[:limit]]
+
+        result: List[MovieOut] = []
+        for m in movies:
+            d = _movie_to_dict(m)
+
+            # Skip invalid movies
+            if not d.get("title") or not d.get("movie_id"):
+                continue
+
+            try:
+                result.append(MovieOut.model_validate(d))
+            except Exception:
+                # Skip invalid movie
+                continue
+
+            if len(result) >= limit:
+                break
+
+        return result
 
     def search(  # noqa: C901
         self,
@@ -480,6 +498,15 @@ class MovieRepository:
                 reverse=sort_desc,
             )
 
-        total = len(filtered)
         page = filtered[skip : skip + limit]
-        return [MovieOut.model_validate(_movie_to_dict(m)) for m in page], total
+        # Filter out invalid movie dicts before validation
+        clean_page = []
+        for m in page:
+            if not m.get("title") or not m.get("movie_id"):
+                continue
+            try:
+                clean_page.append(MovieOut.model_validate(_movie_to_dict(m)))
+            except Exception:
+                continue
+
+        return clean_page, len(clean_page)
