@@ -65,6 +65,14 @@ def test_search_movies_basic():
     assert "items" in data
 
 
+def test_search_movies_with_sorting():
+    r = client.get("/api/movies/search?title=shawshank&sort_by=rating&sort_desc=true")
+    assert r.status_code == 200
+    data = r.json()
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+
 # ----- Popular & Recent -----
 def test_popular_and_recent_movies():
     """GET /popular and /recent endpoints."""

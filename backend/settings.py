@@ -57,3 +57,5 @@ EXTERNAL_METADATA_DIR = Path(
 
 # Analytics
 EXPORT_DIR = Path(os.getenv("EXPORT_DIR", str(ROOT_DATA_DIR / "exports")))
+ROOT_DATA_DIR = Path("backend/data")
+HISTORY_FILE = ROOT_DATA_DIR / "history.json"

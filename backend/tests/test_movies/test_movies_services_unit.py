@@ -116,6 +116,41 @@ class TestMoviesServiceUnit:
         )
         assert res.items[0].title == sample_movie_out.title
 
+    def test_search_movies_with_sorting(self, mock_repo, sample_movie_out):
+        mock_repo.search.return_value = ([sample_movie_out], 1)
+        filters = MovieSearchFilters(title="shaw", genre="Drama", release_year=1994)
+
+        res = search_movies(
+            filters=filters,
+            page=1,
+            page_size=10,
+            sort_by="rating",
+            sort_desc=True,
+            repo=mock_repo,
+        )
+
+        mock_repo.search.assert_called_once_with(
+            title="shaw",
+            genre="Drama",
+            release_year=1994,
+            skip=0,
+            limit=10,
+            sort_by="rating",
+            sort_desc=True,
+        )
+        assert res.items[0].title == sample_movie_out.title
+
+    def test_search_movies_invalid_sort_by(self, mock_repo):
+        filters = MovieSearchFilters()
+        with pytest.raises(HTTPException):
+            search_movies(
+                filters=filters,
+                page=1,
+                page_size=10,
+                sort_by="not_a_field",
+                repo=mock_repo,
+            )
+
     def test_get_movie_stats(self, mock_repo):
         movie1 = MovieOut(
             movie_id="1",

@@ -459,7 +459,7 @@ class MovieRepository:
 
             filtered.append(m)
 
-        # Optional sorting
+        # Sorting
         if sort_by:
             filtered.sort(
                 key=lambda x: (x.get(sort_by) is None, x.get(sort_by)),
