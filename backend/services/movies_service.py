@@ -25,6 +25,7 @@ ALLOWED_SORT_FIELDS = [
     "created_at",
     "updated_at",
     "review_count",
+    "rating",
 ]
 
 
