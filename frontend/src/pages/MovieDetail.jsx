@@ -1,0 +1,396 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Star,
+  BookmarkPlus,
+  BookmarkCheck,
+  Edit2,
+  Trash2,
+  ArrowLeft,
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import axios from 'axios';
+
+const MovieDetail = () => {
+  const { movieId } = useParams();
+  const { user, API_URL } = useAuth();
+  const navigate = useNavigate();
+
+  const [movie, setMovie] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [myReview, setMyReview] = useState(null);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    review_text: '',
+  });
+
+  useEffect(() => {
+    fetchMovieData();
+  }, [movieId]);
+
+  const fetchMovieData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch movie details
+      const movieRes = await axios.get(`${API_URL}/api/movies/${movieId}`);
+      setMovie(movieRes.data);
+
+      // Fetch reviews for this movie
+      const reviewsRes = await axios.get(
+        `${API_URL}/api/movies/${movieRes.data.title}/reviews`,
+        { headers }
+      );
+      setReviews(reviewsRes.data.items || []);
+
+      // Fetch my review
+      try {
+        const myReviewRes = await axios.get(
+          `${API_URL}/api/movies/${movieRes.data.title}/reviews/me`,
+          { headers }
+        );
+        setMyReview(myReviewRes.data);
+      } catch (err) {
+        // No review yet
+        setMyReview(null);
+      }
+
+      // Check if bookmarked
+      try {
+        const bookmarkRes = await axios.get(
+          `${API_URL}/api/bookmarks/me?movie_id=${movieId}`,
+          { headers }
+        );
+        setIsBookmarked(!!bookmarkRes.data);
+      } catch (err) {
+        setIsBookmarked(false);
+      }
+    } catch (err) {
+      console.error('Failed to fetch movie data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      if (myReview) {
+        // Update existing review
+        await axios.patch(
+          `${API_URL}/api/movies/${movie.title}/reviews/${myReview.review_id}`,
+          reviewForm,
+          { headers }
+        );
+      } else {
+        // Create new review
+        await axios.post(
+          `${API_URL}/api/movies/${movie.title}/reviews`,
+          reviewForm,
+          { headers }
+        );
+      }
+
+      setShowReviewForm(false);
+      fetchMovieData();
+    } catch (err) {
+      console.error('Failed to submit review:', err);
+      alert(err.response?.data?.detail || 'Failed to submit review');
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!window.confirm('Are you sure you want to delete your review?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/api/movies/${movie.title}/reviews`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMyReview(null);
+      fetchMovieData();
+    } catch (err) {
+      console.error('Failed to delete review:', err);
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      if (isBookmarked) {
+        // Remove bookmark - need to find bookmark ID first
+        const bookmarksRes = await axios.get(`${API_URL}/api/bookmarks`, {
+          headers,
+        });
+        const bookmark = bookmarksRes.data.find((b) => b.movie_id === movieId);
+        if (bookmark) {
+          await axios.delete(
+            `${API_URL}/api/bookmarks/me/${bookmark.bookmark_id}`,
+            {
+              headers,
+            }
+          );
+        }
+        setIsBookmarked(false);
+      } else {
+        // Add bookmark
+        await axios.post(
+          `${API_URL}/bookmarks`,
+          { movie_id: movieId },
+          { headers }
+        );
+        setIsBookmarked(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+      alert(err.response?.data?.detail || 'Failed to update bookmark');
+    }
+  };
+
+  const handleEditReview = () => {
+    setReviewForm({
+      rating: myReview.rating,
+      review_text: myReview.review_text,
+    });
+    setShowReviewForm(true);
+  };
+
+  if (loading) {
+    return <div className="loading">Loading movie details...</div>;
+  }
+
+  if (!movie) {
+    return <div className="error-message">Movie not found</div>;
+  }
+
+  return (
+    <div className="movie-detail-page">
+      <motion.button
+        className="btn-back"
+        onClick={() => navigate('/movies')}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <ArrowLeft size={20} />
+        Back to Movies
+      </motion.button>
+
+      <motion.div
+        className="movie-detail-header"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="movie-title-section">
+          <h1>{movie.title}</h1>
+          <div className="movie-meta">
+            <span className="genre-badge">{movie.genre}</span>
+            <span className="year-badge">{movie.release_year}</span>
+            <span className="runtime-badge">{movie.runtime} min</span>
+          </div>
+        </div>
+
+        <div className="movie-actions">
+          {movie.average_rating && (
+            <div className="rating-display">
+              <Star size={24} fill="currentColor" />
+              <span>{movie.average_rating.toFixed(1)}</span>
+            </div>
+          )}
+
+          <motion.button
+            className={`btn-bookmark ${isBookmarked ? 'bookmarked' : ''}`}
+            onClick={handleToggleBookmark}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isBookmarked ? (
+              <>
+                <BookmarkCheck size={20} />
+                Bookmarked
+              </>
+            ) : (
+              <>
+                <BookmarkPlus size={20} />
+                Bookmark
+              </>
+            )}
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {movie.description && (
+        <motion.div
+          className="movie-description"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <p>{movie.description}</p>
+        </motion.div>
+      )}
+
+      <motion.div
+        className="reviews-section"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="section-header">
+          <h2>Reviews</h2>
+          {!myReview && !showReviewForm && (
+            <motion.button
+              className="btn-primary"
+              onClick={() => setShowReviewForm(true)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Star size={18} />
+              Write a Review
+            </motion.button>
+          )}
+        </div>
+
+        {myReview && !showReviewForm && (
+          <div className="my-review">
+            <div className="review-header">
+              <h3>Your Review</h3>
+              <div className="review-actions">
+                <button className="btn-icon" onClick={handleEditReview}>
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  className="btn-icon delete"
+                  onClick={handleDeleteReview}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="review-rating">
+              {[...Array(10)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={16}
+                  fill={i < myReview.rating ? 'currentColor' : 'none'}
+                />
+              ))}
+              <span>{myReview.rating}/10</span>
+            </div>
+            <p className="review-text">{myReview.review_text}</p>
+          </div>
+        )}
+
+        {showReviewForm && (
+          <motion.form
+            className="review-form"
+            onSubmit={handleSubmitReview}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="form-group">
+              <label>Rating (1-10)</label>
+              <div className="rating-input">
+                {[...Array(10)].map((_, i) => (
+                  <motion.button
+                    key={i}
+                    type="button"
+                    className={`star-btn ${i < reviewForm.rating ? 'active' : ''}`}
+                    onClick={() =>
+                      setReviewForm({ ...reviewForm, rating: i + 1 })
+                    }
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <Star
+                      size={24}
+                      fill={i < reviewForm.rating ? 'currentColor' : 'none'}
+                    />
+                  </motion.button>
+                ))}
+                <span className="rating-value">{reviewForm.rating}/10</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Your Review</label>
+              <textarea
+                value={reviewForm.review_text}
+                onChange={(e) =>
+                  setReviewForm({ ...reviewForm, review_text: e.target.value })
+                }
+                rows="4"
+                placeholder="Share your thoughts about this movie..."
+                required
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowReviewForm(false)}
+              >
+                Cancel
+              </button>
+              <motion.button
+                type="submit"
+                className="btn-primary"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {myReview ? 'Update Review' : 'Submit Review'}
+              </motion.button>
+            </div>
+          </motion.form>
+        )}
+
+        <div className="other-reviews">
+          <h3>All Reviews ({reviews.length})</h3>
+          {reviews.length === 0 ? (
+            <div className="empty-state">No reviews yet. Be the first!</div>
+          ) : (
+            <div className="reviews-list">
+              {reviews.map((review, index) => (
+                <motion.div
+                  key={review.review_id}
+                  className="review-item"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <div className="review-header">
+                    <div className="reviewer-info">
+                      <div className="reviewer-avatar">
+                        {review.user_id?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <span className="reviewer-name">
+                        {review.user_id === user?.user_id ? 'You' : 'User'}
+                      </span>
+                    </div>
+                    <div className="review-rating">
+                      <Star size={16} fill="currentColor" />
+                      {review.rating}/10
+                    </div>
+                  </div>
+                  <p className="review-text">{review.review_text}</p>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default MovieDetail;

@@ -177,6 +177,68 @@ Stop:
 docker compose down
 ```
 
+## 8. Run Frontend (development)
+
+Follow these steps to run the frontend locally and connect it to the backend. This is the recommended workflow for development because it enables hot-reload and fast iteration.
+
+- **Prerequisites:** Node.js 18+ and npm (or yarn). Python 3.10+ for backend.
+
+- **Start the backend** (in one terminal):
+
+```
+export PYTHONPATH=backend
+uvicorn backend.main:app --reload
+```
+
+- **Start the frontend** (in a second terminal):
+
+```
+cd frontend
+npm install
+# Option A: use default (frontend will talk to http://localhost:8000)
+npm run dev
+
+# Option B: explicitly set the backend URL for the frontend (recommended when backend runs on a different host/port)
+# macOS / Linux zsh
+VITE_API_URL=http://localhost:8000 npm run dev
+
+# Or create a file `frontend/.env` with the following line and then run `npm run dev`:
+# VITE_API_URL=http://localhost:8000
+```
+
+- **Open the app:** http://localhost:5173 (Vite dev server)
+
+Notes:
+
+- The frontend reads the backend base URL from `import.meta.env.VITE_API_URL` and falls back to `http://localhost:8000`.
+- Vite dev server is proxied in `frontend/vite.config.js` for `/api` → `http://localhost:8000`. If your frontend uses absolute URLs, use `VITE_API_URL`.
+
+## 9. Run Frontend (production / preview)
+
+To build and preview a production bundle locally:
+
+```
+cd frontend
+npm run build
+# set the API base for the built frontend
+VITE_API_URL=http://localhost:8000 npm run preview
+```
+
+Preview server defaults to `http://localhost:4173` (check terminal output).
+
+## 10. Notes on Docker Compose and CI
+
+- The repository includes a `docker-compose.yml` that can start `backend`, and `test-runner`. The compose file references a `frontend` service that expects a `frontend/Dockerfile`. If that `Dockerfile` is absent, the compose command may fail to build the frontend image.
+- If you prefer to run everything in Docker, add a `frontend/Dockerfile` or modify `docker-compose.yml` to serve the built files (e.g. build with `npm run build` and serve them with `nginx`).
+- When the frontend runs in a Docker container and needs to reach the backend container, use the service name `http://backend:8000` as the API base URL inside the container (for example set `VITE_API_URL=http://backend:8000` in the container environment).
+
+## 11. Troubleshooting
+
+- If the frontend cannot reach the backend during local dev:
+  - Confirm the backend is running: `curl http://localhost:8000/health` should return `{ "status": "ok" }`.
+  - Ensure `VITE_API_URL` points to the correct host/port.
+  - If you run the backend in Docker and the frontend on the host, use `http://host.docker.internal:8000` (macOS/Windows Docker) or the mapped host port `http://localhost:8000`.
+
 ---
 
 ## 8. Testing

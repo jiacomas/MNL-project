@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import Response
 
 from backend.deps import get_current_user_id, require_admin
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
@@ -36,23 +37,24 @@ def create_bookmark(
     return svc.create_bookmark(payload, user_id)
 
 
-@router.delete("/me/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/me/{bookmark_id}")
 def delete_my_bookmark(bookmark_id: str, user_id: str = Depends(get_current_user_id)):
     """Delete a bookmark owned by the current user."""
     svc.delete_bookmark(bookmark_id, user_id, is_admin=False)
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --- Admin Endpoints ---
 
 
-@router.delete("/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{bookmark_id}")
 def delete_bookmark_as_admin(
     bookmark_id: str,
     user_id: str = Depends(get_current_user_id),
     _=Depends(require_admin),
 ):
     svc.delete_bookmark(bookmark_id, user_id, is_admin=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/export", dependencies=[Depends(require_admin)])

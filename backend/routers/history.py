@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, status
+from fastapi.responses import Response
 
 from backend.schemas.history import HistoryEntryOut
 from backend.services import history_service
@@ -13,16 +14,14 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/{user_id}/{movie_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def log_view(user_id: str, movie_id: str) -> None:
+@router.post("/{user_id}/{movie_id}")
+def log_view(user_id: str, movie_id: str):
     """Log that `user_id` viewed `movie_id`.
 
     Intended to be called when a movie detail page is opened.
     """
     history_service.log_view(user_id=user_id, movie_id=movie_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(
@@ -36,19 +35,15 @@ def list_history(user_id: str) -> List[HistoryEntryOut]:
     return [HistoryEntryOut(**entry) for entry in entries]
 
 
-@router.delete(
-    "/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def clear_history(user_id: str) -> None:
+@router.delete("/{user_id}")
+def clear_history(user_id: str):
     """Clear *all* viewing history for a user."""
     history_service.clear_history(user_id=user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.delete(
-    "/{user_id}/{movie_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def clear_history_item(user_id: str, movie_id: str) -> None:
+@router.delete("/{user_id}/{movie_id}")
+def clear_history_item(user_id: str, movie_id: str):
     """Remove a single movie from the user's viewing history."""
     history_service.clear_history_item(user_id=user_id, movie_id=movie_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
