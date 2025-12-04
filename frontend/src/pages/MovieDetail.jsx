@@ -25,6 +25,7 @@ const MovieDetail = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
+    title_review: '',
     comment: '',
   });
 
@@ -164,6 +165,7 @@ const MovieDetail = () => {
   const handleEditReview = () => {
     setReviewForm({
       rating: myReview.rating,
+      title_review: myReview.title_review || '',
       comment: myReview.comment,
     });
     setShowReviewForm(true);
@@ -292,6 +294,9 @@ const MovieDetail = () => {
               ))}
               <span>{myReview.rating}/10</span>
             </div>
+            {myReview.title_review && (
+              <h4 className="review-title">{myReview.title_review}</h4>
+            )}
             <p className="review-text">{myReview.comment}</p>
           </div>
         )}
@@ -328,6 +333,17 @@ const MovieDetail = () => {
             </div>
 
             <div className="form-group">
+              <label>Review Title (optional)</label>
+              <input
+                type="text"
+                value={reviewForm.title_review}
+                onChange={(e) =>
+                  setReviewForm({ ...reviewForm, title_review: e.target.value })
+                }
+                placeholder="Short title for your review"
+                maxLength={120}
+              />
+
               <label>Your Review</label>
               <textarea
                 value={reviewForm.comment}
@@ -396,6 +412,9 @@ const MovieDetail = () => {
                       {review.rating}/10
                     </div>
                   </div>
+                  {review.title_review && (
+                    <h4 className="review-title">{review.title_review}</h4>
+                  )}
                   <p className="review-text">{review.comment}</p>
                 </motion.div>
               ))}
