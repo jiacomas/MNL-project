@@ -9,7 +9,6 @@ from backend.routers import (
     admin_analytics,
     admin_summary,
     admin_sync,
-    auth,
     history,
     password_reset,
 )
@@ -55,9 +54,6 @@ app.include_router(reviews_router)
 app.include_router(recommendations_router)
 # Password reset router
 app.include_router(password_reset.router)
-
-# Auth router (token endpoint)
-app.include_router(auth.router)
 
 # Users router
 app.include_router(users_router)
