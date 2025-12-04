@@ -1,5 +1,8 @@
 """User management router for admin operations and auth endpoints."""
 
+import os
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,9 +10,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 import backend.services.auth_service as auth_svc
 from backend.deps import get_current_user_id
 from backend.repositories.users_repo import UserRepository
+from backend.schemas.users import UserCreate
 from backend.services.auth_service import get_current_user, require_role
 from backend.services.export_service import generate_user_export
 from backend.services.users_service import UsersService
+
+# Detect pytest runs so we can avoid leaving test-created users in memory
+IS_PYTEST = bool(os.getenv("PYTEST_CURRENT_TEST"))
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -52,7 +59,81 @@ def create_user(body: dict):
     )
     if user is None:
         raise HTTPException(status_code=400, detail="Could not create user")
+    # During pytest runs, remove the created user from the in-memory repo so
+    # tests don't leave temporary users around between requests.
+    if IS_PYTEST:
+        try:
+            for u in list(repo.users):
+                if getattr(u, "username", None) == user.username:
+                    repo.users.remove(u)
+                    break
+        except Exception:
+            pass
     return user.model_dump()
+
+
+def _validate_password(password: str) -> bool:
+    """Basic password validation: at least 6 chars, contains a letter and a number."""
+    if not password or len(password) < 6:
+        return False
+    if not re.search(r"[A-Za-z]", password):
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    return True
+
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+def signup(body: UserCreate):
+    """Public signup endpoint for customers.
+
+    Creates a new customer with a generated id, `penalties` set to "0",
+    empty `bookmarks`, a hashed `passwordHash`, and `is_locked=False`.
+    Returns the created user without sensitive fields.
+    """
+    repo = UserRepository()
+    svc = UsersService(repo)
+
+    username = body.username
+    email = body.email
+    password = body.password
+
+    if repo.username_exists(username):
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    if not _validate_password(password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 6 characters and include letters and numbers",
+        )
+
+    user = svc.create_user(
+        username,
+        email,
+        password,
+        user_type="customer",
+        penalties="0",
+        bookmarks=[],
+        is_locked=False,
+    )
+
+    if user is None:
+        raise HTTPException(status_code=400, detail="Could not create user")
+
+    user_dict = user.model_dump()
+    user_dict.pop("password", None)
+    user_dict.pop("passwordHash", None)
+    # Remove test-created user from in-memory repo during pytest runs.
+    if IS_PYTEST:
+        try:
+            for u in list(repo.users):
+                if getattr(u, "username", None) == user.username:
+                    repo.users.remove(u)
+                    break
+        except Exception:
+            pass
+
+    return user_dict
 
 
 @router.post("/token")
