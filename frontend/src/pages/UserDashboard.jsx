@@ -13,6 +13,8 @@ const UserDashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewPage, setReviewPage] = useState(1);
+  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUserData();

@@ -114,8 +114,16 @@ def _row_to_dict(movie_name: str, row: Dict[str, str]) -> Dict[str, Any]:
     date_str = row.get("Date of Review", "").strip()
     user = row.get("User", "").strip()
     user_id = row.get("UserID", "").strip()
-    usefulness = row.get("Usefulness Vote", "").strip()
-    total_votes = row.get("Total Votes", "").strip()
+    usefulness_raw = row.get("Usefulness Vote", "").strip()
+    total_votes_raw = row.get("Total Votes", "").strip()
+    try:
+        usefulness = int(usefulness_raw) if usefulness_raw != "" else 0
+    except Exception:
+        usefulness = 0
+    try:
+        total_votes = int(total_votes_raw) if total_votes_raw != "" else 0
+    except Exception:
+        total_votes = 0
     title = row.get("Review Title", "").strip()
     review = row.get("Review", "").strip()
 
@@ -314,11 +322,27 @@ class CSVReviewRepo:
         exists = os.path.exists(path)
 
         row = _dict_to_row(review.model_dump())
+        # If the CSV already exists, detect its header and use the same fieldnames
+        # when appending to avoid shifting columns when older files have different headers.
+        if exists:
+            with open(path, "r", newline="", encoding="utf-8") as readf:
+                reader = csv.reader(readf)
+                try:
+                    existing_header = next(reader)
+                except StopIteration:
+                    existing_header = CSV_HEADERS
+            fieldnames = existing_header or CSV_HEADERS
+        else:
+            fieldnames = CSV_HEADERS
+
+        # Only include keys that are present in the fieldnames to avoid extra columns
+        filtered_row = {k: v for k, v in row.items() if k in fieldnames}
+
         with open(path, "a", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=CSV_HEADERS)
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if not exists:
                 writer.writeheader()
-            writer.writerow(row)
+            writer.writerow(filtered_row)
 
         # Update index
         self._ensure_index(review.movie_name)  # it will detect mtime and rebuild
