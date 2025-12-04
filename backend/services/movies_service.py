@@ -252,24 +252,15 @@ def get_movie_stats(repo: MovieRepository = movie_repo) -> Dict[str, Any]:
     }
 
 
-def get_movie_analytics(
-    start_year: Optional[int] = None,
-    end_year: Optional[int] = None,
-    min_rating: Optional[float] = None,
-    repo: MovieRepository = movie_repo,
-) -> MovieAnalyticsResponse:
-    """
-    Compute richer analytics for movies, designed for visualization.
+# ---------- Analytics helpers ----------
 
-    - Fetches up to MAX_ANALYTICS_LIMIT movies.
-    - Applies optional filters on release year and rating.
-    - Aggregates:
-      * rating histogram (0–2, 2–4, 4–6, 6–8, 8–10)
-      * release count per year
-      * top genres
-      * top directors
-    """
-    # Basic validation on filter ranges
+
+def _validate_analytics_filters(
+    start_year: int | None,
+    end_year: int | None,
+    min_rating: float | None,
+) -> None:
+    """Validate basic filter constraints for analytics."""
     if start_year and end_year and start_year > end_year:
         raise HTTPException(
             status_code=400, detail="start_year cannot be greater than end_year"
@@ -279,114 +270,133 @@ def get_movie_analytics(
             status_code=400, detail="min_rating must be between 0 and 10"
         )
 
-    MAX_ANALYTICS_LIMIT = 10000
 
-    # First call: take a reasonably large sample for analytics.
-    movies, _ = repo.get_all(limit=MAX_ANALYTICS_LIMIT)
-    # Second call: ask for total count (same pattern as get_movie_stats).
+def _fetch_movies_for_analytics(
+    repo: MovieRepository,
+    limit: int = 10_000,
+) -> tuple[list[MovieOut], int]:
+    """Fetch a sample of movies for analytics and the total count."""
+    movies, _ = repo.get_all(limit=limit)
     _, total = repo.get_all(limit=1)
+    return movies, total
 
-    filters_model = MovieAnalyticsFilters(
-        start_year=start_year, end_year=end_year, min_rating=min_rating
+
+def _extract_year_from_date(date_published: str | None) -> int | None:
+    """Best-effort extraction of year from a YYYY-MM-DD style string."""
+    if not date_published or len(date_published) < 4:
+        return None
+    try:
+        return int(date_published[:4])
+    except Exception:
+        return None
+
+
+def _extract_rating(raw_rating: object | None) -> float | None:
+    """Best-effort conversion of a raw rating value to float."""
+    if raw_rating is None:
+        return None
+    try:
+        return float(raw_rating)
+    except Exception:
+        return None
+
+
+def _passes_analytics_filters(
+    year: int | None,
+    rating: float | None,
+    start_year: int | None,
+    end_year: int | None,
+    min_rating: float | None,
+) -> bool:
+    """Check whether a movie (represented by year and rating) passes filters."""
+    if start_year is not None and (year is None or year < start_year):
+        return False
+    if end_year is not None and (year is None or year > end_year):
+        return False
+    if min_rating is not None and (rating is None or rating < min_rating):
+        return False
+    return True
+
+
+def _update_rating_bucket_counts(
+    rating: float | None,
+    bucket_counts: dict[str, int],
+) -> None:
+    """Increment the appropriate rating bucket for a given rating."""
+    if rating is None or rating < 0:
+        return
+    if rating < 2:
+        bucket = "0-2"
+    elif rating < 4:
+        bucket = "2-4"
+    elif rating < 6:
+        bucket = "4-6"
+    elif rating < 8:
+        bucket = "6-8"
+    else:
+        bucket = "8-10"
+    bucket_counts[bucket] += 1
+
+
+def _split_multi_value_field(value: str) -> list[str]:
+    """
+    Split a multi-value string field that may be pipe- or comma-separated.
+
+    Example:
+        "Drama, Action" -> ["Drama", "Action"]
+        "Dir1|Dir2"     -> ["Dir1", "Dir2"]
+    """
+    if "|" in value:
+        parts = value.split("|")
+    else:
+        parts = value.split(",")
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _update_genre_counts(movie: MovieOut, genre_counts: dict[str, int]) -> None:
+    """Update genre aggregation dictionary for a single movie."""
+    raw_genres = getattr(movie, "movieGenres", None) or ""
+    if not raw_genres:
+        return
+    for g in _split_multi_value_field(raw_genres):
+        genre_counts[g] = genre_counts.get(g, 0) + 1
+
+
+def _update_director_counts(movie: MovieOut, director_counts: dict[str, int]) -> None:
+    """Update director aggregation dictionary for a single movie."""
+    raw_directors = getattr(movie, "directors", None) or ""
+    if not raw_directors:
+        return
+    for d in _split_multi_value_field(raw_directors):
+        director_counts[d] = director_counts.get(d, 0) + 1
+
+
+def _empty_analytics_response(
+    total: int,
+    filters_model: MovieAnalyticsFilters,
+) -> MovieAnalyticsResponse:
+    """Return an empty but well-formed analytics response."""
+    return MovieAnalyticsResponse(
+        total_movies=total,
+        filtered_movies=0,
+        filters=filters_model,
+        rating_buckets=[],
+        releases_by_year=[],
+        genres=[],
+        top_directors=[],
     )
 
-    if not movies:
-        # No data at all -> return an empty but well-formed response
-        return MovieAnalyticsResponse(
-            total_movies=total,
-            filtered_movies=0,
-            filters=filters_model,
-            rating_buckets=[],
-            releases_by_year=[],
-            genres=[],
-            top_directors=[],
-        )
 
-    # Aggregation containers
-    filtered_movies: List[MovieOut] = []
-    year_counts: Dict[int, int] = {}
-    genre_counts: Dict[str, int] = {}
-    director_counts: Dict[str, int] = {}
-    rating_bucket_counts: Dict[str, int] = {
-        "0-2": 0,
-        "2-4": 0,
-        "4-6": 0,
-        "6-8": 0,
-        "8-10": 0,
-    }
-
-    for m in movies:
-        # Safely parse year from datePublished
-        year: Optional[int] = None
-        dp = getattr(m, "datePublished", None)
-        if isinstance(dp, str) and len(dp) >= 4:
-            try:
-                year = int(dp[:4])
-            except Exception:
-                year = None
-
-        # Safely parse numeric rating
-        rating_value: Optional[float] = None
-        r = getattr(m, "movieIMDbRating", None)
-        if r is not None:
-            try:
-                rating_value = float(r)
-            except Exception:
-                rating_value = None
-
-        # Apply filters
-        if start_year is not None and (year is None or year < start_year):
-            continue
-        if end_year is not None and (year is None or year > end_year):
-            continue
-        if min_rating is not None and (
-            rating_value is None or rating_value < min_rating
-        ):
-            continue
-
-        filtered_movies.append(m)
-
-        # Rating histogram
-        if rating_value is not None and rating_value >= 0:
-            if rating_value < 2:
-                bucket = "0-2"
-            elif rating_value < 4:
-                bucket = "2-4"
-            elif rating_value < 6:
-                bucket = "4-6"
-            elif rating_value < 8:
-                bucket = "6-8"
-            else:
-                bucket = "8-10"
-            rating_bucket_counts[bucket] += 1
-
-        # Year counts
-        if year is not None:
-            year_counts[year] = year_counts.get(year, 0) + 1
-
-        # Genre counts (reuse same splitting rules as _aggregate_genres)
-        mg = getattr(m, "movieGenres", None) or ""
-        if mg:
-            if "|" in mg:
-                parts = [p.strip() for p in mg.split("|")]
-            else:
-                parts = [p.strip() for p in mg.split(",")]
-            for g in parts:
-                if g:
-                    genre_counts[g] = genre_counts.get(g, 0) + 1
-
-        # Director counts (support comma or pipe separated lists)
-        directors_raw = getattr(m, "directors", None) or ""
-        if directors_raw:
-            if "|" in directors_raw:
-                d_parts = [p.strip() for p in directors_raw.split("|")]
-            else:
-                d_parts = [p.strip() for p in directors_raw.split(",")]
-            for d in d_parts:
-                if d:
-                    director_counts[d] = director_counts.get(d, 0) + 1
-
-    # Build response models
+def _build_analytics_response(
+    total: int,
+    filtered_count: int,
+    filters_model: MovieAnalyticsFilters,
+    rating_bucket_counts: dict[str, int],
+    year_counts: dict[int, int],
+    genre_counts: dict[str, int],
+    director_counts: dict[str, int],
+) -> MovieAnalyticsResponse:
+    """Build the final MovieAnalyticsResponse from raw aggregations."""
     rating_buckets = [
         RatingBucket(bucket=b, count=rating_bucket_counts[b])
         for b in ["0-2", "2-4", "4-6", "6-8", "8-10"]
@@ -397,10 +407,16 @@ def get_movie_analytics(
         for year, count in sorted(year_counts.items(), key=lambda x: x[0])
     ]
 
-    sorted_genres = sorted(genre_counts.items(), key=lambda x: (-x[1], x[0]))
+    sorted_genres = sorted(
+        genre_counts.items(),
+        key=lambda x: (-x[1], x[0]),
+    )
     genres = [GenreCount(genre=name, count=count) for name, count in sorted_genres[:10]]
 
-    sorted_directors = sorted(director_counts.items(), key=lambda x: (-x[1], x[0]))
+    sorted_directors = sorted(
+        director_counts.items(),
+        key=lambda x: (-x[1], x[0]),
+    )
     top_directors = [
         DirectorCount(director=name, count=count)
         for name, count in sorted_directors[:10]
@@ -408,10 +424,84 @@ def get_movie_analytics(
 
     return MovieAnalyticsResponse(
         total_movies=total,
-        filtered_movies=len(filtered_movies),
+        filtered_movies=filtered_count,
         filters=filters_model,
         rating_buckets=rating_buckets,
         releases_by_year=releases_by_year,
         genres=genres,
         top_directors=top_directors,
+    )
+
+
+def get_movie_analytics(
+    start_year: int | None = None,
+    end_year: int | None = None,
+    min_rating: float | None = None,
+    repo: MovieRepository = movie_repo,
+) -> MovieAnalyticsResponse:
+    """
+    Compute analytics for movies, designed for charts and dashboards.
+
+    This aggregates:
+      * rating histogram (0–2, 2–4, 4–6, 6–8, 8–10)
+      * release counts per year
+      * top genres
+      * top directors
+    while respecting optional filters.
+    """
+    _validate_analytics_filters(start_year, end_year, min_rating)
+
+    movies, total = _fetch_movies_for_analytics(repo)
+    filters_model = MovieAnalyticsFilters(
+        start_year=start_year,
+        end_year=end_year,
+        min_rating=min_rating,
+    )
+
+    if not movies:
+        return _empty_analytics_response(total, filters_model)
+
+    rating_bucket_counts: dict[str, int] = {
+        "0-2": 0,
+        "2-4": 0,
+        "4-6": 0,
+        "6-8": 0,
+        "8-10": 0,
+    }
+    year_counts: dict[int, int] = {}
+    genre_counts: dict[str, int] = {}
+    director_counts: dict[str, int] = {}
+
+    filtered_count = 0
+
+    for movie in movies:
+        year = _extract_year_from_date(getattr(movie, "datePublished", None))
+        rating_value = _extract_rating(getattr(movie, "movieIMDbRating", None))
+
+        if not _passes_analytics_filters(
+            year=year,
+            rating=rating_value,
+            start_year=start_year,
+            end_year=end_year,
+            min_rating=min_rating,
+        ):
+            continue
+
+        filtered_count += 1
+        _update_rating_bucket_counts(rating_value, rating_bucket_counts)
+
+        if year is not None:
+            year_counts[year] = year_counts.get(year, 0) + 1
+
+        _update_genre_counts(movie, genre_counts)
+        _update_director_counts(movie, director_counts)
+
+    return _build_analytics_response(
+        total=total,
+        filtered_count=filtered_count,
+        filters_model=filters_model,
+        rating_bucket_counts=rating_bucket_counts,
+        year_counts=year_counts,
+        genre_counts=genre_counts,
+        director_counts=director_counts,
     )
