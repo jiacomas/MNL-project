@@ -1,22 +1,30 @@
-"""
-Admin router for syncing external metadata onto items/movies.
-"""
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
 from backend.services.auth_service import require_role
-from backend.services.external_sync_service import external_sync_service
+from backend.services.external_sync_service import sync_external_metadata
 
-router = APIRouter(prefix="/admin", tags=["Admin Sync"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin-sync"],
+)
 
 
 @router.post("/sync-external")
-async def sync_external_metadata(admin=Depends(require_role("admin"))):
+async def admin_sync_external(
+    _: None = Depends(require_role("admin")),
+):
+    """Admin-only endpoint to trigger external metadata sync.
+
+    Response payload:
+    {
+      "items_updated": <int>,
+      "timestamp": "<ISO-8601 string>"
+    }
     """
-    Trigger a sync with the external movie metadata API.
-    Updates local items with poster, runtime, cast.
-    """
-    count, timestamp = await external_sync_service.sync_external_metadata()
+    updated_count, timestamp = await sync_external_metadata()
     return {
-        "synced_at": timestamp.isoformat(),
+        "items_updated": updated_count,
+        "timestamp": timestamp,
     }

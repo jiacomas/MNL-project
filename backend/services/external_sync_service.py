@@ -1,125 +1,181 @@
-"""
-Service for syncing item/movie metadata from an external API.
-
-Enriches data/items.json with:
-- duration
-- mainStars
-
-Logs each sync in data/external_sync_log.json
-with timestamp + items updated.
-"""
-
 from __future__ import annotations
 
+"""
+Service for syncing movie metadata (poster, runtime, cast) from an external API.
+
+- Reads / writes movies.json
+- Enriches existing movies (no duplicates)
+- Logs each sync with timestamp and indices updated
+"""
+
+import json
 import os
-from typing import Any, Tuple
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 import httpx
 
 from backend import settings
-from backend.repositories.movies_repo import MovieRepository
-from backend.repositories.sync_repo import SyncLogRepository
-from backend.schemas.movies import MovieUpdate
-from backend.utils.datetime_utils import now_utc, to_iso_string
 
-# Use centralized settings for external API configuration
-EXTERNAL_API_BASE_URL = settings.EXTERNAL_API_BASE_URL
-EXTERNAL_API_KEY_ENV = settings.EXTERNAL_API_KEY_ENV
+JsonObj = Dict[str, Any]
+
+# ---------------------------------------------------------------------------
+# Configuration (kept here so tests can patch/override easily)
+# ---------------------------------------------------------------------------
+
+ROOT_DATA_DIR: Path = getattr(settings, "ROOT_DATA_DIR", Path("data"))
+
+MOVIES_FILE: Path = getattr(
+    settings,
+    "MOVIES_FILE",
+    ROOT_DATA_DIR / "movies.json",
+)
+
+SYNC_LOG_FILE: Path = getattr(
+    settings,
+    "SYNC_LOG_FILE",
+    ROOT_DATA_DIR / "external_sync_log.json",
+)
+
+EXTERNAL_API_BASE_URL: str = getattr(
+    settings,
+    "EXTERNAL_API_BASE_URL",
+    "https://www.omdbapi.com/",
+)
+
+# Name of the env var that stores the API key
+EXTERNAL_API_KEY_ENV: str = getattr(
+    settings,
+    "EXTERNAL_API_KEY_ENV",
+    "OMDB_API_KEY",
+)
 
 
-class ExternalSyncService:
-    def __init__(
-        self,
-        movie_repo: MovieRepository | None = None,
-        sync_repo: SyncLogRepository | None = None,
-    ):
-        self.movie_repo = movie_repo or MovieRepository(use_json=True)
-        self.sync_repo = sync_repo or SyncLogRepository()
+# ---------------------------------------------------------------------------
+# Basic JSON helpers
+# ---------------------------------------------------------------------------
 
-    async def _fetch_external_metadata(
-        self, client: httpx.AsyncClient, title: str
-    ) -> dict | None:
-        api_key = os.getenv(EXTERNAL_API_KEY_ENV)
-        if not api_key:
-            return None
 
-        params = {"title": title, "api_key": api_key}
+def _load_json(path: Path) -> Any:
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
 
-        try:
-            resp = await client.get(EXTERNAL_API_BASE_URL, params=params, timeout=10.0)
-            resp.raise_for_status()
-        except httpx.HTTPError:
-            return None
 
-        data = resp.json()
+def _save_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
-        return {
-            "duration": data.get("duration"),
-            "mainStars": data.get("mainStars"),
-        }
 
-    async def _update_item_from_external(
-        self, client: httpx.AsyncClient, item: Any
-    ) -> bool:
-        title = getattr(item, "title", None)
-        if not title:
-            return False
+# ---------------------------------------------------------------------------
+# External API helpers
+# ---------------------------------------------------------------------------
 
-        external = await self._fetch_external_metadata(client, title)
-        if not external:
-            return False
 
-        update_data = {}
+async def _fetch_external_metadata(
+    client: httpx.AsyncClient,
+    title: str,
+) -> JsonObj | None:
+    """Call the external API for a single title.
 
-        for key in ("duration", "mainStars"):
-            new_val = external.get(key)
-            curr_val = getattr(item, key, None)
+    Returns a small dict with keys poster_url, runtime, cast or None on error.
+    """
+    api_key = os.getenv(EXTERNAL_API_KEY_ENV)
+    if not api_key:
+        # No key configured -> skip external calls quietly
+        return None
 
-            if new_val and curr_val != new_val:
-                update_data[key] = new_val
+    # These params match OMDb style APIs but can be adjusted to your provider
+    params = {
+        "t": title,
+        "apikey": api_key,
+    }
 
-        if update_data:
-            try:
-                self.movie_repo.update(item.movie_id, MovieUpdate(**update_data))
-                # Update the local item object so the test can verify it (since test uses mocks)
-                for k, v in update_data.items():
-                    setattr(item, k, v)
-                return True
-            except Exception:
-                return False
+    try:
+        resp = await client.get(EXTERNAL_API_BASE_URL, params=params, timeout=10.0)
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return None
 
+    data = resp.json()
+
+    # Shape this into the fields our frontend expects
+    return {
+        "poster_url": data.get("poster_url") or data.get("Poster"),
+        "runtime": data.get("runtime") or data.get("Runtime"),
+        "cast": data.get("cast") or data.get("Actors"),
+    }
+
+
+async def _update_item_from_external(
+    client: httpx.AsyncClient,
+    item: JsonObj,
+) -> bool:
+    """Enrich a single movie item in-place.
+
+    Returns True if any field changed; False otherwise.
+    """
+    title = item.get("title")
+    if not title:
         return False
 
-    async def sync_external_metadata(self) -> Tuple[int, str]:
-        """
-        Syncs external metadata into items.json (via MovieRepository).
+    external = await _fetch_external_metadata(client, title)
+    if not external:
+        return False
 
-        Returns:
-            (items_updated_count, timestamp_str)
-        """
-        items, _ = self.movie_repo.get_all(limit=10000)
+    changed = False
+    for key in ("poster_url", "runtime", "cast"):
+        value = external.get(key)
+        # Only overwrite if the API gave us a non-empty value and it differs
+        if value and item.get(key) != value:
+            item[key] = value
+            changed = True
 
-        timestamp_str = to_iso_string(now_utc())
-        count = 0
-        updated_idxs = []
-
-        async with httpx.AsyncClient() as client:
-            for idx, item in enumerate(items):
-                if await self._update_item_from_external(client, item):
-                    count += 1
-                    updated_idxs.append(idx)
-
-        # Log
-        self.sync_repo.append_log(
-            {
-                "timestamp": timestamp_str,
-                "items_updated": count,
-                "indices": updated_idxs,
-            }
-        )
-
-        return count, timestamp_str
+    return changed
 
 
-# Singleton instance
-external_sync_service = ExternalSyncService()
+# ---------------------------------------------------------------------------
+# Public API used by router + tests
+# ---------------------------------------------------------------------------
+
+
+async def sync_external_metadata() -> Tuple[int, str]:
+    """Sync external metadata into movies.json.
+
+    Returns:
+        (items_updated_count, timestamp_str)
+    """
+    items = _load_json(MOVIES_FILE)
+    if not isinstance(items, list):
+        # If the file is somehow malformed, don't crash the admin call
+        timestamp = datetime.now(UTC).isoformat()
+        return 0, timestamp
+
+    updated_indices: List[int] = []
+    timestamp = datetime.now(UTC).isoformat()
+
+    async with httpx.AsyncClient() as client:
+        for idx, item in enumerate(items):
+            if await _update_item_from_external(client, item):
+                updated_indices.append(idx)
+
+    # Persist movies only if something changed
+    if updated_indices:
+        _save_json(MOVIES_FILE, items)
+
+    # Append to sync log
+    log = _load_json(SYNC_LOG_FILE) or []
+    if not isinstance(log, list):
+        log = []
+
+    log.append(
+        {
+            "timestamp": timestamp,
+            "items_updated": len(updated_indices),
+            "indices": updated_indices,
+        }
+    )
+    _save_json(SYNC_LOG_FILE, log)
+
+    return len(updated_indices), timestamp
