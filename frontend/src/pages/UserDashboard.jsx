@@ -13,8 +13,6 @@ const UserDashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reviewPage, setReviewPage] = useState(1);
-  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUserData();
@@ -41,6 +39,23 @@ const UserDashboard = () => {
       const exported = exportRes.data?.data || {};
       setReviews(exported.reviews || []);
       setHistory(exported.history || []);
+      // Enrich bookmarks with movie titles by fetching movie metadata
+      if ((bookmarksRes.data || []).length > 0) {
+        try {
+          const bm = bookmarksRes.data || [];
+          const moviePromises = bm.map((b) =>
+            axios
+              .get(`${API_URL}/api/movies/${b.movie_id}`)
+              .then((r) => ({ ...b, title: r.data.title }))
+              .catch(() => ({ ...b, title: b.title || b.movie_id }))
+          );
+          const enriched = await Promise.all(moviePromises);
+          setBookmarks(enriched || []);
+        } catch (err) {
+          // If enrichment fails, just keep original bookmarks
+          console.warn('Failed to enrich bookmarks with movie titles', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch user data:', err);
     } finally {
@@ -167,17 +182,20 @@ const UserDashboard = () => {
           ) : (
             <div className="items-grid">
               {bookmarks.slice(0, 6).map((bookmark, index) => (
-                <motion.div
-                  key={index}
-                  className="item-card"
+                <motion.button
+                  key={bookmark.id || index}
+                  type="button"
+                  className="item-card clickable"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.1 }}
+                  onClick={() => navigate(`/movies/${bookmark.movie_id}`)}
+                  aria-label={`Open details for ${bookmark.title || bookmark.movie_id}`}
                 >
                   <div className="item-title">
                     {bookmark.title || bookmark.movie_id}
                   </div>
-                </motion.div>
+                </motion.button>
               ))}
             </div>
           )}
@@ -199,77 +217,24 @@ const UserDashboard = () => {
             <div className="empty-state">No reviews yet</div>
           ) : (
             <div className="reviews-list">
-              {(() => {
-                const totalPages = Math.max(
-                  1,
-                  Math.ceil(reviews.length / REVIEWS_PER_PAGE)
-                );
-                const safePage = Math.min(Math.max(1, reviewPage), totalPages);
-                const start = (safePage - 1) * REVIEWS_PER_PAGE;
-                const end = start + REVIEWS_PER_PAGE;
-                const pageItems = reviews.slice(start, end);
-
-                return (
-                  <>
-                    {pageItems.map((review, index) => (
-                      <motion.div
-                        key={index}
-                        className="review-item"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <div className="review-header">
-                          <span className="review-movie">
-                            {review.movie_name}
-                          </span>
-                          <span className="review-rating">
-                            ★ {review.rating}/10
-                          </span>
-                        </div>
-                        <p className="review-text">{review.comment}</p>
-                      </motion.div>
-                    ))}
-
-                    {totalPages > 1 && (
-                      <div className="pagination-controls">
-                        <button
-                          className="page-btn"
-                          onClick={() =>
-                            setReviewPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={safePage === 1}
-                        >
-                          Prev
-                        </button>
-
-                        {Array.from(
-                          { length: totalPages },
-                          (_, i) => i + 1
-                        ).map((p) => (
-                          <button
-                            key={p}
-                            className={`page-btn ${p === safePage ? 'active' : ''}`}
-                            onClick={() => setReviewPage(p)}
-                          >
-                            {p}
-                          </button>
-                        ))}
-
-                        <button
-                          className="page-btn"
-                          onClick={() =>
-                            setReviewPage((p) => Math.min(totalPages, p + 1))
-                          }
-                          disabled={safePage === totalPages}
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              {reviews.slice(0, 5).map((review, index) => (
+                <motion.div
+                  key={index}
+                  className="review-item"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="review-header">
+                    <span className="review-movie">{review.movie_name}</span>
+                    <span className="review-rating">★ {review.rating}/10</span>
+                  </div>
+                  {review.title_review && (
+                    <h4 className="review-title">{review.title_review}</h4>
+                  )}
+                  <p className="review-text">{review.comment}</p>
+                </motion.div>
+              ))}
             </div>
           )}
         </motion.div>
