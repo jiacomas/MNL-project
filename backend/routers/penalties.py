@@ -78,10 +78,7 @@ def update_penalty_endpoint(
     )
 
 
-@router.delete(
-    "/{penalty_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/{penalty_id}")
 def delete_penalty_endpoint(
     penalty_id: str,
     _: dict = Depends(require_admin),
@@ -97,10 +94,7 @@ def delete_penalty_endpoint(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post(
-    "/{penalty_id}/deactivate",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.post("/{penalty_id}/deactivate")
 def deactivate_penalty_endpoint(
     penalty_id: str,
     _: dict = Depends(require_admin),
