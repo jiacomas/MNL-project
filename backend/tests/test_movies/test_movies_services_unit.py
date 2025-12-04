@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend.schemas.movies import (
+    MovieAnalyticsResponse,
     MovieListResponse,
     MovieOut,
     MovieSearchFilters,
@@ -18,6 +19,7 @@ from backend.services.movies_service import (
     create_movie,
     delete_movie,
     get_movie,
+    get_movie_analytics,
     get_movie_stats,
     get_movies,
     get_popular_movies,
@@ -319,3 +321,79 @@ class TestMoviesServiceUnit:
         m.datePublished = "abcd"  # len 4, but int("abcd") raises ValueError
         years = _derive_years([m])
         assert years == []
+
+    def test_get_movie_analytics_empty(self, mock_repo):
+        """When repo has no movies, analytics should still return a well-formed response."""
+        mock_repo.get_all.side_effect = [([], 0), ([], 0)]
+        analytics = get_movie_analytics(repo=mock_repo)
+        assert isinstance(analytics, MovieAnalyticsResponse)
+        assert analytics.total_movies == 0
+        assert analytics.filtered_movies == 0
+        assert analytics.rating_buckets == []
+        assert analytics.releases_by_year == []
+
+    def test_get_movie_analytics_with_filters(self, mock_repo):
+        """Analytics should respect filters and aggregate into buckets."""
+        now = datetime.now(timezone.utc)
+        m1 = MovieOut(
+            movie_id="m1",
+            title="Old Low Rated",
+            movieGenres="Drama",
+            datePublished="2000-01-01",
+            movieIMDbRating=5.0,
+            duration=100,
+            directors="Dir1",
+            mainStars="Cast",
+            description="Desc",
+            created_at=now,
+            updated_at=now,
+        )
+        m2 = MovieOut(
+            movie_id="m2",
+            title="Old High Rated",
+            movieGenres="Action",
+            datePublished="2003-01-01",
+            movieIMDbRating=9.0,
+            duration=110,
+            directors="Dir2",
+            mainStars="Cast",
+            description="Desc",
+            created_at=now,
+            updated_at=now,
+        )
+        m3 = MovieOut(
+            movie_id="m3",
+            title="New High Rated",
+            movieGenres="Drama, Action",
+            datePublished="2015-06-01",
+            movieIMDbRating=8.5,
+            duration=120,
+            directors="Dir2, Dir3",
+            mainStars="Cast",
+            description="Desc",
+            created_at=now,
+            updated_at=now,
+        )
+        # First call returns sample list, second call returns total count only
+        mock_repo.get_all.side_effect = [([m1, m2, m3], 3), ([], 3)]
+
+        analytics = get_movie_analytics(start_year=2010, min_rating=8.0, repo=mock_repo)
+
+        assert analytics.total_movies == 3
+        assert analytics.filtered_movies == 1  # only m3 passes filters
+
+        buckets = {b.bucket: b.count for b in analytics.rating_buckets}
+        assert buckets["8-10"] == 1  # m3 only
+        assert sum(buckets.values()) == 1
+
+        years = {y.year: y.count for y in analytics.releases_by_year}
+        assert years == {2015: 1}
+
+        # Genre / director aggregations are also populated
+        assert any(g.count >= 1 for g in analytics.genres)
+        assert any(d.count >= 1 for d in analytics.top_directors)
+
+    def test_get_movie_analytics_invalid_year_range(self, mock_repo):
+        """Invalid year range should raise HTTPException."""
+        with pytest.raises(HTTPException):
+            get_movie_analytics(start_year=2020, end_year=2010, repo=mock_repo)

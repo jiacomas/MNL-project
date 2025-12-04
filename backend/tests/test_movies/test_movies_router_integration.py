@@ -151,3 +151,15 @@ class TestMoviesRouterIntegration:
     def test_create_invalid_data(self, admin_headers):
         r = client.post("/api/movies/", json={"title": "   "}, headers=admin_headers)
         assert r.status_code in (400, 422)
+
+    # ---------- Analytics Endpoint ----------
+    def test_movie_analytics_endpoint(self):
+        """Analytics endpoint should respect mocked repository and return 1 movie total."""
+        r = client.get("/api/movies/analytics")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total_movies"] == 1
+        assert data["filtered_movies"] == 1
+        # Rating buckets should always have 5 buckets
+        assert isinstance(data["rating_buckets"], list)
+        assert len(data["rating_buckets"]) == 5
