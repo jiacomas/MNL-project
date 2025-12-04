@@ -4,11 +4,16 @@ import csv
 import json
 import os
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend import settings
 from backend.schemas.movies import MovieCreate, MovieOut, MovieUpdate
+from backend.utils.datetime_utils import (
+    ensure_timezone_aware,
+    now_utc,
+    parse_iso_like,
+    to_iso_string,
+)
 
 # Configuration from centralized settings, allow env overrides (useful for tests)
 MOVIES_CSV_PATH = os.getenv("MOVIES_CSV_PATH", str(settings.MOVIES_CSV_PATH))
@@ -23,20 +28,13 @@ def _ensure_data_dir() -> None:
     os.makedirs(EXTERNAL_METADATA_DIR, exist_ok=True)
 
 
-def _parse_date_field(date_str: Any) -> datetime:
-    """Parse str to datetime, fallback to now with UTC timezone."""
-    if not date_str:
-        return datetime.now(timezone.utc)
+def _parse_date_field(date_str: Any):
+    """Parse various date representations to an aware datetime.
 
-    if isinstance(date_str, str):
-        try:
-            if date_str.endswith("Z"):
-                date_str = date_str[:-1] + "+00:00"
-            return datetime.fromisoformat(date_str)
-        except Exception:
-            pass
-
-    return datetime.now(timezone.utc)
+    Uses `parse_iso_like` and falls back to current UTC time.
+    """
+    dt = parse_iso_like(date_str)
+    return dt or now_utc()
 
 
 def _safe_to_int(value: Any) -> Optional[int]:
@@ -119,10 +117,12 @@ def _save_movies_to_csv(movies: List[Dict[str, Any]]) -> None:
 
         for m in movies:
             item = m.copy()
-            # Convert datetime to ISO format string for saving
+            # Convert datetime to ISO format string for saving using utils
             for d in ["created_at", "updated_at"]:
-                if isinstance(item.get(d), datetime):
-                    item[d] = item[d].isoformat()
+                # If already a string, keep it; otherwise convert
+                if isinstance(item.get(d), str):
+                    continue
+                item[d] = to_iso_string(item.get(d))
             writer.writerow(item)
 
 
@@ -161,8 +161,9 @@ def _save_movies_to_json(movies: List[Dict[str, Any]]) -> None:
     for m in movies:
         item = m.copy()
         for d in ["created_at", "updated_at"]:
-            if isinstance(item.get(d), datetime):
-                item[d] = item[d].isoformat()
+            if isinstance(item.get(d), str):
+                continue
+            item[d] = to_iso_string(item.get(d))
         dump.append(item)
     with open(MOVIES_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(dump, f, ensure_ascii=False, indent=2)
@@ -171,13 +172,14 @@ def _save_movies_to_json(movies: List[Dict[str, Any]]) -> None:
 def _movie_to_dict(movie: Dict[str, Any]) -> Dict[str, Any]:
     """Ensure timestamps are timezone-aware (UTC) & review_count exists."""
     result = movie.copy()
-    now = datetime.now(timezone.utc)
+    now = now_utc()
 
     for d in ["created_at", "updated_at"]:
-        if not isinstance(result.get(d), datetime):
+        val = result.get(d)
+        if not isinstance(val, type(now)):
             result[d] = now
-        elif result[d].tzinfo is None:
-            result[d] = result[d].replace(tzinfo=timezone.utc)
+        else:
+            result[d] = ensure_timezone_aware(val)
 
     # Ensures review_count is always present for MovieOut validation
     result["review_count"] = result.get("review_count") or 0
@@ -348,7 +350,7 @@ class MovieRepository:
 
         # Create movie data with auto-generated fields
         data = movie_create.model_dump()
-        now = datetime.now(timezone.utc)
+        now = now_utc()
 
         # Set auto-generated fields
         data["movie_id"] = movie_id
@@ -374,7 +376,7 @@ class MovieRepository:
                 update = movie_update.model_dump(exclude_unset=True)
                 for k, v in update.items():
                     movies[i][k] = v
-                movies[i]["updated_at"] = datetime.now(timezone.utc)
+                movies[i]["updated_at"] = now_utc()
                 self._save_movies(movies)  # Updates cache and file
                 return self.get_by_id(movie_id)
         return None
@@ -412,8 +414,8 @@ class MovieRepository:
         movies = self._load_movies()
         # Use datetime.min as a fallback for missing created_at to ensure stable sort
         movies.sort(
-            key=lambda x: x.get("created_at")
-            or datetime.min.replace(tzinfo=timezone.utc),
+            key=lambda x: parse_iso_like(x.get("created_at"))
+            or now_utc().replace(year=1, month=1, day=1),
             reverse=True,
         )
         return [MovieOut.model_validate(_movie_to_dict(m)) for m in movies[:limit]]

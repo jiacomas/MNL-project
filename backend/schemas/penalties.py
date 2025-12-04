@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from backend.utils.datetime_utils import ensure_timezone_aware, now_utc, parse_iso_like
 
 
 # Shared strict base schema
@@ -80,13 +82,13 @@ class PenaltyCreate(PenaltyBase):
         # If an expiration datetime is provided, ensure it is in the future (UTC)
         if self.expires_at is not None:
             # Normalize expires_at to an aware UTC datetime for safe comparison
-            if self.expires_at.tzinfo is None:
-                expires_at_utc = self.expires_at.replace(tzinfo=timezone.utc)
+            if isinstance(self.expires_at, str):
+                expires_dt = parse_iso_like(self.expires_at)
             else:
-                expires_at_utc = self.expires_at.astimezone(timezone.utc)
+                expires_dt = ensure_timezone_aware(self.expires_at)
 
-            now_utc = datetime.now(timezone.utc)
-            if expires_at_utc <= now_utc:
+            now_dt = now_utc()
+            if expires_dt is None or expires_dt <= now_dt:
                 # Message asserted in tests
                 raise ValueError("Expiration date must be in the future")
 

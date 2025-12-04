@@ -4,12 +4,17 @@ import csv
 import json
 import os
 import uuid
-from datetime import datetime, timezone
 from typing import Dict, List
 from uuid import UUID
 
 from backend import settings
 from backend.schemas.bookmarks import BookmarkCreate, BookmarkOut
+from backend.utils.datetime_utils import (
+    ensure_timezone_aware,
+    format_timestamp,
+    now_utc,
+    to_iso_string,
+)
 
 # Configuration (centralized) with env overrides for tests
 BOOKMARKS_PATH = os.getenv("BOOKMARKS_PATH", str(settings.BOOKMARKS_PATH))
@@ -19,11 +24,9 @@ BOOKMARKS_EXPORT_DIR = os.getenv(
 
 
 # Helpers
-def _to_iso(dt: datetime) -> str:
+def _to_iso(dt) -> str:
     """Convert datetime to UTC ISO-8601 string."""
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat()
+    return to_iso_string(ensure_timezone_aware(dt))
 
 
 def _serialize_for_json(obj: Dict) -> Dict:
@@ -36,17 +39,21 @@ def _serialize_for_json(obj: Dict) -> Dict:
     elif isinstance(out["id"], UUID):
         out["id"] = str(out["id"])
 
-    # Normalize datetimes
-    if isinstance(out.get("created_at"), datetime):
-        out["created_at"] = _to_iso(out["created_at"])
-    if isinstance(out.get("updated_at"), datetime):
-        out["updated_at"] = _to_iso(out["updated_at"])
+    # Normalize datetimes using datetime_utils
+    for field in ("created_at", "updated_at"):
+        if field in out:
+            val = out[field]
+            # If already serialized as a string, keep as-is. Otherwise normalize.
+            if isinstance(val, str):
+                out[field] = val
+            else:
+                out[field] = to_iso_string(ensure_timezone_aware(val))
     return out
 
 
 def _fill_missing_fields(raw: Dict) -> Dict:
     """Make loading robust against missing fields in stored JSON."""
-    now = datetime.now(timezone.utc)
+    now = now_utc()
     return {
         "id": raw.get("id") or uuid.uuid4(),
         "user_id": raw.get("user_id"),
@@ -125,7 +132,7 @@ class JSONBookmarkRepo:
     def create(self, bookmark_in: BookmarkCreate, user_id: str) -> BookmarkOut:
         '''Create bookmark for a specific user, preventing duplicates.'''
         # System-generated timestamp
-        now = datetime.now(timezone.utc)
+        now = now_utc()
         data = self._load()
 
         # Prevent duplicates
@@ -185,7 +192,7 @@ class JSONBookmarkRepo:
         rows = data
         os.makedirs(export_dir, exist_ok=True)
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = format_timestamp()
         export_path = os.path.join(export_dir, f"bookmarks_export_{timestamp}.csv")
         tmp_path = export_path + ".tmp"
 

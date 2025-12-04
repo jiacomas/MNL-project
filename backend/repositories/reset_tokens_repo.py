@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Dict, Optional
+
+from backend.utils.datetime_utils import now_utc
 
 
 @dataclass
@@ -19,7 +21,7 @@ class ResetToken:
 
     @property
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) >= self.expires_at
+        return now_utc() >= self.expires_at
 
 
 class ResetTokenRepo:
@@ -30,7 +32,7 @@ class ResetTokenRepo:
 
     def create_for_user(self, user_id: str, lifetime_minutes: int = 15) -> ResetToken:
         token_id = str(uuid.uuid4())
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=lifetime_minutes)
+        expires_at = now_utc() + timedelta(minutes=lifetime_minutes)
         token = ResetToken(id=token_id, user_id=user_id, expires_at=expires_at)
         self._tokens[token_id] = token
         return token
@@ -40,4 +42,4 @@ class ResetTokenRepo:
 
     def mark_used(self, token_id: str) -> None:
         token = self._tokens[token_id]
-        token.used_at = datetime.now(timezone.utc)
+        token.used_at = now_utc()

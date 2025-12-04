@@ -3,11 +3,11 @@ from __future__ import annotations
 import csv
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-from backend.utils.datetime_utils import parse_iso_like
+from backend.utils.datetime_utils import now_utc, parse_iso_like, to_iso_string
 
 # ---------------------------------------------------------------------------
 # Configuration (local to this feature so tests can patch easily)
@@ -74,7 +74,7 @@ def _active_users_last_24h(
     - user.last_active_at / last_login / last_seen
     - review.created_at
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or now_utc()
     active_ids: set[str] = set()
 
     # From user records
@@ -125,13 +125,13 @@ def get_admin_summary() -> Dict[str, Any]:
     """
     users = _load_json_list(USERS_FILE)
     reviews = _load_json_list(REVIEWS_FILE)
-    now = datetime.now(timezone.utc)
+    now = now_utc()
 
     return {
         "users_total": _total_users(users),
         "reviews_total": _total_reviews(reviews),
         "active_users_24h": _active_users_last_24h(users, reviews, now=now),
-        "generated_at": now.isoformat(),
+        "generated_at": to_iso_string(now),
     }
 
 
