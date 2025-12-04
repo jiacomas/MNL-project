@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi.responses import Response
 
 from backend.deps import get_current_user_id, require_admin
 from backend.schemas.reviews import (
@@ -57,7 +58,7 @@ def update_review(
     return svc.update_review(movie_name, user_id, payload)
 
 
-@router.delete("/{movie_name}/reviews", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{movie_name}/reviews")
 def delete_review(
     movie_name: str,
     user_id: str = Depends(get_current_user_id),
@@ -65,7 +66,7 @@ def delete_review(
 ):
     """Delete a review (owner or admin)."""
     svc.delete_review(movie_name, user_id, is_admin=bool(is_admin))
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{movie_name}/reviews/me", response_model=Optional[ReviewOut])

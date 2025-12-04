@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import Response
 
 from backend.deps import require_admin
 from backend.schemas.movies import (
@@ -95,9 +96,10 @@ def update_movie(
     return svc.update_movie(movie_id, movie_update, is_admin=True)
 
 
-@router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{movie_id}")
 def delete_movie(
     movie_id: str,
     user: dict = Depends(require_admin),
 ):
     svc.delete_movie(movie_id, is_admin=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

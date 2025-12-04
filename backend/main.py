@@ -3,8 +3,16 @@ Main FastAPI application entrypoint.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import admin_analytics, admin_sync, history, password_reset
+from backend.routers import (
+    admin_analytics,
+    admin_summary,
+    admin_sync,
+    auth,
+    history,
+    password_reset,
+)
 from backend.routers.bookmarks import router as bookmarks_router
 from backend.routers.movies import router as movies_router
 from backend.routers.penalties import router as penalties_router
@@ -13,6 +21,21 @@ from backend.routers.reviews import router as reviews_router
 from backend.routers.users import router as users_router
 
 app = FastAPI()
+
+# Allow CORS from local frontend dev servers (Vite)
+# Include both localhost and 127.0.0.1 variants in case Vite uses either.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -33,10 +56,11 @@ app.include_router(recommendations_router)
 # Password reset router
 app.include_router(password_reset.router)
 
-# Users router (auth + user management + export)
-app.include_router(users_router)
+# Auth router (token endpoint)
+app.include_router(auth.router)
 
-# Note: auth endpoints are provided by the `users` router (e.g., /auth/token)
+# Users router
+app.include_router(users_router)
 
 # Bookmarks router
 app.include_router(bookmarks_router)
@@ -49,3 +73,6 @@ app.include_router(penalties_router)
 
 # History router
 app.include_router(history.router)
+
+# Admin summary router
+app.include_router(admin_summary.router)

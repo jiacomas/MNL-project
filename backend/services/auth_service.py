@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import os
 from datetime import timezone
 from typing import Callable, Optional
 
@@ -130,6 +131,24 @@ def logout_token(token: str) -> None:
 
 
 def require_role(role: str) -> Callable:
+    """
+    Return a dependency that enforces the given role.
+
+    In development, set the environment variable `DEV_BYPASS_AUTH=true`
+    to bypass authentication and return a fake admin user. This makes it
+    possible to view admin dashboards without performing login. Do NOT
+    enable this in production.
+    """
+
+    bypass = os.getenv("DEV_BYPASS_AUTH", "false").lower() in ("1", "true", "yes")
+    if bypass:
+
+        def _dev_dependency():
+            # Return a lightweight admin-like user dict
+            return {"user_id": "dev-admin", "role": role, "username": "dev"}
+
+        return _dev_dependency
+
     def _dependency(user: dict = Depends(get_current_user)):
         if not user or user.get("role") != role:
             raise HTTPException(
