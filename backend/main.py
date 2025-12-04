@@ -22,12 +22,14 @@ from backend.routers.users import router as users_router
 
 app = FastAPI()
 
-# Allow CORS from local frontend dev servers (Vite)
+# Allow CORS from local frontend dev servers (Vite) and Docker frontend
 # Include both localhost and 127.0.0.1 variants in case Vite uses either.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        "http://localhost:3000",  # Docker frontend (Nginx)
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",  # Vite dev server
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
