@@ -180,3 +180,51 @@ class JSONListRepo:
                     self._save(data)
                 return ListOut.model_validate(item)
         return None
+
+    def replace_items(self, list_id: str, movie_ids: List[str]) -> Optional[ListOut]:
+        """Replace all items in a list with a new set of movie IDs."""
+        data = self._load()
+        for i, item in enumerate(data):
+            if str(item.get("id")) == str(list_id):
+                item["items"] = movie_ids
+                item["updated_at"] = datetime.now(timezone.utc)
+                data[i] = item
+                self._save(data)
+                return ListOut.model_validate(item)
+        return None
+
+    def add_items_bulk(self, list_id: str, movie_ids: List[str]) -> Optional[ListOut]:
+        """Add multiple items to a list, avoiding duplicates."""
+        data = self._load()
+        for i, item in enumerate(data):
+            if str(item.get("id")) == str(list_id):
+                items = item.get("items", [])
+                # Add only new items that aren't already in the list
+                for movie_id in movie_ids:
+                    if movie_id not in items:
+                        items.append(movie_id)
+                item["items"] = items
+                item["updated_at"] = datetime.now(timezone.utc)
+                data[i] = item
+                self._save(data)
+                return ListOut.model_validate(item)
+        return None
+
+    def remove_items_bulk(
+        self, list_id: str, movie_ids: List[str]
+    ) -> Optional[ListOut]:
+        """Remove multiple items from a list."""
+        data = self._load()
+        for i, item in enumerate(data):
+            if str(item.get("id")) == str(list_id):
+                items = item.get("items", [])
+                # Remove all specified movie IDs
+                for movie_id in movie_ids:
+                    if movie_id in items:
+                        items.remove(movie_id)
+                item["items"] = items
+                item["updated_at"] = datetime.now(timezone.utc)
+                data[i] = item
+                self._save(data)
+                return ListOut.model_validate(item)
+        return None

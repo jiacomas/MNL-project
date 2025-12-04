@@ -72,3 +72,36 @@ def remove_movie_from_list(list_id: str, movie_id: str, user_id: str) -> ListOut
             status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
         )
     return updated
+
+
+def replace_list_items(list_id: str, movie_ids: List[str], user_id: str) -> ListOut:
+    """Replace all items in a list, ensuring ownership."""
+    get_list(list_id, user_id)  # Checks existence and ownership
+    updated = _repo.replace_items(list_id, movie_ids)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    return updated
+
+
+def add_movies_bulk(list_id: str, movie_ids: List[str], user_id: str) -> ListOut:
+    """Add multiple movies to a list, ensuring ownership."""
+    get_list(list_id, user_id)  # Checks existence and ownership
+    updated = _repo.add_items_bulk(list_id, movie_ids)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    return updated
+
+
+def remove_movies_bulk(list_id: str, movie_ids: List[str], user_id: str) -> ListOut:
+    """Remove multiple movies from a list, ensuring ownership."""
+    get_list(list_id, user_id)  # Checks existence and ownership
+    updated = _repo.remove_items_bulk(list_id, movie_ids)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    return updated

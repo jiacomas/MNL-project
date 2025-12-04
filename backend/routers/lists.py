@@ -5,7 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, status
 
 from backend.deps import get_current_user_id
-from backend.schemas.lists import ListCreate, ListItemAdd, ListOut, ListUpdate
+from backend.schemas.lists import ListCreate, ListOut, ListUpdate
 from backend.services import lists_service as svc
 
 router = APIRouter(prefix="/api/lists", tags=["lists"])
@@ -58,11 +58,11 @@ def delete_list(
 @router.post("/{list_id}/items", response_model=ListOut)
 def add_item_to_list(
     list_id: str,
-    payload: ListItemAdd,
+    movie_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
     """Add a movie to the list."""
-    return svc.add_movie_to_list(list_id, payload.movie_id, user_id)
+    return svc.add_movie_to_list(list_id, movie_id, user_id)
 
 
 @router.delete("/{list_id}/items/{movie_id}", response_model=ListOut)
@@ -73,3 +73,23 @@ def remove_item_from_list(
 ):
     """Remove a movie from the list."""
     return svc.remove_movie_from_list(list_id, movie_id, user_id)
+
+
+@router.post("/{list_id}/items/bulk", response_model=ListOut)
+def bulk_add_items(
+    list_id: str,
+    movie_ids: List[str],
+    user_id: str = Depends(get_current_user_id),
+):
+    """Add multiple movies to the list at once."""
+    return svc.add_movies_bulk(list_id, movie_ids, user_id)
+
+
+@router.post("/{list_id}/items/bulk-remove", response_model=ListOut)
+def bulk_remove_items(
+    list_id: str,
+    movie_ids: List[str],
+    user_id: str = Depends(get_current_user_id),
+):
+    """Remove multiple movies from the list at once."""
+    return svc.remove_movies_bulk(list_id, movie_ids, user_id)
