@@ -13,6 +13,8 @@ const UserDashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewPage, setReviewPage] = useState(1);
+  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUserData();
@@ -197,21 +199,77 @@ const UserDashboard = () => {
             <div className="empty-state">No reviews yet</div>
           ) : (
             <div className="reviews-list">
-              {reviews.slice(0, 5).map((review, index) => (
-                <motion.div
-                  key={index}
-                  className="review-item"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <div className="review-header">
-                    <span className="review-movie">{review.movie_name}</span>
-                    <span className="review-rating">★ {review.rating}/10</span>
-                  </div>
-                  <p className="review-text">{review.comment}</p>
-                </motion.div>
-              ))}
+              {(() => {
+                const totalPages = Math.max(
+                  1,
+                  Math.ceil(reviews.length / REVIEWS_PER_PAGE)
+                );
+                const safePage = Math.min(Math.max(1, reviewPage), totalPages);
+                const start = (safePage - 1) * REVIEWS_PER_PAGE;
+                const end = start + REVIEWS_PER_PAGE;
+                const pageItems = reviews.slice(start, end);
+
+                return (
+                  <>
+                    {pageItems.map((review, index) => (
+                      <motion.div
+                        key={index}
+                        className="review-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <div className="review-header">
+                          <span className="review-movie">
+                            {review.movie_name}
+                          </span>
+                          <span className="review-rating">
+                            ★ {review.rating}/10
+                          </span>
+                        </div>
+                        <p className="review-text">{review.comment}</p>
+                      </motion.div>
+                    ))}
+
+                    {totalPages > 1 && (
+                      <div className="pagination-controls">
+                        <button
+                          className="page-btn"
+                          onClick={() =>
+                            setReviewPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={safePage === 1}
+                        >
+                          Prev
+                        </button>
+
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1
+                        ).map((p) => (
+                          <button
+                            key={p}
+                            className={`page-btn ${p === safePage ? 'active' : ''}`}
+                            onClick={() => setReviewPage(p)}
+                          >
+                            {p}
+                          </button>
+                        ))}
+
+                        <button
+                          className="page-btn"
+                          onClick={() =>
+                            setReviewPage((p) => Math.min(totalPages, p + 1))
+                          }
+                          disabled={safePage === totalPages}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </motion.div>

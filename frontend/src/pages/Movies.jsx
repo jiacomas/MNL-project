@@ -136,56 +136,67 @@ const Movies = () => {
         <div className="empty-state">No movies found</div>
       ) : (
         <div className="movies-grid">
-          {filteredMovies.map((movie, index) => (
-            <motion.div
-              key={movie.movie_id}
-              className="movie-card"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              whileHover={{ y: -8, boxShadow: '0 12px 24px rgba(0,0,0,0.15)' }}
-              onClick={() => navigate(`/movies/${movie.movie_id}`)}
-            >
-              <div className="movie-card-header">
-                <h3>{movie.title}</h3>
-                {movie.average_rating && (
-                  <div className="movie-rating">
-                    <Star size={16} fill="currentColor" />
-                    {movie.average_rating.toFixed(1)}
-                  </div>
-                )}
-              </div>
+          {filteredMovies.map((movie, index) => {
+            const genreTag = movie.movieGenres || movie.genre || '';
+            const yearTag = (movie.datePublished || movie.release_year || '')
+              .toString()
+              .slice(0, 4);
+            const runtime = movie.duration || movie.runtime || null;
+            const ratingValue =
+              movie.movieIMDbRating ?? movie.average_rating ?? null;
 
-              <div className="movie-card-body">
-                <div className="movie-info">
-                  <span className="genre-tag">{movie.genre}</span>
-                  <span className="year-tag">{movie.release_year}</span>
+            return (
+              <motion.div
+                key={movie.movie_id}
+                className="movie-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{
+                  y: -8,
+                  boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
+                }}
+                onClick={() => navigate(`/movies/${movie.movie_id}`)}
+              >
+                <div className="movie-card-header">
+                  <h3>{movie.title}</h3>
+                  {ratingValue != null && (
+                    <div className="movie-rating">
+                      <Star size={16} fill="currentColor" />
+                      {Number(ratingValue).toFixed(1)}
+                    </div>
+                  )}
                 </div>
 
-                {movie.runtime && (
-                  <p className="runtime">{movie.runtime} minutes</p>
-                )}
+                <div className="movie-card-body">
+                  <div className="movie-info">
+                    <span className="genre-tag">{genreTag}</span>
+                    <span className="year-tag">{yearTag}</span>
+                  </div>
 
-                {movie.description && (
-                  <p className="description">
-                    {movie.description.length > 120
-                      ? `${movie.description.substring(0, 120)}...`
-                      : movie.description}
-                  </p>
-                )}
-              </div>
+                  {runtime && <p className="runtime">{runtime} minutes</p>}
 
-              <div className="movie-card-footer">
-                <motion.button
-                  className="btn-view"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  View Details
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                  {movie.description && (
+                    <p className="description">
+                      {movie.description.length > 120
+                        ? `${movie.description.substring(0, 120)}...`
+                        : movie.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="movie-card-footer">
+                  <motion.button
+                    className="btn-view"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    View Details
+                  </motion.button>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>
