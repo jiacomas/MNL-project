@@ -1,7 +1,9 @@
 # backend/schemas/bookmarks.py
-from datetime import datetime, timezone
+from datetime import datetime
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
+
+from backend.utils.datetime_utils import ensure_timezone_aware
 
 # Field definitions
 MovieIdField = Field(..., min_length=1, description="ID of the bookmarked movie.")
@@ -74,8 +76,8 @@ class BookmarkOut(BookmarkBase):
     def ensure_tzaware(cls, v: datetime) -> datetime:
         if isinstance(v, str):
             return v  # let Pydantic parse ISO strings itself
-        if isinstance(v, datetime) and v.tzinfo is None:
-            return v.replace(tzinfo=timezone.utc)
+        if isinstance(v, datetime):
+            return ensure_timezone_aware(v)
         return v
 
 
