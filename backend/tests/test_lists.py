@@ -81,8 +81,7 @@ def test_add_remove_item(jwt_user_headers):
 
     # Add item
     add_res = client.post(
-        f"/api/lists/{list_id}/items",
-        json={"movie_id": movie_id},
+        f"/api/lists/{list_id}/items?movie_id={movie_id}",
         headers=jwt_user_headers,
     )
     assert add_res.status_code == 200
@@ -112,33 +111,44 @@ def test_delete_list(jwt_user_headers):
     assert get_res.status_code == 404
 
 
-def test_replace_list_items(jwt_user_headers):
+def test_bulk_operations_combined(jwt_user_headers):
     # Create a list with some items
     create_res = client.post(
-        "/api/lists/", json={"name": "Replace Test"}, headers=jwt_user_headers
+        "/api/lists/", json={"name": "Combined Test"}, headers=jwt_user_headers
     )
     list_id = create_res.json()["id"]
 
     # Add initial items
     client.post(
-        f"/api/lists/{list_id}/items",
-        json={"movie_id": "movie1"},
+        f"/api/lists/{list_id}/items?movie_id=movie1",
         headers=jwt_user_headers,
     )
     client.post(
-        f"/api/lists/{list_id}/items",
-        json={"movie_id": "movie2"},
+        f"/api/lists/{list_id}/items?movie_id=movie2",
         headers=jwt_user_headers,
     )
 
-    # Replace all items
-    replace_res = client.put(
-        f"/api/lists/{list_id}/items",
-        json={"movie_ids": ["movie3", "movie4", "movie5"]},
+    # Verify we have 2 items
+    get_res = client.get(f"/api/lists/{list_id}", headers=jwt_user_headers)
+    assert len(get_res.json()["items"]) == 2
+
+    # Remove the old items and add new ones
+    remove_res = client.post(
+        f"/api/lists/{list_id}/items/bulk-remove",
+        json=["movie1", "movie2"],
         headers=jwt_user_headers,
     )
-    assert replace_res.status_code == 200
-    items = replace_res.json()["items"]
+    assert remove_res.status_code == 200
+    assert len(remove_res.json()["items"]) == 0
+
+    # Add new items
+    add_res = client.post(
+        f"/api/lists/{list_id}/items/bulk",
+        json=["movie3", "movie4", "movie5"],
+        headers=jwt_user_headers,
+    )
+    assert add_res.status_code == 200
+    items = add_res.json()["items"]
     assert len(items) == 3
     assert "movie3" in items
     assert "movie4" in items
@@ -157,7 +167,7 @@ def test_bulk_add_items(jwt_user_headers):
     # Bulk add items
     bulk_add_res = client.post(
         f"/api/lists/{list_id}/items/bulk",
-        json={"movie_ids": ["movie1", "movie2", "movie3"]},
+        json=["movie1", "movie2", "movie3"],
         headers=jwt_user_headers,
     )
     assert bulk_add_res.status_code == 200
@@ -170,7 +180,7 @@ def test_bulk_add_items(jwt_user_headers):
     # Add more items (should not duplicate)
     bulk_add_res2 = client.post(
         f"/api/lists/{list_id}/items/bulk",
-        json={"movie_ids": ["movie2", "movie4"]},
+        json=["movie2", "movie4"],
         headers=jwt_user_headers,
     )
     assert bulk_add_res2.status_code == 200
@@ -187,16 +197,16 @@ def test_bulk_remove_items(jwt_user_headers):
     list_id = create_res.json()["id"]
 
     # Add items
-    client.put(
-        f"/api/lists/{list_id}/items",
-        json={"movie_ids": ["movie1", "movie2", "movie3", "movie4", "movie5"]},
+    client.post(
+        f"/api/lists/{list_id}/items/bulk",
+        json=["movie1", "movie2", "movie3", "movie4", "movie5"],
         headers=jwt_user_headers,
     )
 
     # Bulk remove items
     bulk_remove_res = client.post(
         f"/api/lists/{list_id}/items/bulk-remove",
-        json={"movie_ids": ["movie2", "movie4"]},
+        json=["movie2", "movie4"],
         headers=jwt_user_headers,
     )
     assert bulk_remove_res.status_code == 200
