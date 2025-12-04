@@ -25,7 +25,8 @@ const MovieDetail = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
-    review_text: '',
+    title_review: '',
+    comment: '',
   });
 
   useEffect(() => {
@@ -41,9 +42,10 @@ const MovieDetail = () => {
       const movieRes = await axios.get(`${API_URL}/api/movies/${movieId}`);
       setMovie(movieRes.data);
 
-      // Fetch reviews for this movie
+      // Fetch reviews for this movie (encode title for URL)
+      const movieName = encodeURIComponent(movieRes.data.title || movieId);
       const reviewsRes = await axios.get(
-        `${API_URL}/api/movies/${movieRes.data.title}/reviews`,
+        `${API_URL}/api/movies/${movieName}/reviews`,
         { headers }
       );
       setReviews(reviewsRes.data.items || []);
@@ -51,7 +53,7 @@ const MovieDetail = () => {
       // Fetch my review
       try {
         const myReviewRes = await axios.get(
-          `${API_URL}/api/movies/${movieRes.data.title}/reviews/me`,
+          `${API_URL}/api/movies/${movieName}/reviews/me`,
           { headers }
         );
         setMyReview(myReviewRes.data);
@@ -86,14 +88,14 @@ const MovieDetail = () => {
       if (myReview) {
         // Update existing review
         await axios.patch(
-          `${API_URL}/api/movies/${movie.title}/reviews/${myReview.review_id}`,
+          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews/${myReview.review_id}`,
           reviewForm,
           { headers }
         );
       } else {
         // Create new review
         await axios.post(
-          `${API_URL}/api/movies/${movie.title}/reviews`,
+          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews`,
           reviewForm,
           { headers }
         );
@@ -112,9 +114,12 @@ const MovieDetail = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/api/movies/${movie.title}/reviews`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.delete(
+        `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setMyReview(null);
       fetchMovieData();
     } catch (err) {
@@ -145,7 +150,7 @@ const MovieDetail = () => {
       } else {
         // Add bookmark
         await axios.post(
-          `${API_URL}/bookmarks`,
+          `${API_URL}/api/bookmarks`,
           { movie_id: movieId },
           { headers }
         );
@@ -160,7 +165,8 @@ const MovieDetail = () => {
   const handleEditReview = () => {
     setReviewForm({
       rating: myReview.rating,
-      review_text: myReview.review_text,
+      title_review: myReview.title_review || '',
+      comment: myReview.comment,
     });
     setShowReviewForm(true);
   };
@@ -193,17 +199,19 @@ const MovieDetail = () => {
         <div className="movie-title-section">
           <h1>{movie.title}</h1>
           <div className="movie-meta">
-            <span className="genre-badge">{movie.genre}</span>
-            <span className="year-badge">{movie.release_year}</span>
-            <span className="runtime-badge">{movie.runtime} min</span>
+            <span className="genre-badge">{movie.movieGenres}</span>
+            <span className="year-badge">
+              {(movie.datePublished || '').slice(0, 4)}
+            </span>
+            <span className="runtime-badge">{movie.duration} min</span>
           </div>
         </div>
 
         <div className="movie-actions">
-          {movie.average_rating && (
+          {movie.movieIMDbRating != null && (
             <div className="rating-display">
               <Star size={24} fill="currentColor" />
-              <span>{movie.average_rating.toFixed(1)}</span>
+              <span>{Number(movie.movieIMDbRating).toFixed(1)}</span>
             </div>
           )}
 
@@ -286,7 +294,10 @@ const MovieDetail = () => {
               ))}
               <span>{myReview.rating}/10</span>
             </div>
-            <p className="review-text">{myReview.review_text}</p>
+            {myReview.title_review && (
+              <h4 className="review-title">{myReview.title_review}</h4>
+            )}
+            <p className="review-text">{myReview.comment}</p>
           </div>
         )}
 
@@ -322,11 +333,22 @@ const MovieDetail = () => {
             </div>
 
             <div className="form-group">
+              <label>Review Title (optional)</label>
+              <input
+                type="text"
+                value={reviewForm.title_review}
+                onChange={(e) =>
+                  setReviewForm({ ...reviewForm, title_review: e.target.value })
+                }
+                placeholder="Short title for your review"
+                maxLength={120}
+              />
+
               <label>Your Review</label>
               <textarea
-                value={reviewForm.review_text}
+                value={reviewForm.comment}
                 onChange={(e) =>
-                  setReviewForm({ ...reviewForm, review_text: e.target.value })
+                  setReviewForm({ ...reviewForm, comment: e.target.value })
                 }
                 rows="4"
                 placeholder="Share your thoughts about this movie..."
@@ -371,10 +393,18 @@ const MovieDetail = () => {
                   <div className="review-header">
                     <div className="reviewer-info">
                       <div className="reviewer-avatar">
-                        {review.user_id?.charAt(0).toUpperCase() || 'U'}
+                        {(
+                          (review.username === user?.user_id
+                            ? user?.username
+                            : review.username) || 'U'
+                        )
+                          .charAt(0)
+                          .toUpperCase()}
                       </div>
                       <span className="reviewer-name">
-                        {review.user_id === user?.user_id ? 'You' : 'User'}
+                        {review.username === user?.user_id
+                          ? 'You'
+                          : review.username || 'User'}
                       </span>
                     </div>
                     <div className="review-rating">
@@ -382,7 +412,10 @@ const MovieDetail = () => {
                       {review.rating}/10
                     </div>
                   </div>
-                  <p className="review-text">{review.review_text}</p>
+                  {review.title_review && (
+                    <h4 className="review-title">{review.title_review}</h4>
+                  )}
+                  <p className="review-text">{review.comment}</p>
                 </motion.div>
               ))}
             </div>
