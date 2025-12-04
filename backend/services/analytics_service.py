@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from backend.repositories.analytics_repo import AnalyticsRepository
 from backend.repositories.reviews_repo import CSVReviewRepo
+from backend.utils.datetime_utils import now_utc, to_iso_string
 
 
 class AnalyticsService:
@@ -40,8 +40,10 @@ class AnalyticsService:
     def compute_stats_and_write_csv(self) -> Path:
         """Compute platform stats and write them to a CSV file."""
         metrics, top_genres = self.compute_stats()
-        now = datetime.now(timezone.utc)
-        return self.analytics_repo.write_stats_csv(metrics, top_genres, now.isoformat())
+        now = now_utc()
+        return self.analytics_repo.write_stats_csv(
+            metrics, top_genres, to_iso_string(now)
+        )
 
     def search_reviews_by_title(
         self,
@@ -79,7 +81,8 @@ class AnalyticsService:
         else:
 
             def key(x):
-                return x.get("created_at") or datetime.min.replace(tzinfo=timezone.utc)
+                # created_at may be ISO string or datetime; rely on raw value
+                return x.get("created_at")
 
         rows.sort(key=key, reverse=reverse)
         return rows

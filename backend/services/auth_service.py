@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import datetime
 import os
-from datetime import timezone
+from datetime import timedelta
 from typing import Callable, Optional
 
 from fastapi import Depends, HTTPException, status
@@ -12,6 +11,7 @@ from jose.exceptions import ExpiredSignatureError
 
 from backend import settings
 from backend.repositories.sessions_repo import SessionsRepo
+from backend.utils.datetime_utils import now_utc
 
 # Configuration (use settings)
 SECRET_KEY = settings.JWT_SECRET
@@ -24,12 +24,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 _sessions = SessionsRepo()
 
 
-def create_access_token(
-    data: dict, expires_delta: Optional[datetime.timedelta] = None
-) -> str:
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.datetime.now(timezone.utc) + (
-        expires_delta or datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = now_utc() + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
     token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -96,9 +94,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
                 detail="Invalid or expired token",
             )
 
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
+        now = now_utc()
         timeout_minutes = settings.SESSION_INACTIVITY_TIMEOUT_MINUTES
         inactive_delta = now - session.last_active
         if inactive_delta.total_seconds() > timeout_minutes * 60:

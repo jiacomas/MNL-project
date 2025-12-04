@@ -75,19 +75,11 @@ class UserRepository:
         self.file_path = file_path
         self.users = load_all(file_path)
 
-    # ------------------------------------------------------------
-    # Creation + persistence
-    # ------------------------------------------------------------
-
     def new_user_id(self) -> str:
         return uuid.uuid4().hex
 
     def save(self) -> None:
         save_all(self.users, path=self.file_path)
-
-    # ------------------------------------------------------------
-    # Lookups
-    # ------------------------------------------------------------
 
     def user_exists(self, user_id: str) -> bool:
         return any(u.user_id == user_id for u in self.users)
@@ -104,10 +96,6 @@ class UserRepository:
     def get_by_email(self, email: str) -> User | None:
         return next((u for u in self.users if u.email == email), None)
 
-    # ------------------------------------------------------------
-    # Mutations
-    # ------------------------------------------------------------
-
     def add_user(self, user: User) -> None:
         """Append new user and persist."""
         self.users.append(user)
@@ -121,12 +109,4 @@ class UserRepository:
                 return
 
 
-# -------------------------------------------------------------------
-# BACKWARD COMPATIBILITY (IMPORTANT!)
-#
-# Some older code still imports:
-#     from backend.repositories.users_repo import UsersRepo
-#
-# To avoid import errors (like the one you hit), we alias it.
-# -------------------------------------------------------------------
 UsersRepo = UserRepository

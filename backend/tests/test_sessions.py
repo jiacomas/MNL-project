@@ -65,26 +65,26 @@ def test_logout_invalidates_token():
     # Patch repository references used by the app routes to use our in-memory repo
     with (
         patch("backend.repositories.users_repo.UserRepository", new=lambda: fake_repo),
-        patch("backend.routers.auth.UserRepository", new=lambda: fake_repo),
+        patch("backend.routers.users.UserRepository", new=lambda: fake_repo),
     ):
         client = TestClient(app)
 
         r = client.post(
-            "/auth/token", data={"username": "cust1", "password": "secret2"}
+            "/users/token", data={"username": "cust1", "password": "secret2"}
         )
         assert r.status_code == 200
         token = r.json()["access_token"]
 
         # token should work initially
-        r2 = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+        r2 = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
         assert r2.status_code == 200
 
         # logout
-        r3 = client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+        r3 = client.post("/users/logout", headers={"Authorization": f"Bearer {token}"})
         assert r3.status_code == 200
 
         # subsequent requests should be unauthorized
-        r4 = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+        r4 = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
         assert r4.status_code == 401
 
 
@@ -93,12 +93,12 @@ def test_inactivity_timeout_expires_session():
 
     with (
         patch("backend.repositories.users_repo.UserRepository", new=lambda: fake_repo),
-        patch("backend.routers.auth.UserRepository", new=lambda: fake_repo),
+        patch("backend.routers.users.UserRepository", new=lambda: fake_repo),
     ):
         client = TestClient(app)
 
         r = client.post(
-            "/auth/token", data={"username": "cust1", "password": "secret2"}
+            "/users/token", data={"username": "cust1", "password": "secret2"}
         )
         assert r.status_code == 200
         token = r.json()["access_token"]
@@ -116,6 +116,6 @@ def test_inactivity_timeout_expires_session():
         sess.last_active = sess.last_active - timedelta(minutes=timeout + 1)
 
         # request should now be considered expired
-        r2 = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+        r2 = client.get("/users/me", headers={"Authorization": f"Bearer {token}"})
         assert r2.status_code == 401
         assert r2.json().get("detail") == "Session expired"

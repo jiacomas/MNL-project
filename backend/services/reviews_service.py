@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
 from backend.repositories.reviews_repo import CSVReviewRepo, _stable_uuid5
 from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
+from backend.utils.datetime_utils import now_utc
 
 _repo = CSVReviewRepo()
 
@@ -54,7 +54,7 @@ def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
             detail="User has already reviewed this movie. Use update instead.",
         )
 
-    now = datetime.now(timezone.utc)
+    now = now_utc()
     review = ReviewOut(
         review_id=_stable_uuid5(payload.movie_name, user_id, now, payload.title_review),
         username=user_id,  # inject from auth dependency
@@ -110,7 +110,7 @@ def update_review(
         ),
         rating=payload.rating if payload.rating is not None else existing.rating,
         comment=payload.comment if payload.comment is not None else existing.comment,
-        updated_at=datetime.now(timezone.utc),
+        updated_at=now_utc(),
     )
     return _repo.update(updated)
 
@@ -131,3 +131,10 @@ def delete_review(movie_name: str, user_id: str, is_admin: bool = False) -> None
 def get_review_by_user(movie_name: str, user_id: str) -> Optional[ReviewOut]:
     """Return a user's own review for a movie, or None if not found."""
     return _repo.get_review_by_user(movie_name, user_id)
+
+
+def get_all_reviews_for_user(user_id: str) -> List[ReviewOut]:
+    """Retrieve all reviews written by a specific user across all movies."""
+    # Note: This scans all movies, which is expensive.
+    all_reviews = _repo.get_all_reviews_flat()
+    return [r for r in all_reviews if r.username == user_id]

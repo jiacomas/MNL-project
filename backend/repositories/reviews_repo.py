@@ -4,11 +4,12 @@ import csv
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from backend import settings
 from backend.schemas.reviews import ReviewOut
+from backend.utils.datetime_utils import ensure_timezone_aware, now_utc, parse_iso_like
 
 # Config & CSV columns to match raw data structure
 # Prefer explicit env var (tests monkeypatch this), otherwise fall back to settings
@@ -49,21 +50,20 @@ def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def _parse_date(s: str) -> datetime:
-    '''Parse a date string'''
+def _parse_date(s: str):
+    '''Parse a date string using datetime_utils'''
     s = (s or "").strip()
-    for fmt in DATE_INPUT_FORMATS:
-        try:
-            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return datetime.now(timezone.utc)  # Fallback to now if parsing fails
+    # Try parse_iso_like first
+    dt = parse_iso_like(s)
+    if dt:
+        return dt
+    # Fallback to now if parsing fails
+    return now_utc()
 
 
-def _format_date_for_csv(dt: datetime) -> str:
+def _format_date_for_csv(dt) -> str:
     '''Format a datetime for CSV output as 'DD Month YYYY' (e.g., '27 October 2025')'''
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+    dt = ensure_timezone_aware(dt)
     return dt.strftime("%d %B %Y")
 
 
@@ -137,7 +137,7 @@ def _row_to_dict(movie_name: str, row: Dict[str, str]) -> Dict[str, Any]:
         "title_review": title or "",
         "comment": review or "",
         "created_at": _parse_date(date_str),
-        "updated_at": datetime.now(timezone.utc),
+        "updated_at": now_utc(),
         "usefulness": usefulness,
         "total_votes": total_votes,
     }
@@ -150,15 +150,7 @@ def _dict_to_row(data: Dict[str, Any]) -> Dict[str, str]:
     if isinstance(created_iso, datetime):
         created_dt = created_iso
     else:
-        try:
-            created_dt = (
-                datetime.fromisoformat(created_iso)
-                if created_iso
-                else datetime.now(timezone.utc)
-            )
-        except Exception:
-            created_dt = datetime.now(timezone.utc)
-
+        created_dt = parse_iso_like(created_iso) or now_utc()
     return {
         "Date of Review": _format_date_for_csv(created_dt),
         "User": data.get("username", ""),
