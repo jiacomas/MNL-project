@@ -42,6 +42,9 @@
   --transition-fast: 150ms ease;
   --transition-base: 250ms ease;
   --transition-slow: 350ms ease;
+  /* Link colors */
+  --link: #c4b5fd; /* light purple */
+  --link-hover: #a78bfa;
 }
 
 * {
@@ -212,6 +215,19 @@ body {
 
 .form-group input::placeholder {
   color: var(--text-muted);
+}
+
+/* Global link styles: light purple links */
+a {
+  color: var(--link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover,
+a:focus {
+  color: var(--link-hover);
+  text-decoration: underline;
 }
 
 .login-button {
