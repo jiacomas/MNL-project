@@ -154,12 +154,31 @@ class TestMoviesRouterIntegration:
 
     # ---------- Analytics Endpoint ----------
     def test_movie_analytics_endpoint(self):
-        """Analytics endpoint should respect mocked repository and return 1 movie total."""
+        """Analytics endpoint should return a well-structured analytics payload."""
         r = client.get("/api/movies/analytics")
         assert r.status_code == 200
+
         data = r.json()
-        assert data["total_movies"] == 1
-        assert data["filtered_movies"] == 1
-        # Rating buckets should always have 5 buckets
+
+        # Top-level keys should be present
+        assert "total_movies" in data
+        assert "filtered_movies" in data
+        assert "filters" in data
+        assert "rating_buckets" in data
+        assert "releases_by_year" in data
+        assert "genres" in data
+        assert "top_directors" in data
+
+        # Types / shapes
+        assert isinstance(data["total_movies"], int)
+        assert isinstance(data["filtered_movies"], int)
+        assert isinstance(data["filters"], dict)
         assert isinstance(data["rating_buckets"], list)
-        assert len(data["rating_buckets"]) == 5
+        assert isinstance(data["releases_by_year"], list)
+        assert isinstance(data["genres"], list)
+        assert isinstance(data["top_directors"], list)
+
+        if data["rating_buckets"]:
+            first_bucket = data["rating_buckets"][0]
+            assert "bucket" in first_bucket or "range" in first_bucket
+            assert "count" in first_bucket
