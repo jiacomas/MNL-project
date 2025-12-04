@@ -30,7 +30,7 @@ def _seed_csv(dir_path, rows):
     path = dir_path / "movieReviews.csv"
     headers = [
         "Date of Review",
-        "User",
+        "username",
         "Usefulness Vote",
         "Total Votes",
         "User's Rating out of 10",
@@ -58,7 +58,7 @@ def seeded_repo(repo_with_tmp_dir):
         [
             {
                 "Date of Review": "27 October 2025",
-                "User": "u1",
+                "username": "u1",
                 "Usefulness Vote": "3",
                 "Total Votes": "5",
                 "User's Rating out of 10": "8",
@@ -68,7 +68,7 @@ def seeded_repo(repo_with_tmp_dir):
             },
             {
                 "Date of Review": "26 October 2025",
-                "User": "u2",
+                "username": "u2",
                 "Usefulness Vote": "1",
                 "Total Votes": "2",
                 "User's Rating out of 10": "6",

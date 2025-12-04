@@ -1,122 +1,168 @@
-from __future__ import annotations
+from datetime import datetime, timezone
 
-import logging
-from typing import Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-
-from backend.deps import get_current_user_id, require_admin
-from backend.schemas.reviews import (
-    ReviewCreate,
-    ReviewListResponse,
-    ReviewOut,
-    ReviewUpdate,
-)
-from backend.services import reviews_service as svc
-
-logger = logging.getLogger(__name__)
-
-router = APIRouter(prefix="/api/reviews", tags=["reviews"])
+from backend.schemas.reviews import ReviewOut
 
 
-# Create a review (auth required)
-@router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
-def create_review_endpoint(
-    payload: ReviewCreate,
-    user_id: str = Depends(get_current_user_id),
+# helper: make ReviewOut
+def make_review(
+    review_id="rid1",
+    movie_name="m1",
+    username="u1",
+    rating=8,
+    title="T1",
+    comment="C1",
 ):
-    """
-    POST /api/reviews
-    User creates a review for a movie. `user_id` must come from header.
-    """
-    return svc.create_review(
-        movie_id=payload.movie_id, user_id=user_id, payload=payload
-    )
-
-
-# List reviews for a movie (public)
-@router.get("/movie/{movie_id}", response_model=ReviewListResponse)
-def list_reviews_endpoint(
-    movie_id: str,
-    limit: int = Query(10, ge=1, le=100),
-    cursor: Optional[int] = Query(None, ge=0),
-):
-    """
-    GET /api/reviews/movie/{movie_id}
-    Cursor-based pagination.
-    """
-    return svc.list_reviews(movie_id=movie_id, limit=limit, cursor=cursor)
-
-
-# Get review by user id (public)
-@router.get(
-    "/movie/{movie_id}/user/{other_user_id}", response_model=Optional[ReviewOut]
-)
-def get_review_by_user_endpoint(
-    movie_id: str,
-    other_user_id: str,
-):
-    """
-    GET /api/reviews/movie/{movie_id}/user/{uid}
-    Public lookup of someone else's review.
-    """
-    return svc.get_review_by_user(movie_id=movie_id, user_id=other_user_id)
-
-
-# Get your own review (auth required)
-@router.get("/movie/{movie_id}/me", response_model=Optional[ReviewOut])
-def get_my_review_endpoint(
-    movie_id: str,
-    user_id: str = Depends(get_current_user_id),
-):
-    """
-    GET /api/reviews/movie/{movie_id}/me
-    Fetch only the caller's review.
-    """
-    return svc.get_review_by_user(movie_id=movie_id, user_id=user_id)
-
-
-# Update a review (only owner)
-@router.patch("/movie/{movie_id}/{review_id}", response_model=ReviewOut)
-def update_review_endpoint(
-    movie_id: str,
-    payload: ReviewUpdate,
-    user_id: str = Depends(get_current_user_id),
-):
-    """
-    PATCH /api/reviews/movie/{movie_id}/{review_id}
-    Only the owner is allowed to update their review.
-    """
-    updated = svc.update_review(
-        movie_id=movie_id,
-        user_id=user_id,
-        payload=payload,
-    )
-    if updated is None:
-        raise HTTPException(status_code=403, detail="Not allowed to edit this review.")
-    return updated
-
-
-# Delete a review (owner or admin)
-@router.delete("/movie/{movie_id}/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_review_endpoint(
-    movie_id: str,
-    review_id: str,
-    user_id: str = Depends(get_current_user_id),
-    admin_user: dict = Depends(require_admin),
-):
-    """
-    DELETE /api/reviews/movie/{movie_id}/{review_id}
-    Owner can delete. Admin can delete anyone.
-    """
-    allowed = svc.delete_review(
-        movie_id=movie_id,
+    now = datetime.now(timezone.utc)
+    return ReviewOut(
         review_id=review_id,
-        current_user_id=user_id,
-        is_admin=True,
+        movie_name=movie_name,
+        username=username,
+        rating=rating,
+        title_review=title,
+        comment=comment,
+        created_at=now,
+        updated_at=now,
+        usefulness=0,
+        total_votes=0,
     )
-    if not allowed:
-        raise HTTPException(
-            status_code=403, detail="Not allowed to delete this review."
-        )
-    return None
+
+
+# POST /reviews/{movie_name}
+def test_create_review(client, mock_reviews_service, jwt_user_headers):
+    rv = make_review("new123")
+
+    mock_reviews_service.create_review.return_value = rv
+
+    payload = {
+        "rating": 9,
+        "title_review": "Good",
+        "comment": "Nice!",
+    }
+
+    res = client.post(
+        "/reviews/m1",
+        json=payload,
+        headers=jwt_user_headers,
+    )
+
+    assert res.status_code == 201
+    assert res.json()["review_id"] == "new123"
+
+    mock_reviews_service.create_review.assert_called_once()
+    call = mock_reviews_service.create_review.call_args.kwargs
+    assert call["movie_name"] == "m1"
+    assert call["username"] == "u1"
+    assert call["payload"].rating == 9
+    assert call["payload"].title_review == "Good"
+    assert call["payload"].comment == "Nice!"
+
+
+# GET /reviews/{movie}/{id}
+def test_get_review(client, mock_reviews_service):
+    rv = make_review("r99")
+    mock_reviews_service.get_review.return_value = rv
+
+    res = client.get("/reviews/mA/r99")
+
+    assert res.status_code == 200
+    assert res.json()["review_id"] == "r99"
+
+    mock_reviews_service.get_review.assert_called_once_with("mA", "r99")
+
+
+# GET /reviews/{movie}?limit=&cursor=&min_rating=
+def test_list_reviews(client, mock_reviews_service):
+    rv1 = make_review("r1", rating=9)
+    rv2 = make_review("r2", rating=8)
+
+    mock_reviews_service.list_reviews.return_value = ([rv1, rv2], None)
+
+    res = client.get("/reviews/m1?limit=10&cursor=0&min_rating=5")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data["items"]) == 2
+    assert data["items"][0]["review_id"] == "r1"
+
+    mock_reviews_service.list_reviews.assert_called_once_with(
+        movie_name="m1",
+        limit=10,
+        cursor=0,
+        min_rating=5,
+    )
+
+
+# PUT /reviews/{movie}/{id}  (user updates own review)
+def test_update_review_user(client, mock_reviews_service, jwt_user_headers):
+    rv = make_review("r10", title="NewTitle")
+    mock_reviews_service.update_review.return_value = rv
+
+    payload = {"title_review": "NewTitle"}
+
+    res = client.put(
+        "/reviews/m1/r10",
+        json=payload,
+        headers=jwt_user_headers,
+    )
+
+    assert res.status_code == 200
+    assert res.json()["review_id"] == "r10"
+
+    call = mock_reviews_service.update_review.call_args.kwargs
+    assert call["movie_name"] == "m1"
+    assert call["review_id"] == "r10"
+    assert call["username"] == "u1"
+    assert call["is_admin"] is False
+    assert call["payload"].title_review == "NewTitle"
+
+
+# PUT /reviews/{movie}/{id}  (admin)
+def test_update_review_admin(client, mock_reviews_service, jwt_admin_headers):
+    rv = make_review("ra1", title="A")
+    mock_reviews_service.update_review.return_value = rv
+
+    payload = {"title_review": "A"}
+
+    res = client.put(
+        "/reviews/m2/ra1",
+        json=payload,
+        headers=jwt_admin_headers,
+    )
+
+    assert res.status_code == 200
+
+    call = mock_reviews_service.update_review.call_args.kwargs
+    assert call["is_admin"] is True
+
+
+# DELETE /reviews/{movie}/{id}  (user owns it)
+def test_delete_review_user(client, mock_reviews_service, jwt_user_headers):
+    mock_reviews_service.delete_review.return_value = None
+
+    res = client.delete(
+        "/reviews/m1/r1",
+        headers=jwt_user_headers,
+    )
+
+    assert res.status_code == 204
+
+    call = mock_reviews_service.delete_review.call_args.kwargs
+    assert call["movie_name"] == "m1"
+    assert call["review_id"] == "r1"
+    assert call["username"] == "u1"
+    assert call["is_admin"] is False
+
+
+# DELETE /reviews/{movie}/{id}  (admin)
+def test_delete_review_admin(client, mock_reviews_service, jwt_admin_headers):
+    mock_reviews_service.delete_review.return_value = None
+
+    res = client.delete(
+        "/reviews/m9/x777",
+        headers=jwt_admin_headers,
+    )
+
+    assert res.status_code == 204
+
+    call = mock_reviews_service.delete_review.call_args.kwargs
+    assert call["is_admin"] is True

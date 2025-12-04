@@ -123,6 +123,7 @@ def mocker(request):  # noqa: C901 - complexity acceptable for test helper
         def __init__(self, request):
             self._request = request
             self.patch = PatchProxy(request)
+            self.Mock = _mock.Mock
 
         def patch_object(self, target, attribute, *args, **kwargs):
             return _mock.patch.object(target, attribute, *args, **kwargs)
@@ -153,7 +154,7 @@ def mock_reviews_service(mocker):
     from backend.routers import reviews
 
     # Patch the service object used inside the router
-    return mocker.patch.object(reviews, "svc", autospec=True)
+    return mocker.patch.object(reviews, "service", autospec=True)
 
 
 @pytest.fixture
