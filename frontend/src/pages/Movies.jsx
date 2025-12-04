@@ -27,7 +27,7 @@ const Movies = () => {
       if (sortDesc) params.append('sort_desc', 'true');
 
       const response = await axios.get(
-        `${API_URL}/movies?${params.toString()}`
+        `${API_URL}/api/movies?${params.toString()}`
       );
       setMovies(response.data.items || []);
     } catch (err) {
@@ -48,7 +48,7 @@ const Movies = () => {
       if (sortDesc) params.append('sort_desc', 'true');
 
       const response = await axios.get(
-        `${API_URL}/movies/search?${params.toString()}`
+        `${API_URL}/api/movies/search?${params.toString()}`
       );
       setMovies(response.data.items || []);
     } catch (err) {

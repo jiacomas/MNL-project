@@ -38,12 +38,12 @@ const MovieDetail = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       // Fetch movie details
-      const movieRes = await axios.get(`${API_URL}/movies/${movieId}`);
+      const movieRes = await axios.get(`${API_URL}/api/movies/${movieId}`);
       setMovie(movieRes.data);
 
       // Fetch reviews for this movie
       const reviewsRes = await axios.get(
-        `${API_URL}/movies/${movieRes.data.title}/reviews`,
+        `${API_URL}/api/movies/${movieRes.data.title}/reviews`,
         { headers }
       );
       setReviews(reviewsRes.data.items || []);
@@ -51,7 +51,7 @@ const MovieDetail = () => {
       // Fetch my review
       try {
         const myReviewRes = await axios.get(
-          `${API_URL}/movies/${movieRes.data.title}/reviews/me`,
+          `${API_URL}/api/movies/${movieRes.data.title}/reviews/me`,
           { headers }
         );
         setMyReview(myReviewRes.data);
@@ -63,7 +63,7 @@ const MovieDetail = () => {
       // Check if bookmarked
       try {
         const bookmarkRes = await axios.get(
-          `${API_URL}/bookmarks/me?movie_id=${movieId}`,
+          `${API_URL}/api/bookmarks/me?movie_id=${movieId}`,
           { headers }
         );
         setIsBookmarked(!!bookmarkRes.data);
@@ -86,14 +86,14 @@ const MovieDetail = () => {
       if (myReview) {
         // Update existing review
         await axios.patch(
-          `${API_URL}/movies/${movie.title}/reviews/${myReview.review_id}`,
+          `${API_URL}/api/movies/${movie.title}/reviews/${myReview.review_id}`,
           reviewForm,
           { headers }
         );
       } else {
         // Create new review
         await axios.post(
-          `${API_URL}/movies/${movie.title}/reviews`,
+          `${API_URL}/api/movies/${movie.title}/reviews`,
           reviewForm,
           { headers }
         );
@@ -112,7 +112,7 @@ const MovieDetail = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/movies/${movie.title}/reviews`, {
+      await axios.delete(`${API_URL}/api/movies/${movie.title}/reviews`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setMyReview(null);
@@ -129,13 +129,13 @@ const MovieDetail = () => {
 
       if (isBookmarked) {
         // Remove bookmark - need to find bookmark ID first
-        const bookmarksRes = await axios.get(`${API_URL}/bookmarks`, {
+        const bookmarksRes = await axios.get(`${API_URL}/api/bookmarks`, {
           headers,
         });
         const bookmark = bookmarksRes.data.find((b) => b.movie_id === movieId);
         if (bookmark) {
           await axios.delete(
-            `${API_URL}/bookmarks/me/${bookmark.bookmark_id}`,
+            `${API_URL}/api/bookmarks/me/${bookmark.bookmark_id}`,
             {
               headers,
             }

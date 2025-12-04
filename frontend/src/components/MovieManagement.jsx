@@ -27,7 +27,7 @@ const MovieManagement = () => {
   const fetchMovies = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/movies`, {
+      const response = await axios.get(`${API_URL}/api/movies`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setMovies(response.data.items || []);
@@ -48,13 +48,13 @@ const MovieManagement = () => {
       if (editingMovie) {
         // Update existing movie
         await axios.patch(
-          `${API_URL}/movies/${editingMovie.movie_id}`,
+          `${API_URL}/api/movies/${editingMovie.movie_id}`,
           formData,
           { headers }
         );
       } else {
         // Create new movie
-        await axios.post(`${API_URL}/movies`, formData, { headers });
+        await axios.post(`${API_URL}/api/movies`, formData, { headers });
       }
 
       resetForm();
@@ -82,7 +82,7 @@ const MovieManagement = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/movies/${movieId}`, {
+      await axios.delete(`${API_URL}/api/movies/${movieId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchMovies();
