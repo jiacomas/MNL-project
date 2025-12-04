@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from backend.utils.datetime_utils import parse_iso_like
+
 # ---------------------------------------------------------------------------
 # Configuration (local to this feature so tests can patch easily)
 # ---------------------------------------------------------------------------
@@ -43,33 +45,8 @@ def _load_json_list(path: Path) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Time helpers (kept small to avoid high complexity)
+# Time helpers
 # ---------------------------------------------------------------------------
-
-
-def _parse_timestamp(value: Any) -> datetime | None:
-    """Best-effort conversion of various timestamp formats into aware datetimes."""
-    if value is None:
-        return None
-
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value
-
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-
-    if isinstance(value, str):
-        try:
-            dt = datetime.fromisoformat(value)
-        except ValueError:
-            return None
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-
-    return None
 
 
 def _is_within_last_24h(ts: datetime | None, now: datetime) -> bool:
@@ -107,7 +84,7 @@ def _active_users_last_24h(
             or user.get("last_login")
             or user.get("last_seen")
         )
-        ts = _parse_timestamp(ts_raw)
+        ts = parse_iso_like(ts_raw)
         if _is_within_last_24h(ts, now):
             uid = str(user.get("user_id") or user.get("id"))
             if uid:
@@ -115,7 +92,7 @@ def _active_users_last_24h(
 
     # From recent reviews
     for review in reviews:
-        ts = _parse_timestamp(review.get("created_at"))
+        ts = parse_iso_like(review.get("created_at"))
         if _is_within_last_24h(ts, now):
             uid = str(review.get("user_id"))
             if uid:
@@ -140,11 +117,11 @@ def _total_reviews(reviews: List[Dict[str, Any]]) -> int:
 def get_admin_summary() -> Dict[str, Any]:
     """Return engagement summary for admin dashboard cards as a dict.
 
-    Keys (match tests):
+    Keys:
     - users_total
     - reviews_total
     - active_users_24h
-    - generated_at  (ISO-8601 string)
+    - generated_at (ISO-8601 string)
     """
     users = _load_json_list(USERS_FILE)
     reviews = _load_json_list(REVIEWS_FILE)
@@ -161,8 +138,8 @@ def get_admin_summary() -> Dict[str, Any]:
 def write_summary_csv() -> Path:
     """Export the current summary as a metrics CSV file.
 
-    Layout (what the tests expect):
-    - First row header: "metric,value"
+    Layout:
+    - Header row: "metric,value"
     - One row per metric (users_total, reviews_total, active_users_24h, generated_at)
     """
     summary = get_admin_summary()
