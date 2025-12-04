@@ -42,14 +42,17 @@ class MovieCreate(BaseModel):
     """
     Schema for creating a new movie.
 
-    Required fields (provided by user):
-    - title: Movie title
+    Required fields:
+    - title: Movie title (used for API lookup if metadata not provided)
+
+    Optional fields (auto-populated from external API if not provided):
+    - year: Release year (helps improve API search accuracy)
     - movieGenres: Genre(s) of the movie
     - directors: Director(s) name(s)
     - datePublished: Release date
     - creators: Creator(s)/Writer(s) name(s)
     - mainStars: Main cast members
-    - description: Movie description
+    - description: Movie description/synopsis
     - duration: Runtime in minutes
 
     Auto-generated fields (set by backend):
@@ -65,22 +68,44 @@ class MovieCreate(BaseModel):
 
     # Required fields
     title: str = Field(..., min_length=1, description="Movie title")
-    movieGenres: str = Field(..., min_length=1, description="Movie genre(s)")
-    directors: str = Field(..., min_length=1, description="Director(s)")
-    datePublished: str = Field(..., description="Release date")
-    creators: str = Field(..., min_length=1, description="Creator(s)/Writer(s)")
-    mainStars: str = Field(..., min_length=1, description="Main cast")
-    description: str = Field(..., min_length=1, description="Movie description")
-    duration: int = Field(..., gt=0, description="Runtime in minutes")
 
-    @field_validator(
-        "title", "movieGenres", "directors", "creators", "mainStars", "description"
+    # Optional fields (can be auto-populated from API)
+    year: Optional[int] = Field(None, description="Release year (improves API search)")
+    movieGenres: Optional[str] = Field(None, min_length=1, description="Movie genre(s)")
+    directors: Optional[str] = Field(None, min_length=1, description="Director(s)")
+    datePublished: Optional[str] = Field(None, description="Release date")
+    creators: Optional[str] = Field(
+        None, min_length=1, description="Creator(s)/Writer(s)"
     )
+    mainStars: Optional[str] = Field(None, min_length=1, description="Main cast")
+    description: Optional[str] = Field(
+        None, min_length=1, description="Movie description"
+    )
+    duration: Optional[int] = Field(None, gt=0, description="Runtime in minutes")
+
+    @field_validator("title")
     @classmethod
-    def strip_strings(cls, v: str) -> str:
+    def clean_title(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("Field cannot be empty or whitespace")
+            raise ValueError("title cannot be empty")
+        return v
+
+    @field_validator(
+        "movieGenres",
+        "directors",
+        "creators",
+        "mainStars",
+        "description",
+        mode="before",
+    )
+    @classmethod
+    def strip_strings(cls, v):
+        if v is None:
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            return v if v else None
         return v
 
 

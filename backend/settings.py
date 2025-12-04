@@ -24,7 +24,15 @@ SYNC_LOG_FILE = Path(
     os.getenv("SYNC_LOG_FILE", str(ROOT_DATA_DIR / "external_sync_log.json"))
 )
 
-# External API settings
+# Movie Metadata API settings
+MOVIE_METADATA_API_PROVIDER = os.getenv("MOVIE_METADATA_API_PROVIDER", "tmdb")
+ENABLE_METADATA_FETCH = os.getenv("ENABLE_METADATA_FETCH", "true").lower() == "true"
+
+# TMDB (The Movie Database) API
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "your_api_key_here")
+TMDB_API_BASE_URL = os.getenv("TMDB_API_BASE_URL", "https://api.themoviedb.org/3")
+
+# Legacy external API settings (deprecated)
 EXTERNAL_API_BASE_URL = os.getenv(
     "EXTERNAL_API_BASE_URL", "https://example.com/movie-api"
 )

@@ -9,13 +9,13 @@ from backend.schemas.movies import MovieCreate, MovieOut
 
 def create_valid_movie_create(**overrides) -> MovieCreate:
     """
-    Helper function to create a valid MovieCreate object with all required fields.
+    Helper function to create a valid MovieCreate object.
 
     Args:
         **overrides: Any fields to override from the defaults
 
     Returns:
-        MovieCreate object with all required fields populated
+        MovieCreate object with required fields populated
     """
     defaults = {
         "title": "Test Movie",
