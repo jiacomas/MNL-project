@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from backend.routers import admin_analytics, admin_sync, auth, history, password_reset
 from backend.routers.bookmarks import router as bookmarks_router
+from backend.routers.lists import router as lists_router
 from backend.routers.movies import router as movies_router
 from backend.routers.penalties import router as penalties_router
 from backend.routers.recommendations import router as recommendations_router
@@ -46,3 +47,6 @@ app.include_router(penalties_router)
 
 # History router
 app.include_router(history.router)
+
+# Lists router
+app.include_router(lists_router)
