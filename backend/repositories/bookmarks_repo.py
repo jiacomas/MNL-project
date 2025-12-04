@@ -24,11 +24,6 @@ BOOKMARKS_EXPORT_DIR = os.getenv(
 
 
 # Helpers
-def _to_iso(dt) -> str:
-    """Convert datetime to UTC ISO-8601 string."""
-    return to_iso_string(ensure_timezone_aware(dt))
-
-
 def _serialize_for_json(obj: Dict) -> Dict:
     """Convert datetime fields to ISO strings for JSON/CSV writing."""
     out = dict(obj)

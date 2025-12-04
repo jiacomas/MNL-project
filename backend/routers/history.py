@@ -14,8 +14,12 @@ router = APIRouter(
 )
 
 
-@router.post("/{user_id}/{movie_id}")
-def log_view(user_id: str, movie_id: str):
+@router.post(
+    "/{user_id}/{movie_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+def log_view(user_id: str, movie_id: str) -> None:
     """Log that `user_id` viewed `movie_id`.
 
     Intended to be called when a movie detail page is opened.
@@ -35,15 +39,23 @@ def list_history(user_id: str) -> List[HistoryEntryOut]:
     return [HistoryEntryOut(**entry) for entry in entries]
 
 
-@router.delete("/{user_id}")
-def clear_history(user_id: str):
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+def clear_history(user_id: str) -> None:
     """Clear *all* viewing history for a user."""
     history_service.clear_history(user_id=user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.delete("/{user_id}/{movie_id}")
-def clear_history_item(user_id: str, movie_id: str):
+@router.delete(
+    "/{user_id}/{movie_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+def clear_history_item(user_id: str, movie_id: str) -> None:
     """Remove a single movie from the user's viewing history."""
     history_service.clear_history_item(user_id=user_id, movie_id=movie_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
