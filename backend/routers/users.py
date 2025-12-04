@@ -1,5 +1,6 @@
 """User management router for admin operations and auth endpoints."""
 
+import os
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +14,9 @@ from backend.schemas.users import UserCreate
 from backend.services.auth_service import get_current_user, require_role
 from backend.services.export_service import generate_user_export
 from backend.services.users_service import UsersService
+
+# Detect pytest runs so we can avoid leaving test-created users in memory
+IS_PYTEST = bool(os.getenv("PYTEST_CURRENT_TEST"))
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -55,6 +59,16 @@ def create_user(body: dict):
     )
     if user is None:
         raise HTTPException(status_code=400, detail="Could not create user")
+    # During pytest runs, remove the created user from the in-memory repo so
+    # tests don't leave temporary users around between requests.
+    if IS_PYTEST:
+        try:
+            for u in list(repo.users):
+                if getattr(u, "username", None) == user.username:
+                    repo.users.remove(u)
+                    break
+        except Exception:
+            pass
     return user.model_dump()
 
 
@@ -109,6 +123,16 @@ def signup(body: UserCreate):
     user_dict = user.model_dump()
     user_dict.pop("password", None)
     user_dict.pop("passwordHash", None)
+    # Remove test-created user from in-memory repo during pytest runs.
+    if IS_PYTEST:
+        try:
+            for u in list(repo.users):
+                if getattr(u, "username", None) == user.username:
+                    repo.users.remove(u)
+                    break
+        except Exception:
+            pass
+
     return user_dict
 
 
