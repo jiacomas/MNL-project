@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
 from backend import settings
+from backend.utils.datetime_utils import (
+    ensure_timezone_aware,
+    now_utc,
+    parse_iso_like,
+    to_iso_string,
+)
 
 JsonObj = Dict[str, Any]
 
@@ -50,7 +56,7 @@ def _save_json_list(path: Path, rows: List[JsonObj]) -> None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return to_iso_string(now_utc())
 
 
 def _load_items_index() -> Dict[str, JsonObj]:
@@ -76,10 +82,12 @@ def log_view(
     """
     history = _load_json_list(HISTORY_FILE)
 
-    if isinstance(viewed_at, datetime):
-        ts = viewed_at.astimezone(timezone.utc).isoformat()
-    elif isinstance(viewed_at, str):
-        ts = viewed_at
+    if isinstance(viewed_at, str):
+        # Keep string inputs as-is (assume ISO-like); try to normalize
+        parsed = parse_iso_like(viewed_at)
+        ts = to_iso_string(parsed) if parsed is not None else viewed_at
+    elif isinstance(viewed_at, datetime):
+        ts = to_iso_string(ensure_timezone_aware(viewed_at))
     else:
         ts = _now_iso()
 

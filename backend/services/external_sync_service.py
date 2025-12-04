@@ -12,7 +12,6 @@ with timestamp + items updated.
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
 from typing import Any, Tuple
 
 import httpx
@@ -21,6 +20,7 @@ from backend import settings
 from backend.repositories.movies_repo import MovieRepository
 from backend.repositories.sync_repo import SyncLogRepository
 from backend.schemas.movies import MovieUpdate
+from backend.utils.datetime_utils import now_utc, to_iso_string
 
 # Use centralized settings for external API configuration
 EXTERNAL_API_BASE_URL = settings.EXTERNAL_API_BASE_URL
@@ -99,7 +99,7 @@ class ExternalSyncService:
         """
         items, _ = self.movie_repo.get_all(limit=10000)
 
-        timestamp_str = datetime.now(UTC).isoformat()
+        timestamp_str = to_iso_string(now_utc())
         count = 0
         updated_idxs = []
 
