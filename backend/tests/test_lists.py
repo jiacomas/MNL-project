@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -20,7 +21,27 @@ def teardown_module(module):
         os.remove("/tmp/test_lists.json")
 
 
-def test_create_list(jwt_user_headers):
+@pytest.fixture
+def cleanup_lists(jwt_user_headers):
+    """Fixture to track and cleanup lists created during tests."""
+    created_list_ids = []
+
+    # Yield a helper function to track list IDs
+    def track_list(list_id):
+        created_list_ids.append(list_id)
+        return list_id
+
+    yield track_list
+
+    # Cleanup: delete all tracked lists
+    for list_id in created_list_ids:
+        try:
+            client.delete(f"/api/lists/{list_id}", headers=jwt_user_headers)
+        except Exception:
+            pass  # Ignore errors if list was already deleted
+
+
+def test_create_list(jwt_user_headers, cleanup_lists):
     response = client.post(
         "/api/lists/",
         json={"name": "My Favorites", "description": "Best movies ever"},
@@ -31,12 +52,15 @@ def test_create_list(jwt_user_headers):
     assert data["name"] == "My Favorites"
     assert data["description"] == "Best movies ever"
     assert "id" in data
-    return data["id"]
+    cleanup_lists(data["id"])
 
 
-def test_list_my_lists(jwt_user_headers):
+def test_list_my_lists(jwt_user_headers, cleanup_lists):
     # Ensure at least one list exists
-    client.post("/api/lists/", json={"name": "Watch Later"}, headers=jwt_user_headers)
+    res = client.post(
+        "/api/lists/", json={"name": "Watch Later"}, headers=jwt_user_headers
+    )
+    cleanup_lists(res.json()["id"])
 
     response = client.get("/api/lists/", headers=jwt_user_headers)
     assert response.status_code == 200
@@ -45,24 +69,24 @@ def test_list_my_lists(jwt_user_headers):
     assert any(i["name"] == "Watch Later" for i in data)
 
 
-def test_get_list(jwt_user_headers):
+def test_get_list(jwt_user_headers, cleanup_lists):
     # Create a list first
     create_res = client.post(
         "/api/lists/", json={"name": "To Get"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     response = client.get(f"/api/lists/{list_id}", headers=jwt_user_headers)
     assert response.status_code == 200
     assert response.json()["id"] == list_id
 
 
-def test_update_list(jwt_user_headers):
+def test_update_list(jwt_user_headers, cleanup_lists):
     # Create a list
     create_res = client.post(
         "/api/lists/", json={"name": "Old Name"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     response = client.patch(
         f"/api/lists/{list_id}", json={"name": "New Name"}, headers=jwt_user_headers
@@ -71,12 +95,12 @@ def test_update_list(jwt_user_headers):
     assert response.json()["name"] == "New Name"
 
 
-def test_add_remove_item(jwt_user_headers):
+def test_add_remove_item(jwt_user_headers, cleanup_lists):
     # Create a list
     create_res = client.post(
         "/api/lists/", json={"name": "Movie List"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
     movie_id = "tt1234567"
 
     # Add item
@@ -95,12 +119,12 @@ def test_add_remove_item(jwt_user_headers):
     assert movie_id not in del_res.json()["items"]
 
 
-def test_delete_list(jwt_user_headers):
+def test_delete_list(jwt_user_headers, cleanup_lists):
     # Create a list
     create_res = client.post(
         "/api/lists/", json={"name": "To Delete"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     # Delete it
     del_res = client.delete(f"/api/lists/{list_id}", headers=jwt_user_headers)
@@ -111,12 +135,12 @@ def test_delete_list(jwt_user_headers):
     assert get_res.status_code == 404
 
 
-def test_bulk_operations_combined(jwt_user_headers):
+def test_bulk_operations_combined(jwt_user_headers, cleanup_lists):
     # Create a list with some items
     create_res = client.post(
         "/api/lists/", json={"name": "Combined Test"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     # Add initial items
     client.post(
@@ -157,12 +181,12 @@ def test_bulk_operations_combined(jwt_user_headers):
     assert "movie2" not in items
 
 
-def test_bulk_add_items(jwt_user_headers):
+def test_bulk_add_items(jwt_user_headers, cleanup_lists):
     # Create a list
     create_res = client.post(
         "/api/lists/", json={"name": "Bulk Add Test"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     # Bulk add items
     bulk_add_res = client.post(
@@ -189,12 +213,12 @@ def test_bulk_add_items(jwt_user_headers):
     assert items2.count("movie2") == 1  # No duplicates
 
 
-def test_bulk_remove_items(jwt_user_headers):
+def test_bulk_remove_items(jwt_user_headers, cleanup_lists):
     # Create a list with items
     create_res = client.post(
         "/api/lists/", json={"name": "Bulk Remove Test"}, headers=jwt_user_headers
     )
-    list_id = create_res.json()["id"]
+    list_id = cleanup_lists(create_res.json()["id"])
 
     # Add items
     client.post(
