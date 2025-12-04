@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Optional
+
+from backend.utils.datetime_utils import now_utc
 
 
 @dataclass
@@ -26,7 +28,7 @@ class SessionsRepo:
         self._sessions: Dict[str, Session] = {}
 
     def create(self, user_id: str, jti: str, token: str) -> Session:
-        now = datetime.now(timezone.utc)
+        now = now_utc()
         sess = Session(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -44,7 +46,7 @@ class SessionsRepo:
     def touch(self, jti: str) -> None:
         sess = self._sessions.get(jti)
         if sess:
-            sess.last_active = datetime.now(timezone.utc)
+            sess.last_active = now_utc()
 
     def delete_by_jti(self, jti: str) -> None:
         if jti in self._sessions:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.schemas.penalties import (
@@ -13,17 +12,24 @@ from backend.schemas.penalties import (
     PenaltyUpdate,
     UserPenaltySummary,
 )
+from backend.utils.datetime_utils import (
+    ensure_timezone_aware,
+    now_utc,
+    parse_iso_like,
+    to_iso_string,
+)
+
+# Backwards-compatible aliases used by tests
+_now_utc = now_utc
 
 # Configuration
 PENALTIES_PATH = os.getenv("PENALTIES_PATH", "backend/data/penalties.json")
 
 
-# ----------------- Helpers ----------------- #
-
-
-def _now_utc() -> datetime:
-    """Return current time as timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
+# Helpers - now using datetime_utils
+def _to_iso(dt) -> str:
+    """Convert datetime to ISO string in UTC."""
+    return to_iso_string(ensure_timezone_aware(dt))
 
 
 def _ensure_storage_file(path: str) -> None:
@@ -51,13 +57,6 @@ def _load_raw_penalties(path: str) -> List[Dict[str, Any]]:
         return []
 
 
-def _to_iso(dt: datetime) -> str:
-    """Convert datetime to ISO string in UTC."""
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat()
-
-
 def _serialize_for_json(obj: Dict[str, Any]) -> Dict[str, Any]:
     """
     Prepare a penalty record dict for JSON writing:
@@ -72,11 +71,10 @@ def _serialize_for_json(obj: Dict[str, Any]) -> Dict[str, Any]:
     else:
         out["id"] = str(out["id"])
 
-    # Normalize datetime fields
+    # Normalize datetime fields using datetime_utils
     for key in ("created_at", "updated_at", "expires_at"):
-        value = out.get(key)
-        if isinstance(value, datetime):
-            out[key] = _to_iso(value)
+        if key in out:
+            out[key] = to_iso_string(out[key])
 
     return out
 
@@ -98,27 +96,12 @@ def _refresh_is_active(record: Dict[str, Any]) -> Dict[str, Any]:
         rec["is_active"] = True
         return rec
 
-    # Pydantic can parse ISO strings itself, but here we only need comparison
-    # and we accept both str / datetime types
-    if isinstance(expires_at, str):
-        try:
-            # Handle 'Z' suffix if present
-            s = expires_at
-            if s.endswith("Z"):
-                s = s[:-1] + "+00:00"
-            expires_dt = datetime.fromisoformat(s)
-        except Exception:
-            # Fallback: treat as expired if parse fails
-            rec["is_active"] = False
-            return rec
-    elif isinstance(expires_at, datetime):
-        expires_dt = expires_at
-    else:
+    # Use parse_iso_like for flexible parsing
+    expires_dt = parse_iso_like(expires_at)
+    if expires_dt is None:
+        # Fallback: treat as expired if parse fails
         rec["is_active"] = False
         return rec
-
-    if expires_dt.tzinfo is None:
-        expires_dt = expires_dt.replace(tzinfo=timezone.utc)
 
     rec["is_active"] = expires_dt > _now_utc()
     return rec
@@ -327,16 +310,10 @@ class JSONPenaltyRepository:
         def _sort_key(p: Dict[str, Any]):
             val = p.get(sort_by)
 
-            # Try interpret as datetime string
+            # Use parse_iso_like for flexible datetime parsing
             if isinstance(val, str) and ("T" in val or "-" in val):
-                try:
-                    s = val[:-1] + "+00:00" if val.endswith("Z") else val
-                    dt = datetime.fromisoformat(s)
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    return dt
-                except Exception:
-                    return val
+                dt = parse_iso_like(val)
+                return dt if dt is not None else val
 
             return val
 
