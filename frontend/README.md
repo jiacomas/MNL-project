@@ -1,16 +1,79 @@
-# React + Vite
+# Frontend — React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This folder contains the frontend application built with React and Vite. The project is configured to talk to the FastAPI backend running at `http://localhost:8000` by default.
 
-Currently, two official plugins are available:
+Below are step-by-step instructions so every developer can run the frontend and connect it to the backend for local development and for simple local production preview.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Quick Start (Local development)
 
-## React Compiler
+- **Prerequisites**: Node.js 18+ and npm (or yarn).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Open one terminal and start the backend (from repo root):
 
-## Expanding the ESLint configuration
+```
+export PYTHONPATH=backend
+uvicorn backend.main:app --reload
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- Open a second terminal and start the frontend:
+
+```
+cd frontend
+npm install
+# Run dev server (default will target http://localhost:8000)
+npm run dev
+```
+
+- Visit the app at `http://localhost:5173`.
+
+## Environment / API URL
+
+- The frontend reads the backend base URL from `import.meta.env.VITE_API_URL`. If that variable is not set, the app falls back to `http://localhost:8000`.
+- To override the backend URL for local dev, set it when starting the dev server:
+
+```
+VITE_API_URL=http://localhost:8000 npm run dev
+```
+
+- You can also create a `frontend/.env` file with the line:
+
+```
+VITE_API_URL=http://localhost:8000
+```
+
+## Proxy (vite.config.js)
+
+- The Vite dev server is configured to proxy requests under `/api` to `http://localhost:8000`. If your frontend uses absolute URLs (full `http://...` addresses), set `VITE_API_URL` instead.
+
+## Production build and preview
+
+To build and preview a production bundle locally:
+
+```
+cd frontend
+npm run build
+# Make sure the built app points to the backend you want to use:
+VITE_API_URL=http://localhost:8000 npm run preview
+```
+
+The preview server usually runs at `http://localhost:4173` (check the terminal for the exact URL).
+
+## Docker / Docker Compose notes
+
+- The main `docker-compose.yml` includes a `frontend` service that expects a `frontend/Dockerfile`. If you do not have that `Dockerfile` in `frontend/`, running `docker compose up --build` may fail when building the frontend image.
+- If you want to run the frontend inside Docker and connect it to the backend container, ensure the frontend container uses `VITE_API_URL=http://backend:8000` or that the built files reference that URL. Inside the compose network the backend is reachable at `http://backend:8000`.
+
+## Troubleshooting
+
+- If the frontend cannot reach the backend:
+  - Verify the backend is up: `curl http://localhost:8000/health` (should return `{ "status": "ok" }`).
+  - Confirm `VITE_API_URL` is set correctly or remove it to use the default `http://localhost:8000`.
+  - If backend runs in Docker and frontend is on the host, use `http://host.docker.internal:8000` as the API URL on macOS/Windows.
+
+## Where the frontend reads the API URL
+
+- See `frontend/src/context/AuthContext.jsx` — it uses `import.meta.env.VITE_API_URL` and falls back to `http://localhost:8000`.
+
+```
+
+```
