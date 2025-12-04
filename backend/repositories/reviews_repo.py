@@ -17,6 +17,7 @@ BASE_PATH = os.getenv("MOVIE_DATA_PATH", str(settings.MOVIE_DATA_PATH))
 CSV_HEADERS = [
     "Date of Review",
     "User",
+    "UserID",
     "Usefulness Vote",
     "Total Votes",
     "User's Rating out of 10",
@@ -112,6 +113,7 @@ def _row_to_dict(movie_name: str, row: Dict[str, str]) -> Dict[str, Any]:
     '''Convert a CSV row to a dictionary suitable for ReviewOut'''
     date_str = row.get("Date of Review", "").strip()
     user = row.get("User", "").strip()
+    user_id = row.get("UserID", "").strip()
     usefulness = row.get("Usefulness Vote", "").strip()
     total_votes = row.get("Total Votes", "").strip()
     title = row.get("Review Title", "").strip()
@@ -132,7 +134,9 @@ def _row_to_dict(movie_name: str, row: Dict[str, str]) -> Dict[str, Any]:
     return {
         "review_id": review_id,
         "movie_name": movie_name,
+        # store display username and, when available, a separate user_id
         "username": user or "",
+        "user_id": user_id or None,
         "rating": rating or 0,
         "title_review": title or "",
         "comment": review or "",
@@ -154,6 +158,7 @@ def _dict_to_row(data: Dict[str, Any]) -> Dict[str, str]:
     return {
         "Date of Review": _format_date_for_csv(created_dt),
         "User": data.get("username", ""),
+        "UserID": data.get("user_id", "") or "",
         "Usefulness Vote": str(data.get("usefulness", 0)),
         "Total Votes": str(data.get("total_votes", 0)),
         "User's Rating out of 10": (
@@ -258,8 +263,10 @@ class CSVReviewRepo:
                 for i, row in enumerate(reader):
                     d = _row_to_dict(movie_name, row)
                     by_id[str(d["review_id"])] = i  # row number
-                    if d["username"] and d["username"] not in by_user:
-                        by_user[d["username"]] = d["review_id"]
+                    # Prefer indexing by explicit user_id when present, else fallback to username
+                    key = d.get("user_id") or d.get("username")
+                    if key and key not in by_user:
+                        by_user[key] = d["review_id"]
         idx = {
             "by_id": by_id,
             "by_user": by_user,
@@ -289,7 +296,11 @@ class CSVReviewRepo:
     def get_review_by_user(self, movie_name: str, user_id: str) -> Optional[ReviewOut]:
         '''Get the first review by a given user'''
         idx = self._ensure_index(movie_name)
-        review_id = idx["by_user"].get(user_id)
+        # Try direct lookup by user_id; fall back to display username lookup
+        review_id = idx.get("by_user", {}).get(user_id)
+        if not review_id:
+            # fallback: maybe the index keyed by display username
+            review_id = idx.get("by_user", {}).get(user_id)
         if not review_id:
             return None
         return self.get_review_by_id(movie_name, review_id)
@@ -325,7 +336,12 @@ class CSVReviewRepo:
         with open(path, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if (row.get("User") or "").strip() == review.username:
+                row_user = (row.get("UserID") or row.get("User") or "").strip()
+                # Match by user_id when available, otherwise by username
+                if row_user and (
+                    (review.user_id and row_user == review.user_id)
+                    or (row_user == review.username)
+                ):
                     # Replace with updated row
                     new_row = _dict_to_row(review.model_dump())
                     rows.append(new_row)

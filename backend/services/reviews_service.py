@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 
 from backend.repositories.reviews_repo import CSVReviewRepo, _stable_uuid5
+from backend.repositories.users_repo import UserRepository
 from backend.schemas.reviews import ReviewCreate, ReviewOut, ReviewUpdate
 from backend.utils.datetime_utils import now_utc
 
@@ -30,7 +31,11 @@ def _get_review_or_404(movie_name: str, user_id: str) -> ReviewOut:
                 break  # No more reviews to fetch
 
             for candidate in reviews:
-                if candidate.username == user_id:
+                # candidate may have user_id (preferred) or username storing the id
+                if (
+                    getattr(candidate, "user_id", None) == user_id
+                    or candidate.username == user_id
+                ):
                     review = candidate
                     break
 
@@ -54,10 +59,16 @@ def create_review(payload: ReviewCreate, user_id: str) -> ReviewOut:
             detail="User has already reviewed this movie. Use update instead.",
         )
 
+    # Attempt to resolve a friendly username for display
+    repo = UserRepository()
+    user = repo.get_by_id(user_id)
+    display_name = getattr(user, "username", None) if user else None
+
     now = now_utc()
     review = ReviewOut(
         review_id=_stable_uuid5(payload.movie_name, user_id, now, payload.title_review),
-        username=user_id,  # inject from auth dependency
+        username=display_name or user_id,
+        user_id=user_id,
         movie_name=payload.movie_name,
         rating=payload.rating,
         title_review=payload.title_review or "",  # Default empty title
@@ -93,7 +104,10 @@ def update_review(
     """Update an existing review (only the author may do this)."""
     existing = _get_review_or_404(movie_name, user_id)
 
-    if existing.username != user_id:
+    # Allow match by explicit user_id or legacy username-stored-id
+    if not (
+        getattr(existing, "user_id", None) == user_id or existing.username == user_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this review.",
@@ -119,7 +133,9 @@ def delete_review(movie_name: str, user_id: str, is_admin: bool = False) -> None
     """Delete a review; only the author or an admin may delete."""
     existing = _get_review_or_404(movie_name, user_id)
 
-    if not is_admin and existing.username != user_id:
+    if not is_admin and not (
+        getattr(existing, "user_id", None) == user_id or existing.username == user_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this review.",
@@ -137,4 +153,8 @@ def get_all_reviews_for_user(user_id: str) -> List[ReviewOut]:
     """Retrieve all reviews written by a specific user across all movies."""
     # Note: This scans all movies, which is expensive.
     all_reviews = _repo.get_all_reviews_flat()
-    return [r for r in all_reviews if r.username == user_id]
+    return [
+        r
+        for r in all_reviews
+        if getattr(r, "user_id", None) == user_id or r.username == user_id
+    ]
