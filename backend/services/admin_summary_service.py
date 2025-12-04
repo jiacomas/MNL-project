@@ -7,29 +7,25 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Paths are overridable via env vars so tests can patch them easily
-USERS_FILE: Path = Path(os.environ.get("USERS_FILE", "data/users.json"))
-REVIEWS_FILE: Path = Path(os.environ.get("REVIEWS_FILE", "data/reviews.json"))
-SUMMARY_EXPORT_DIR: Path = Path(
-    os.environ.get("SUMMARY_EXPORT_DIR", "data/exports")
-)
+# ---------------------------------------------------------------------------
+# Configuration (local to this feature so tests can patch easily)
+# ---------------------------------------------------------------------------
 
+DATA_ROOT = Path(os.getenv("ADMIN_SUMMARY_DATA_ROOT", "data"))
+USERS_FILE = DATA_ROOT / "users.json"
+REVIEWS_FILE = DATA_ROOT / "reviews.json"
 
-JsonObj = Dict[str, Any]
+# Tests patch this in test_write_summary_csv
+SUMMARY_EXPORT_DIR = DATA_ROOT / "exports"
 
 
 # ---------------------------------------------------------------------------
-# Helpers for reading data
+# IO helpers
 # ---------------------------------------------------------------------------
 
-def _read_json_list(path: Path) -> List[JsonObj]:
-    """Read JSON and always return a list of dicts.
 
-    Accepts:
-    - plain arrays: [ {...}, {...} ]
-    - wrapped: { "items": [...] }, { "users": [...] }, { "reviews": [...] }
-    - single objects: { ... } -> wrapped into a list
-    """
+def _load_json_list(path: Path) -> List[Dict[str, Any]]:
+    """Load JSON file and always return a list of dicts."""
     if not path.exists():
         return []
 
@@ -47,119 +43,137 @@ def _read_json_list(path: Path) -> List[JsonObj]:
 
 
 # ---------------------------------------------------------------------------
+# Time helpers (kept small to avoid high complexity)
+# ---------------------------------------------------------------------------
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    """Best-effort conversion of various timestamp formats into aware datetimes."""
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=timezone.utc)
+
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    return None
+
+
+def _is_within_last_24h(ts: datetime | None, now: datetime) -> bool:
+    """Return True if ts is within the last 24 hours."""
+    if ts is None:
+        return False
+    window_start = now - timedelta(days=1)
+    return window_start <= ts <= now
+
+
+# ---------------------------------------------------------------------------
 # Core metrics
 # ---------------------------------------------------------------------------
 
-def _total_users(users: List[JsonObj]) -> int:
-    return len(users)
-
-
-def _total_reviews(reviews: List[JsonObj]) -> int:
-    return len(reviews)
-
 
 def _active_users_last_24h(
-    users: List[JsonObj],
-    reviews: List[JsonObj],
+    users: List[Dict[str, Any]],
+    reviews: List[Dict[str, Any]],
+    *,
     now: datetime | None = None,
 ) -> int:
-    """Count active users in the last 24h.
+    """Compute number of distinct users active in the last 24 hours.
 
-    Priority:
-    1) If a user has last_active_at or last_login_at (ISO string), use that.
-    2) Otherwise fall back to users who wrote a review in the last 24h.
+    Activity sources:
+    - user.last_active_at / last_login / last_seen
+    - review.created_at
     """
-    if now is None:
-        now = datetime.now(timezone.utc)
-
-    cutoff = now - timedelta(hours=24)
+    now = now or datetime.now(timezone.utc)
     active_ids: set[str] = set()
 
-    # 1) Prefer explicit last_active_at / last_login_at fields
-    for u in users:
-        last_active = u.get("last_active_at") or u.get("last_login_at")
-        if not isinstance(last_active, str):
-            continue
+    # From user records
+    for user in users:
+        ts_raw = (
+            user.get("last_active_at")
+            or user.get("last_login")
+            or user.get("last_seen")
+        )
+        ts = _parse_timestamp(ts_raw)
+        if _is_within_last_24h(ts, now):
+            uid = str(user.get("user_id") or user.get("id"))
+            if uid:
+                active_ids.add(uid)
 
-        try:
-            dt = datetime.fromisoformat(last_active)
-        except ValueError:
-            continue
-
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        if dt >= cutoff:
-            uid = str(u.get("user_id") or u.get("id"))
-            active_ids.add(uid)
-
-    # 2) Fallback – activity via reviews
-    if not active_ids:
-        for r in reviews:
-            created = r.get("created_at")
-            if isinstance(created, str):
-                try:
-                    dt = datetime.fromisoformat(created)
-                except ValueError:
-                    continue
-            elif isinstance(created, datetime):
-                dt = created
-            else:
-                continue
-
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-
-            if dt >= cutoff:
-                uid = str(r.get("user_id"))
+    # From recent reviews
+    for review in reviews:
+        ts = _parse_timestamp(review.get("created_at"))
+        if _is_within_last_24h(ts, now):
+            uid = str(review.get("user_id"))
+            if uid:
                 active_ids.add(uid)
 
     return len(active_ids)
+
+
+def _total_users(users: List[Dict[str, Any]]) -> int:
+    return len(users)
+
+
+def _total_reviews(reviews: List[Dict[str, Any]]) -> int:
+    return len(reviews)
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_admin_summary() -> Dict[str, int]:
-    """Return engagement stats for admin dashboard summary cards."""
-    users = _read_json_list(USERS_FILE)
-    reviews = _read_json_list(REVIEWS_FILE)
 
-    users_total = _total_users(users)
-    reviews_total = _total_reviews(reviews)
-    active_users_24h = _active_users_last_24h(users, reviews)
+def get_admin_summary() -> Dict[str, Any]:
+    """Return engagement summary for admin dashboard cards as a dict.
+
+    Keys (match tests):
+    - users_total
+    - reviews_total
+    - active_users_24h
+    - generated_at  (ISO-8601 string)
+    """
+    users = _load_json_list(USERS_FILE)
+    reviews = _load_json_list(REVIEWS_FILE)
+    now = datetime.now(timezone.utc)
 
     return {
-        "users_total": users_total,
-        "active_users_24h": active_users_24h,
-        "reviews_total": reviews_total,
+        "users_total": _total_users(users),
+        "reviews_total": _total_reviews(reviews),
+        "active_users_24h": _active_users_last_24h(users, reviews, now=now),
+        "generated_at": now.isoformat(),
     }
 
 
 def write_summary_csv() -> Path:
-    """Export current summary metrics to CSV and return the file path.
+    """Export the current summary as a metrics CSV file.
 
-    CSV layout:
-
-        metric,value
-        users_total,<int>
-        active_users_24h,<int>
-        reviews_total,<int>
-        generated_at,<ISO-8601 timestamp>
+    Layout (what the tests expect):
+    - First row header: "metric,value"
+    - One row per metric (users_total, reviews_total, active_users_24h, generated_at)
     """
+    summary = get_admin_summary()
+
     SUMMARY_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = SUMMARY_EXPORT_DIR / "admin_summary_export.csv"
-
-    summary = get_admin_summary()
-    now = datetime.now(timezone.utc).isoformat()
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["metric", "value"])
-        writer.writerow(["users_total", summary["users_total"]])
-        writer.writerow(["active_users_24h", summary["active_users_24h"]])
-        writer.writerow(["reviews_total", summary["reviews_total"]])
-        writer.writerow(["generated_at", now])
+        for key in ("users_total", "reviews_total", "active_users_24h", "generated_at"):
+            writer.writerow([key, summary[key]])
 
     return out_path
