@@ -5,6 +5,7 @@ from fastapi.responses import Response
 
 from backend.deps import require_admin
 from backend.schemas.movies import (
+    MovieAnalyticsResponse,
     MovieCreate,
     MovieListResponse,
     MovieOut,
@@ -69,6 +70,19 @@ def get_popular(limit: int = Query(10, ge=1, le=50)):
 @router.get("/recent", response_model=list[MovieOut])
 def get_recent(limit: int = Query(10, ge=1, le=50)):
     return svc.get_recent_movies(limit=limit)
+
+
+@router.get("/analytics", response_model=MovieAnalyticsResponse)
+def get_analytics(
+    start_year: int | None = Query(None, ge=1800),
+    end_year: int | None = Query(None, ge=1800),
+    min_rating: float | None = Query(None, ge=0.0, le=10.0),
+):
+    return svc.get_movie_analytics(
+        start_year=start_year,
+        end_year=end_year,
+        min_rating=min_rating,
+    )
 
 
 @router.get("/{movie_id}", response_model=MovieOut)

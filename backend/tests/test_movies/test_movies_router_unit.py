@@ -184,3 +184,17 @@ def test_search_enhancements_mocked():
         data = r.json()
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "The Matrix"
+
+
+def test_movie_analytics_endpoint_basic():
+    """GET /api/movies/analytics returns structured analytics payload."""
+    r = client.get("/api/movies/analytics")
+    assert r.status_code == 200
+    data = r.json()
+    # Basic shape checks – exact numbers depend on underlying data
+    assert "total_movies" in data
+    assert "filtered_movies" in data
+    assert "rating_buckets" in data
+    assert "releases_by_year" in data
+    assert "genres" in data
+    assert "top_directors" in data
