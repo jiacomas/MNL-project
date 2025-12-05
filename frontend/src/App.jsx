@@ -9,6 +9,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
 import Movies from './pages/Movies';
 import MovieDetail from './pages/MovieDetail';
+import MyLists from './pages/MyLists';
+import ListDetail from './pages/ListDetail';
 import RequestPasswordReset from './pages/RequestPasswordReset';
 import ResetPassword from './pages/ResetPassword';
 import './App.css';
@@ -63,6 +65,8 @@ function App() {
             <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/movies" element={<Movies />} />
             <Route path="/movies/:movieId" element={<MovieDetail />} />
+            <Route path="/lists" element={<MyLists />} />
+            <Route path="/lists/:listId" element={<ListDetail />} />
           </Route>
 
           {/* Root + fallback */}

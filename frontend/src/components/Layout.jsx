@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Film, Home, Shield, User } from 'lucide-react';
+import { LogOut, Film, Home, Shield, User, List } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Layout = () => {
@@ -40,6 +40,16 @@ const Layout = () => {
           >
             <Film size={18} />
             Movies
+          </motion.button>
+
+          <motion.button
+            className="nav-link"
+            onClick={() => navigate('/lists')}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <List size={18} />
+            My Lists
           </motion.button>
 
           <div className="navbar-user">

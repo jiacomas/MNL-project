@@ -8,9 +8,11 @@ import {
   Edit2,
   Trash2,
   ArrowLeft,
+  ListPlus,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import AddToListModal from '../components/AddToListModal';
 
 const MovieDetail = () => {
   const { movieId } = useParams();
@@ -23,6 +25,7 @@ const MovieDetail = () => {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showAddToList, setShowAddToList] = useState(false);
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
     title_review: '',
@@ -216,6 +219,17 @@ const MovieDetail = () => {
           )}
 
           <motion.button
+            className="btn-bookmark"
+            onClick={() => setShowAddToList(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            title="Add to List"
+          >
+            <ListPlus size={20} />
+            Add to List
+          </motion.button>
+
+          <motion.button
             className={`btn-bookmark ${isBookmarked ? 'bookmarked' : ''}`}
             onClick={handleToggleBookmark}
             whileHover={{ scale: 1.05 }}
@@ -235,6 +249,15 @@ const MovieDetail = () => {
           </motion.button>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showAddToList && (
+          <AddToListModal
+            movieId={movieId}
+            onClose={() => setShowAddToList(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {movie.description && (
         <motion.div
