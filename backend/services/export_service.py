@@ -23,7 +23,11 @@ def generate_user_export(user_id: str) -> Dict[str, Any]:
     reviews = reviews_service.get_all_reviews_for_user(user_id)
     bookmarks = bookmarks_service.list_bookmarks(user_id)
     history = history_service.list_history(user_id)
-    lists = lists_service.get_my_lists(user_id)
+    try:
+        lists = lists_service.get_my_lists(user_id)
+    except Exception as e:
+        print(f"Error fetching lists for export: {e}")
+        lists = []
 
     return {
         "meta": {

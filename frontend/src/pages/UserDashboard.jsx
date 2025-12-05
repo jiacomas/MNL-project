@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookMarked, Star, Clock, Download, Film } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  BookMarked,
+  Star,
+  Clock,
+  Download,
+  Film,
+  Check,
+  X,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Recommendations from '../components/Recommendations';
@@ -13,12 +21,18 @@ const UserDashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reviewPage, setReviewPage] = useState(1);
-  const REVIEWS_PER_PAGE = 10;
+  const [exportSuccess, setExportSuccess] = useState(false);
 
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  useEffect(() => {
+    if (exportSuccess) {
+      const timer = setTimeout(() => setExportSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [exportSuccess]);
 
   const fetchUserData = async () => {
     try {
@@ -80,13 +94,58 @@ const UserDashboard = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setExportSuccess(true);
     } catch (err) {
       console.error('Failed to export data:', err);
+      alert('Failed to export data. Please try again.');
     }
   };
 
   return (
     <div className="dashboard-container">
+      <AnimatePresence>
+        {exportSuccess && (
+          <motion.div
+            className="success-toast"
+            initial={{ opacity: 0, y: -50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -20, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#10B981',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              zIndex: 1000,
+            }}
+          >
+            <Check size={20} />
+            <span>Data exported successfully!</span>
+            <button
+              onClick={() => setExportSuccess(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                marginLeft: '8px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <X size={16} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="dashboard-header">
         <div>
           <h1>My Dashboard</h1>
