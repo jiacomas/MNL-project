@@ -137,10 +137,11 @@ const AdminDashboard = () => {
             className={`tab ${activeTab === 'penalties' ? 'active' : ''}`}
             onClick={() => setActiveTab('penalties')}
           >
-          
-          <button
             <UserX size={18} />
             Penalty Management
+          </button>
+
+          <button
             className={`tab ${activeTab === 'reviews' ? 'active' : ''}`}
             onClick={() => setActiveTab('reviews')}
           >
@@ -192,9 +193,7 @@ const AdminDashboard = () => {
                       </td>
                       <td>
                         <span
-                          className={`status-badge ${
-                            u.is_locked ? 'locked' : 'active'
-                          }`}
+                          className={`status-badge ${u.is_locked ? 'locked' : 'active'}`}
                         >
                           {u.is_locked ? 'Locked' : 'Active'}
                         </span>
@@ -209,13 +208,11 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
-      ) : activeTab === 'movies' ? (
-              <MovieManagement />
-      ) : activeTab === 'reviews' ? (
-        <ReviewsAdmin />
-      ) : activeTab === 'penalties' ? (
-        <PenaltiesPage />
-      ) : null}
+      )}
+
+      {activeTab === 'movies' && <MovieManagement />}
+      {activeTab === 'reviews' && <ReviewsAdmin />}
+      {activeTab === 'penalties' && <PenaltiesPage />}
     </div>
   );
 };
