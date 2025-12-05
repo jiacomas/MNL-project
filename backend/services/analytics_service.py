@@ -64,8 +64,8 @@ class AnalyticsService:
             for review in reviews:
                 rows.append(
                     {
-                        "id": review.id,
-                        "movie_title": movie.movie_id,
+                        "id": review.review_id,
+                        "movie_title": movie.title,
                         "rating": review.rating,
                         "created_at": review.created_at,
                         "user_id": review.user_id,
