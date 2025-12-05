@@ -62,4 +62,7 @@ def test_write_reviews_csv(tmp_path) -> None:
 
     lines = csv_path.read_text(encoding="utf-8").splitlines()
     assert lines
-    assert lines[0] == "review_id,movie_title,rating,created_at,username"
+    assert (
+        lines[0]
+        == "review_id,movie_title,username,user_id,rating,title_review,comment,created_at,updated_at,usefulness,total_votes"
+    )
