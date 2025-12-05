@@ -96,7 +96,13 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const isAdmin = () => user?.role === 'admin';
+  // Support different user payload shapes returned by backend
+  // Some endpoints return `role`, others `user_type` (or `userType`). Treat any of
+  // these as authoritative for admin detection.
+  const isAdmin = () =>
+    user?.role === 'admin' ||
+    user?.user_type === 'admin' ||
+    user?.userType === 'admin';
 
   return (
     <AuthContext.Provider

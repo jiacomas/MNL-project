@@ -4,6 +4,7 @@ import { Users, Shield, Activity, UserX, Film } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import MovieManagement from '../components/MovieManagement';
+import ReviewsAdmin from '../components/ReviewsAdmin';
 
 const AdminDashboard = () => {
   const { user, API_URL } = useAuth();
@@ -129,6 +130,14 @@ const AdminDashboard = () => {
             <Film size={18} />
             Movie Management
           </button>
+
+          <button
+            className={`tab ${activeTab === 'reviews' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reviews')}
+          >
+            <Film size={18} />
+            Reviews Search
+          </button>
         </div>
       </div>
 
@@ -189,9 +198,11 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'movies' ? (
         <MovieManagement />
-      )}
+      ) : activeTab === 'reviews' ? (
+        <ReviewsAdmin />
+      ) : null}
     </div>
   );
 };
