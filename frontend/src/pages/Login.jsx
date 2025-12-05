@@ -106,6 +106,10 @@ const Login = () => {
             <p>
               Don't have an account? <Link to="/signup">Sign up</Link>
             </p>
+            <p>
+              Forgot your password?{' '}
+              <Link to="/forgot-password">Reset it here</Link>
+            </p>
           </div>
         </form>
       </motion.div>

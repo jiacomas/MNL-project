@@ -10,6 +10,10 @@ import UserDashboard from './pages/UserDashboard';
 import Movies from './pages/Movies';
 import MovieDetail from './pages/MovieDetail';
 import PenaltiesPage from './pages/Penalties';
+import MyLists from './pages/MyLists';
+import ListDetail from './pages/ListDetail';
+import RequestPasswordReset from './pages/RequestPasswordReset';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
 
 const RedirectToDashboard = () => {
@@ -36,9 +40,13 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<RequestPasswordReset />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
+          {/* Protected app routes */}
           <Route
             element={
               <ProtectedRoute>
@@ -67,8 +75,11 @@ function App() {
             <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/movies" element={<Movies />} />
             <Route path="/movies/:movieId" element={<MovieDetail />} />
+            <Route path="/lists" element={<MyLists />} />
+            <Route path="/lists/:listId" element={<ListDetail />} />
           </Route>
 
+          {/* Root + fallback */}
           <Route path="/" element={<RedirectToDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

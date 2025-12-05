@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import MovieManagement from '../components/MovieManagement';
 import PenaltiesPage from '../pages/Penalties';
+import ReviewsAdmin from '../components/ReviewsAdmin';
 
 const AdminDashboard = () => {
   const { user, API_URL } = useAuth();
@@ -136,8 +137,15 @@ const AdminDashboard = () => {
             className={`tab ${activeTab === 'penalties' ? 'active' : ''}`}
             onClick={() => setActiveTab('penalties')}
           >
+          
+          <button
             <UserX size={18} />
             Penalty Management
+            className={`tab ${activeTab === 'reviews' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reviews')}
+          >
+            <Film size={18} />
+            Reviews Search
           </button>
         </div>
       </div>
@@ -201,11 +209,13 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
-      )}
-
-      {activeTab === 'movies' && <MovieManagement />}
-
-      {activeTab === 'penalties' && <PenaltiesPage />}
+      ) : activeTab === 'movies' ? (
+              <MovieManagement />
+      ) : activeTab === 'reviews' ? (
+        <ReviewsAdmin />
+      ) : activeTab === 'penalties' ? (
+        <PenaltiesPage />
+      ) : null}
     </div>
   );
 };

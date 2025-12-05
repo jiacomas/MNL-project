@@ -122,22 +122,44 @@ class AnalyticsRepository:
         with out_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
-                ["review_id", "movie_title", "rating", "created_at", "username"]
+                [
+                    "review_id",
+                    "movie_title",
+                    "username",
+                    "user_id",
+                    "rating",
+                    "title_review",
+                    "comment",
+                    "created_at",
+                    "updated_at",
+                    "usefulness",
+                    "total_votes",
+                ]
             )
 
             for row in rows:
-                # Format created_at if it's a datetime
+                # Format dates
                 created_at = row.get("created_at")
                 if hasattr(created_at, "isoformat"):
                     created_at = created_at.isoformat()
+
+                updated_at = row.get("updated_at")
+                if hasattr(updated_at, "isoformat"):
+                    updated_at = updated_at.isoformat()
 
                 writer.writerow(
                     [
                         row.get("review_id"),
                         row.get("movie_title"),
-                        row.get("rating"),
-                        created_at,
                         row.get("username"),
+                        row.get("user_id"),
+                        row.get("rating"),
+                        row.get("title_review"),
+                        row.get("comment"),
+                        created_at,
+                        updated_at,
+                        row.get("usefulness"),
+                        row.get("total_votes"),
                     ]
                 )
 

@@ -46,8 +46,10 @@ class ReviewCreate(BaseModel):
       (temporary header-based auth or future JWT auth).
     """
 
-    movie_name: str = Field(
-        ..., min_length=1, description="Name of the reviewed movie."
+    # `movie_name` is supplied via the path in the API (e.g. /api/movies/{movie_name}/reviews)
+    # so make it optional in the request body to avoid 422 errors when clients omit it.
+    movie_name: Optional[str] = Field(
+        None, min_length=1, description="Name of the reviewed movie."
     )
     rating: int = RatingField
     title_review: Optional[str] = Field("", description="Title of the review")
