@@ -4,6 +4,7 @@ import { Users, Shield, Activity, UserX, Film } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import MovieManagement from '../components/MovieManagement';
+import PenaltiesPage from '../pages/Penalties';
 
 const AdminDashboard = () => {
   const { user, API_URL } = useAuth();
@@ -122,6 +123,7 @@ const AdminDashboard = () => {
             <Users size={18} />
             User Management
           </button>
+
           <button
             className={`tab ${activeTab === 'movies' ? 'active' : ''}`}
             onClick={() => setActiveTab('movies')}
@@ -129,10 +131,18 @@ const AdminDashboard = () => {
             <Film size={18} />
             Movie Management
           </button>
+
+          <button
+            className={`tab ${activeTab === 'penalties' ? 'active' : ''}`}
+            onClick={() => setActiveTab('penalties')}
+          >
+            <UserX size={18} />
+            Penalty Management
+          </button>
         </div>
       </div>
 
-      {activeTab === 'users' ? (
+      {activeTab === 'users' && (
         <div className="users-section">
           <h2>User Management</h2>
 
@@ -174,7 +184,9 @@ const AdminDashboard = () => {
                       </td>
                       <td>
                         <span
-                          className={`status-badge ${u.is_locked ? 'locked' : 'active'}`}
+                          className={`status-badge ${
+                            u.is_locked ? 'locked' : 'active'
+                          }`}
                         >
                           {u.is_locked ? 'Locked' : 'Active'}
                         </span>
@@ -189,9 +201,11 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
-      ) : (
-        <MovieManagement />
       )}
+
+      {activeTab === 'movies' && <MovieManagement />}
+
+      {activeTab === 'penalties' && <PenaltiesPage />}
     </div>
   );
 };
