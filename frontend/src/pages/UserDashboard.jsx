@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookMarked, Star, Clock, Download, Film, List } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { BookMarked, Star, Clock, Film, List } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Recommendations from '../components/Recommendations';
@@ -14,8 +14,6 @@ const UserDashboard = () => {
   const [history, setHistory] = useState([]);
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [reviewPage, setReviewPage] = useState(1);
-  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUserData();
@@ -25,27 +23,37 @@ const UserDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      // Fetch bookmarks (API), lists (API) and user export (contains reviews & history)
-      const [bookmarksRes, listsRes, exportRes] = await Promise.all([
+      // Fetch bookmarks and lists first
+      const [bookmarksRes, listsRes] = await Promise.all([
         axios
           .get(`${API_URL}/api/bookmarks`, { headers })
           .catch(() => ({ data: [] })),
         axios
           .get(`${API_URL}/api/lists`, { headers })
           .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_URL}/users/me/export`, { headers })
-          .catch(() => ({ data: { data: {} } })),
       ]);
 
-      // Bookmarks endpoint returns an array of BookmarkOut
       setBookmarks(bookmarksRes.data || []);
       setLists(listsRes.data || []);
 
-      // Export payload has shape { meta, data: { reviews, bookmarks, history, ... } }
-      const exported = exportRes.data?.data || {};
-      setReviews(exported.reviews || []);
-      setHistory(exported.history || []);
+      // Fetch viewing history via dedicated endpoint
+      try {
+        const uid = user?.user_id || user?.id || null;
+        if (uid) {
+          const historyRes = await axios.get(`${API_URL}/history/${uid}`, {
+            headers,
+          });
+          setHistory(historyRes.data || []);
+        } else {
+          setHistory([]);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch history for user', err);
+        setHistory([]);
+      }
+
+      // Fetch reviews
+      setReviews([]);
       // Enrich bookmarks with movie titles by fetching movie metadata
       if ((bookmarksRes.data || []).length > 0) {
         try {
@@ -70,26 +78,6 @@ const UserDashboard = () => {
     }
   };
 
-  const handleExportData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/export/user-data`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `user-data-${Date.now()}.json`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error('Failed to export data:', err);
-    }
-  };
-
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -97,17 +85,7 @@ const UserDashboard = () => {
           <h1>My Dashboard</h1>
           <p>Welcome back, {user?.username}</p>
         </div>
-        <div className="header-actions">
-          <motion.button
-            className="export-button"
-            onClick={handleExportData}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Download size={16} />
-            Export Data
-          </motion.button>
-        </div>
+        <div className="header-actions" />
       </div>
 
       <div className="stats-grid">
