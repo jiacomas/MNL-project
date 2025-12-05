@@ -63,31 +63,9 @@ def test_me_with_valid_token():
     assert body.get("username") == "cust1"
 
 
-def test_export_data():
-    client = TestClient(app)
-    repo = UserRepository()
-    svc = UsersService(repo)
-    if not repo.get_user_by_username("cust1"):
-        svc.create_user("cust1", "cust1@example.com", "secret2", user_type="customer")
-
-    # Login
-    r = client.post("/users/token", data={"username": "cust1", "password": "secret2"})
-    token = r.json()["access_token"]
-
-    # Export
-    r2 = client.get("/users/me/export", headers={"Authorization": f"Bearer {token}"})
-    assert r2.status_code == 200
-    assert r2.headers["content-type"] == "application/json"
-    assert "attachment" in r2.headers["content-disposition"]
-
-    data = r2.json()
-    assert "meta" in data
-    assert "data" in data
-    assert data["meta"]["user_id"] is not None
-    assert isinstance(data["data"]["reviews"], list)
-    assert isinstance(data["data"]["bookmarks"], list)
-    assert isinstance(data["data"]["history"], list)
-    assert isinstance(data["data"]["lists"], list)
+# `test_export_data` removed because the user data export endpoint was intentionally
+# removed. If an export feature is reintroduced, add tests that validate the
+# endpoint's security, headers, and payload shape.
 
 
 def test_token_failure():

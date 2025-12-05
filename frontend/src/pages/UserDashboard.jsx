@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  BookMarked,
-  Star,
-  Clock,
-  Download,
-  Film,
-  Check,
-  X,
-  List,
-} from 'lucide-react';
+import { BookMarked, Star, Clock, Film, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -23,44 +14,46 @@ const UserDashboard = () => {
   const [history, setHistory] = useState([]);
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exportSuccess, setExportSuccess] = useState(false);
 
   useEffect(() => {
     fetchUserData();
   }, []);
 
-  useEffect(() => {
-    if (exportSuccess) {
-      const timer = setTimeout(() => setExportSuccess(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [exportSuccess]);
-
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      // Fetch bookmarks (API), lists (API) and user export (contains reviews & history)
-      const [bookmarksRes, listsRes, exportRes] = await Promise.all([
+      // Fetch bookmarks and lists first
+      const [bookmarksRes, listsRes] = await Promise.all([
         axios
           .get(`${API_URL}/api/bookmarks`, { headers })
           .catch(() => ({ data: [] })),
         axios
           .get(`${API_URL}/api/lists`, { headers })
           .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_URL}/users/me/export`, { headers })
-          .catch(() => ({ data: { data: {} } })),
       ]);
 
-      // Bookmarks endpoint returns an array of BookmarkOut
       setBookmarks(bookmarksRes.data || []);
       setLists(listsRes.data || []);
 
-      // Export payload has shape { meta, data: { reviews, bookmarks, history, ... } }
-      const exported = exportRes.data?.data || {};
-      setReviews(exported.reviews || []);
-      setHistory(exported.history || []);
+      // Fetch viewing history via dedicated endpoint
+      try {
+        const uid = user?.user_id || user?.id || null;
+        if (uid) {
+          const historyRes = await axios.get(`${API_URL}/history/${uid}`, {
+            headers,
+          });
+          setHistory(historyRes.data || []);
+        } else {
+          setHistory([]);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch history for user', err);
+        setHistory([]);
+      }
+
+      // Fetch reviews
+      setReviews([]);
       // Enrich bookmarks with movie titles by fetching movie metadata
       if ((bookmarksRes.data || []).length > 0) {
         try {
@@ -85,89 +78,14 @@ const UserDashboard = () => {
     }
   };
 
-  const handleExportData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/users/me/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `user-data-${Date.now()}.json`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setExportSuccess(true);
-    } catch (err) {
-      console.error('Failed to export data:', err);
-      alert('Failed to export data. Please try again.');
-    }
-  };
-
   return (
     <div className="dashboard-container">
-      <AnimatePresence>
-        {exportSuccess && (
-          <motion.div
-            className="success-toast"
-            initial={{ opacity: 0, y: -50, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: -20, x: '-50%' }}
-            style={{
-              position: 'fixed',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#10B981',
-              color: 'white',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              zIndex: 1000,
-            }}
-          >
-            <Check size={20} />
-            <span>Data exported successfully!</span>
-            <button
-              onClick={() => setExportSuccess(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'white',
-                cursor: 'pointer',
-                marginLeft: '8px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <X size={16} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="dashboard-header">
         <div>
           <h1>My Dashboard</h1>
           <p>Welcome back, {user?.username}</p>
         </div>
-        <div className="header-actions">
-          <motion.button
-            className="export-button"
-            onClick={handleExportData}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Download size={16} />
-            Export Data
-          </motion.button>
-        </div>
+        <div className="header-actions" />
       </div>
 
       <div className="stats-grid">
