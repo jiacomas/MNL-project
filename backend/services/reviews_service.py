@@ -156,10 +156,27 @@ def get_review_by_id(movie_name: str, review_id: str) -> Optional[ReviewOut]:
 
 def get_all_reviews_for_user(user_id: str) -> List[ReviewOut]:
     """Retrieve all reviews written by a specific user across all movies."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     # Note: This scans all movies, which is expensive.
     all_reviews = _repo.get_all_reviews_flat()
-    return [
-        r
-        for r in all_reviews
-        if getattr(r, "user_id", None) == user_id or r.username == user_id
-    ]
+
+    # Filter reviews by user_id with improved matching logic
+    user_reviews = []
+    for r in all_reviews:
+        review_user_id = getattr(r, "user_id", None)
+        review_username = r.username
+
+        # Match by user_id (exact match or string comparison)
+        if review_user_id and str(review_user_id) == str(user_id):
+            user_reviews.append(r)
+        # Fallback: match by username if user_id not available
+        elif not review_user_id and review_username == user_id:
+            user_reviews.append(r)
+
+    logger.info(
+        f"Found {len(user_reviews)} reviews for user {user_id} out of {len(all_reviews)} total reviews"
+    )
+    return user_reviews
