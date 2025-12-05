@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookMarked, Star, Clock, Download, Film } from 'lucide-react';
+import { BookMarked, Star, Clock, Download, Film, List } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,6 +12,7 @@ const UserDashboard = () => {
   const [bookmarks, setBookmarks] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
+  const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewPage, setReviewPage] = useState(1);
   const REVIEWS_PER_PAGE = 10;
@@ -24,10 +25,13 @@ const UserDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      // Fetch bookmarks (API) and user export (contains reviews & history)
-      const [bookmarksRes, exportRes] = await Promise.all([
+      // Fetch bookmarks (API), lists (API) and user export (contains reviews & history)
+      const [bookmarksRes, listsRes, exportRes] = await Promise.all([
         axios
           .get(`${API_URL}/api/bookmarks`, { headers })
+          .catch(() => ({ data: [] })),
+        axios
+          .get(`${API_URL}/api/lists`, { headers })
           .catch(() => ({ data: [] })),
         axios
           .get(`${API_URL}/users/me/export`, { headers })
@@ -36,6 +40,7 @@ const UserDashboard = () => {
 
       // Bookmarks endpoint returns an array of BookmarkOut
       setBookmarks(bookmarksRes.data || []);
+      setLists(listsRes.data || []);
 
       // Export payload has shape { meta, data: { reviews, bookmarks, history, ... } }
       const exported = exportRes.data?.data || {};
@@ -127,6 +132,21 @@ const UserDashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
+          <div className="stat-icon lists">
+            <List size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>My Lists</h3>
+            <p className="stat-number">{lists.length}</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="stat-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <div className="stat-icon reviews">
             <Star size={24} />
           </div>
@@ -140,7 +160,7 @@ const UserDashboard = () => {
           className="stat-card"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
         >
           <div className="stat-icon history">
             <Clock size={24} />
@@ -161,6 +181,15 @@ const UserDashboard = () => {
         >
           <Film size={20} />
           Browse Movies
+        </motion.button>
+        <motion.button
+          className="action-btn"
+          onClick={() => navigate('/lists')}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <List size={20} />
+          Manage Lists
         </motion.button>
       </div>
 
