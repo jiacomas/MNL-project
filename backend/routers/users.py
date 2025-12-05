@@ -8,7 +8,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 import backend.services.auth_service as auth_svc
 from backend.repositories.users_repo import UserRepository
+from backend.schemas.reviews import ReviewOut
 from backend.schemas.users import UserCreate
+from backend.services import reviews_service as reviews_svc
 from backend.services.auth_service import get_current_user, require_role
 from backend.services.users_service import UsersService
 
@@ -159,3 +161,14 @@ def logout(token: str = Depends(auth_svc.oauth2_scheme)):
     """Invalidate the current token (logout)."""
     auth_svc.logout_token(token)
     return {"status": "logged_out"}
+
+
+@router.get("/me/reviews", response_model=list[ReviewOut])
+def my_reviews(user: dict = Depends(get_current_user)):
+    """Return all reviews written by the current authenticated user."""
+    if not user or "user_id" not in user:
+        raise HTTPException(status_code=401, detail="Invalid or missing token")
+    user_id = user["user_id"]
+    rows = reviews_svc.get_all_reviews_for_user(user_id)
+    # Pydantic will handle model conversion; return list of ReviewOut-compatible dicts
+    return [r.model_dump() for r in rows]

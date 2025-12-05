@@ -52,8 +52,16 @@ const UserDashboard = () => {
         setHistory([]);
       }
 
-      // Fetch reviews
-      setReviews([]);
+      // Fetch reviews (current user's reviews)
+      try {
+        const reviewsRes = await axios.get(`${API_URL}/users/me/reviews`, {
+          headers,
+        });
+        setReviews(reviewsRes.data || []);
+      } catch (err) {
+        console.warn('Failed to fetch user reviews', err);
+        setReviews([]);
+      }
       // Enrich bookmarks with movie titles by fetching movie metadata
       if ((bookmarksRes.data || []).length > 0) {
         try {

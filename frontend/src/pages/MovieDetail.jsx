@@ -51,18 +51,31 @@ const MovieDetail = () => {
         `${API_URL}/api/movies/${movieName}/reviews`,
         { headers }
       );
-      setReviews(reviewsRes.data.items || []);
+      const allReviews = reviewsRes.data.items || [];
 
       // Fetch my review
+      let myReviewData = null;
       try {
         const myReviewRes = await axios.get(
           `${API_URL}/api/movies/${movieName}/reviews/me`,
           { headers }
         );
-        setMyReview(myReviewRes.data);
+        myReviewData = myReviewRes.data || null;
+        setMyReview(myReviewData);
       } catch (err) {
         // No review yet
+        myReviewData = null;
         setMyReview(null);
+      }
+
+      // Place the current user's review first in the list when present
+      if (myReviewData && myReviewData.review_id) {
+        const others = allReviews.filter(
+          (r) => r.review_id !== myReviewData.review_id
+        );
+        setReviews([myReviewData, ...others]);
+      } else {
+        setReviews(allReviews);
       }
 
       // Check if bookmarked
