@@ -60,7 +60,7 @@ class AnalyticsService:
 
         rows: List[Dict[str, Any]] = []
         for movie in movies:
-            reviews, _ = self.review_repo.list_by_movie(movie.movie_id, limit=10000)
+            reviews, _ = self.review_repo.list_by_movie(movie.title, limit=10000)
             for review in reviews:
                 rows.append(
                     {
