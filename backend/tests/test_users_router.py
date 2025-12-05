@@ -87,6 +87,7 @@ def test_export_data():
     assert isinstance(data["data"]["reviews"], list)
     assert isinstance(data["data"]["bookmarks"], list)
     assert isinstance(data["data"]["history"], list)
+    assert isinstance(data["data"]["lists"], list)
 
 
 def test_token_failure():
