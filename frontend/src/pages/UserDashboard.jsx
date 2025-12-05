@@ -68,7 +68,7 @@ const UserDashboard = () => {
   const handleExportData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/export/user-data`, {
+      const response = await axios.get(`${API_URL}/users/me/export`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });
