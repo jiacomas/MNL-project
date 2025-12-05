@@ -94,7 +94,14 @@ class UserRepository:
         return next((u for u in self.users if u.user_id == user_id), None)
 
     def get_by_email(self, email: str) -> User | None:
-        return next((u for u in self.users if u.email == email), None)
+        email_norm = (email or "").strip().lower()
+
+        for u in self.users:
+            u_email = (u.email or "").strip().lower()
+            if u_email == email_norm:
+                return u
+
+        return None
 
     def add_user(self, user: User) -> None:
         """Append new user and persist."""
