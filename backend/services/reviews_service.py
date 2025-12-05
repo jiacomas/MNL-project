@@ -149,6 +149,11 @@ def get_review_by_user(movie_name: str, user_id: str) -> Optional[ReviewOut]:
     return _repo.get_review_by_user(movie_name, user_id)
 
 
+def get_review_by_id(movie_name: str, review_id: str) -> Optional[ReviewOut]:
+    """Return a review by its stable review_id for a given movie."""
+    return _repo.get_review_by_id(movie_name, review_id)
+
+
 def get_all_reviews_for_user(user_id: str) -> List[ReviewOut]:
     """Retrieve all reviews written by a specific user across all movies."""
     # Note: This scans all movies, which is expensive.
