@@ -54,6 +54,15 @@ def _ensure_dir(path: str) -> None:
 def _parse_date(s: str):
     '''Parse a date string using datetime_utils'''
     s = (s or "").strip()
+
+    # Try explicit formats first
+    for fmt in DATE_INPUT_FORMATS:
+        try:
+            dt = datetime.strptime(s, fmt)
+            return ensure_timezone_aware(dt)
+        except ValueError:
+            continue
+
     # Try parse_iso_like first
     dt = parse_iso_like(s)
     if dt:

@@ -173,13 +173,14 @@ const ReviewsAdmin = () => {
                     <th>Rating</th>
                     <th>User</th>
                     <th>Date</th>
+                    <th>Review</th>
                     <th>Review ID</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r, i) => (
                     <motion.tr
-                      key={r.id || `${r.movie_title}-${i}`}
+                      key={r.review_id || `${r.movie_title}-${i}`}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
@@ -196,11 +197,16 @@ const ReviewsAdmin = () => {
                       <td>
                         <div className="user-info">
                           <User size={14} />
-                          <span className="mono-text">
-                            {r.user_id
-                              ? r.user_id.substring(0, 8) + '...'
-                              : 'Unknown'}
-                          </span>
+                          <div className="user-details-cell">
+                            <span className="username-text">
+                              {r.username || 'Unknown'}
+                            </span>
+                            <span className="mono-text-xs">
+                              {r.user_id
+                                ? r.user_id.substring(0, 8) + '...'
+                                : ''}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -211,9 +217,21 @@ const ReviewsAdmin = () => {
                             : '-'}
                         </div>
                       </td>
+                      <td className="review-content-cell">
+                        <div className="review-title-text">
+                          {r.title_review}
+                        </div>
+                        <div className="review-comment-text" title={r.comment}>
+                          {r.comment && r.comment.length > 50
+                            ? r.comment.substring(0, 50) + '...'
+                            : r.comment}
+                        </div>
+                      </td>
                       <td className="id-cell">
                         <span className="mono-text">
-                          {r.id ? r.id.substring(0, 8) + '...' : '-'}
+                          {r.review_id
+                            ? r.review_id.substring(0, 8) + '...'
+                            : '-'}
                         </span>
                       </td>
                     </motion.tr>

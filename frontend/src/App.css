@@ -2167,3 +2167,38 @@ a:focus {
   color: var(--text-secondary);
   font-style: italic;
 }
+
+/* New Review Table Styles */
+.user-details-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.username-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.mono-text-xs {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.review-content-cell {
+  max-width: 300px;
+}
+
+.review-title-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.review-comment-text {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
