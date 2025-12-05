@@ -13,6 +13,8 @@ const ReviewsAdmin = () => {
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const handleSearch = async (e) => {
     e && e.preventDefault();
@@ -26,7 +28,22 @@ const ReviewsAdmin = () => {
         params: { q: q.trim(), sort: sortBy, order },
         headers: { Authorization: `Bearer ${token}` },
       });
-      setRows(res.data || []);
+      // ensure deterministic sort client-side as a fallback
+      const data = res.data || [];
+      const sortFunc = (a, b) => {
+        if (sortBy === 'rating') {
+          return order === 'desc'
+            ? (b.rating || 0) - (a.rating || 0)
+            : (a.rating || 0) - (b.rating || 0);
+        }
+        // default: date
+        const da = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return order === 'desc' ? db - da : da - db;
+      };
+      data.sort(sortFunc);
+      setRows(data);
+      setPage(1);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.detail || 'Failed to search reviews');
@@ -166,6 +183,49 @@ const ReviewsAdmin = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  className="btn-page"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  Prev
+                </button>
+
+                <span className="page-info">
+                  Page {page} of{' '}
+                  {Math.max(1, Math.ceil(rows.length / PAGE_SIZE))}
+                </span>
+
+                <button
+                  type="button"
+                  className="btn-page"
+                  onClick={() =>
+                    setPage((p) =>
+                      Math.min(Math.ceil(rows.length / PAGE_SIZE) || 1, p + 1)
+                    )
+                  }
+                  disabled={page >= Math.ceil(rows.length / PAGE_SIZE)}
+                >
+                  Next
+                </button>
+
+                <select
+                  value={page}
+                  onChange={(e) => setPage(Number(e.target.value))}
+                  className="page-select"
+                >
+                  {Array.from({
+                    length: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
+                  }).map((_, i) => (
+                    <option key={i} value={i + 1}>
+                      {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <table className="modern-table">
                 <thead>
                   <tr>
@@ -178,64 +238,69 @@ const ReviewsAdmin = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <motion.tr
-                      key={r.review_id || `${r.movie_title}-${i}`}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                    >
-                      <td className="movie-cell">
-                        <span className="movie-title">{r.movie_title}</span>
-                      </td>
-                      <td>
-                        <div className="rating-badge">
-                          <Star size={12} fill="currentColor" />
-                          {r.rating ?? 'N/A'}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="user-info">
-                          <User size={14} />
-                          <div className="user-details-cell">
-                            <span className="username-text">
-                              {r.username || 'Unknown'}
-                            </span>
-                            <span className="mono-text-xs">
-                              {r.user_id
-                                ? r.user_id.substring(0, 8) + '...'
-                                : ''}
-                            </span>
+                  {rows
+                    .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+                    .map((r, i) => (
+                      <motion.tr
+                        key={r.review_id || `${r.movie_title}-${i}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                      >
+                        <td className="movie-cell">
+                          <span className="movie-title">{r.movie_title}</span>
+                        </td>
+                        <td>
+                          <div className="rating-badge">
+                            <Star size={12} fill="currentColor" />
+                            {r.rating ?? 'N/A'}
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="date-info">
-                          <Calendar size={14} />
-                          {r.created_at
-                            ? new Date(r.created_at).toLocaleDateString()
-                            : '-'}
-                        </div>
-                      </td>
-                      <td className="review-content-cell">
-                        <div className="review-title-text">
-                          {r.title_review}
-                        </div>
-                        <div className="review-comment-text" title={r.comment}>
-                          {r.comment && r.comment.length > 50
-                            ? r.comment.substring(0, 50) + '...'
-                            : r.comment}
-                        </div>
-                      </td>
-                      <td className="id-cell">
-                        <span className="mono-text">
-                          {r.review_id
-                            ? r.review_id.substring(0, 8) + '...'
-                            : '-'}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td>
+                          <div className="user-info">
+                            <User size={14} />
+                            <div className="user-details-cell">
+                              <span className="username-text">
+                                {r.username || 'Unknown'}
+                              </span>
+                              <span className="mono-text-xs">
+                                {r.user_id
+                                  ? r.user_id.substring(0, 8) + '...'
+                                  : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="date-info">
+                            <Calendar size={14} />
+                            {r.created_at
+                              ? new Date(r.created_at).toLocaleDateString()
+                              : '-'}
+                          </div>
+                        </td>
+                        <td className="review-content-cell">
+                          <div className="review-title-text">
+                            {r.title_review}
+                          </div>
+                          <div
+                            className="review-comment-text"
+                            title={r.comment}
+                          >
+                            {r.comment && r.comment.length > 50
+                              ? r.comment.substring(0, 50) + '...'
+                              : r.comment}
+                          </div>
+                        </td>
+                        <td className="id-cell">
+                          <span className="mono-text">
+                            {r.review_id
+                              ? r.review_id.substring(0, 8) + '...'
+                              : '-'}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
                 </tbody>
               </table>
             </motion.div>

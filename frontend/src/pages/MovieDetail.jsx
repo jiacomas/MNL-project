@@ -68,14 +68,33 @@ const MovieDetail = () => {
         setMyReview(null);
       }
 
-      // Place the current user's review first in the list when present
-      if (myReviewData && myReviewData.review_id) {
-        const others = allReviews.filter(
-          (r) => r.review_id !== myReviewData.review_id
-        );
+      // Sort reviews newest-first (by created_at).
+      const sortDesc = (a, b) => {
+        const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
+      };
+
+      if (myReviewData) {
+        // Make a robust de-duplication: match by review_id when available,
+        // otherwise fall back to user_id/username matching.
+        const others = (allReviews || []).filter((r) => {
+          if (!r) return false;
+          if (myReviewData.review_id && r.review_id) {
+            return r.review_id !== myReviewData.review_id;
+          }
+          // Fallback to user id / username matching
+          const rUser = r.user_id || r.username;
+          const myUser =
+            myReviewData.user_id ||
+            myReviewData.username ||
+            (user && (user.user_id || user.id || user.username));
+          return rUser !== myUser;
+        });
+        others.sort(sortDesc);
         setReviews([myReviewData, ...others]);
       } else {
-        setReviews(allReviews);
+        setReviews((allReviews || []).sort(sortDesc));
       }
 
       // Check if bookmarked
