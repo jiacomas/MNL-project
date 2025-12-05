@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
 import Movies from './pages/Movies';
 import MovieDetail from './pages/MovieDetail';
+import PenaltiesPage from './pages/Penalties';
 import MyLists from './pages/MyLists';
 import ListDetail from './pages/ListDetail';
 import RequestPasswordReset from './pages/RequestPasswordReset';
@@ -58,6 +59,15 @@ function App() {
               element={
                 <ProtectedRoute requireAdmin={true}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/penalties"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <PenaltiesPage />
                 </ProtectedRoute>
               }
             />

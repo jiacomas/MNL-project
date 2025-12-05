@@ -13,33 +13,32 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem('token');
-    // Helpful debug: print detected API URL
-    // (useful if VITE_API_URL is misconfigured)
-    // eslint-disable-next-line no-console
+    const storedToken = localStorage.getItem('token');
     console.debug('Auth API_URL =', API_URL);
-    if (token) {
-      fetchCurrentUser(token);
+    if (storedToken) {
+      setToken(storedToken);
+      fetchCurrentUser(storedToken);
     } else {
       setLoading(false);
     }
   }, []);
 
-  const fetchCurrentUser = async (token) => {
+  const fetchCurrentUser = async (tokenFromArg) => {
     try {
       const response = await axios.get(`${API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${tokenFromArg}` },
       });
       setUser(response.data);
     } catch (error) {
       console.error('Failed to fetch user:', error);
       localStorage.removeItem('token');
+      setToken(null);
     } finally {
       setLoading(false);
     }
@@ -58,16 +57,13 @@ export const AuthProvider = ({ children }) => {
 
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
+      setToken(access_token);
 
       await fetchCurrentUser(access_token);
       return true;
     } catch (error) {
-      // Provide more helpful debug info in console for 404s / network issues
-      // eslint-disable-next-line no-console
       console.error('Login failed:', error);
-      // eslint-disable-next-line no-console
       console.debug('Login request url:', `${API_URL}/users/token`);
-      // eslint-disable-next-line no-console
       console.debug(
         'Axios error response:',
         error?.response?.data,
@@ -78,14 +74,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    const currentToken = localStorage.getItem('token');
+    if (currentToken) {
       try {
         await axios.post(
           `${API_URL}/users/logout`,
           {},
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${currentToken}` },
           }
         );
       } catch (error) {
@@ -94,6 +90,7 @@ export const AuthProvider = ({ children }) => {
     }
     localStorage.removeItem('token');
     setUser(null);
+    setToken(null);
   };
 
   // Support different user payload shapes returned by backend
@@ -106,7 +103,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, loading, isAdmin, API_URL }}
+      value={{ user, token, login, logout, loading, isAdmin, API_URL }}
     >
       {children}
     </AuthContext.Provider>
