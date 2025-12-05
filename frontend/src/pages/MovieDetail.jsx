@@ -88,24 +88,34 @@ const MovieDetail = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
+      const titleForPath = encodeURIComponent(
+        (movie && movie.title) || movieId
+      );
+
+      let res;
       if (myReview) {
         // Update existing review
-        await axios.patch(
-          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews/${myReview.review_id}`,
+        res = await axios.patch(
+          `${API_URL}/api/movies/${titleForPath}/reviews/${myReview.review_id}`,
           reviewForm,
           { headers }
         );
       } else {
         // Create new review
-        await axios.post(
-          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews`,
+        res = await axios.post(
+          `${API_URL}/api/movies/${titleForPath}/reviews`,
           reviewForm,
           { headers }
         );
       }
 
+      // Update local state optimistically and refresh list
+      if (res && res.data) {
+        setMyReview(res.data);
+      }
       setShowReviewForm(false);
-      fetchMovieData();
+      // refresh reviews and myReview from server to keep indexes consistent
+      await fetchMovieData();
     } catch (err) {
       console.error('Failed to submit review:', err);
       alert(err.response?.data?.detail || 'Failed to submit review');
