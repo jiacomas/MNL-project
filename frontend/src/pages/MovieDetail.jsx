@@ -51,18 +51,50 @@ const MovieDetail = () => {
         `${API_URL}/api/movies/${movieName}/reviews`,
         { headers }
       );
-      setReviews(reviewsRes.data.items || []);
+      const allReviews = reviewsRes.data.items || [];
 
       // Fetch my review
+      let myReviewData = null;
       try {
         const myReviewRes = await axios.get(
           `${API_URL}/api/movies/${movieName}/reviews/me`,
           { headers }
         );
-        setMyReview(myReviewRes.data);
+        myReviewData = myReviewRes.data || null;
+        setMyReview(myReviewData);
       } catch (err) {
         // No review yet
+        myReviewData = null;
         setMyReview(null);
+      }
+
+      // Sort reviews newest-first (by created_at).
+      const sortDesc = (a, b) => {
+        const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
+      };
+
+      if (myReviewData) {
+        // Make a robust de-duplication: match by review_id when available,
+        // otherwise fall back to user_id/username matching.
+        const others = (allReviews || []).filter((r) => {
+          if (!r) return false;
+          if (myReviewData.review_id && r.review_id) {
+            return r.review_id !== myReviewData.review_id;
+          }
+          // Fallback to user id / username matching
+          const rUser = r.user_id || r.username;
+          const myUser =
+            myReviewData.user_id ||
+            myReviewData.username ||
+            (user && (user.user_id || user.id || user.username));
+          return rUser !== myUser;
+        });
+        others.sort(sortDesc);
+        setReviews([myReviewData, ...others]);
+      } else {
+        setReviews((allReviews || []).sort(sortDesc));
       }
 
       // Check if bookmarked
@@ -88,24 +120,34 @@ const MovieDetail = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
+      const titleForPath = encodeURIComponent(
+        (movie && movie.title) || movieId
+      );
+
+      let res;
       if (myReview) {
         // Update existing review
-        await axios.patch(
-          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews/${myReview.review_id}`,
+        res = await axios.patch(
+          `${API_URL}/api/movies/${titleForPath}/reviews/${myReview.review_id}`,
           reviewForm,
           { headers }
         );
       } else {
         // Create new review
-        await axios.post(
-          `${API_URL}/api/movies/${encodeURIComponent(movie.title)}/reviews`,
+        res = await axios.post(
+          `${API_URL}/api/movies/${titleForPath}/reviews`,
           reviewForm,
           { headers }
         );
       }
 
+      // Update local state optimistically and refresh list
+      if (res && res.data) {
+        setMyReview(res.data);
+      }
       setShowReviewForm(false);
-      fetchMovieData();
+      // refresh reviews and myReview from server to keep indexes consistent
+      await fetchMovieData();
     } catch (err) {
       console.error('Failed to submit review:', err);
       alert(err.response?.data?.detail || 'Failed to submit review');

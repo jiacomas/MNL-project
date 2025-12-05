@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import Response
 
-from backend.deps import get_current_user_id, require_admin
+from backend.deps import get_current_user_id
 from backend.schemas.reviews import (
     ReviewCreate,
     ReviewListResponse,
@@ -13,6 +13,7 @@ from backend.schemas.reviews import (
     ReviewUpdate,
 )
 from backend.services import reviews_service as svc
+from backend.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/api/movies", tags=["reviews"])
 
@@ -51,22 +52,44 @@ def create_review(
 @router.patch("/{movie_name}/reviews/{review_id}", response_model=ReviewOut)
 def update_review(
     movie_name: str,
+    review_id: str,
     payload: ReviewUpdate,
     user_id: str = Depends(get_current_user_id),
 ):
-    """Update an existing review (only the author can update)."""
+    """Update an existing review (only the author can update).
+
+    The route includes `review_id` for URL compatibility with the frontend,
+    but the operation identifies the review by the authenticated user.
+    """
     return svc.update_review(movie_name, user_id, payload)
 
 
 @router.delete("/{movie_name}/reviews")
-def delete_review(
-    movie_name: str,
-    user_id: str = Depends(get_current_user_id),
-    is_admin: Dict = Depends(require_admin),
-):
-    """Delete a review (owner or admin)."""
-    svc.delete_review(movie_name, user_id, is_admin=bool(is_admin))
+@router.delete("/{movie_name}/reviews")
+def delete_review(movie_name: str, user: dict = Depends(get_current_user)):
+    """Delete a review (owner or admin).
+
+    This endpoint accepts the authenticated user and determines whether
+    they are an admin or the owner; the service enforces authorization.
+    """
+    # If `user` is a dict (from get_current_user) extract user_id and role
+    user_id = None
+    is_admin = False
+    if isinstance(user, dict):
+        user_id = user.get("user_id")
+        is_admin = user.get("role") == "admin"
+    else:
+        # Fallback: in some code paths get_current_user_id returns the id string
+        user_id = str(user)
+
+    svc.delete_review(movie_name, user_id, is_admin=is_admin)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{movie_name}/reviews/id/{review_id}", response_model=ReviewOut)
+def get_review_by_id(movie_name: str, review_id: str):
+    """Retrieve a review by its review_id for a given movie."""
+    return svc.get_review_by_id(movie_name, review_id)
 
 
 @router.get("/{movie_name}/reviews/me", response_model=Optional[ReviewOut])
