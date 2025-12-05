@@ -13,6 +13,8 @@ const UserDashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewPage, setReviewPage] = useState(1);
+  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchUserData();
@@ -22,23 +24,40 @@ const UserDashboard = () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-
-      // Fetch bookmarks, reviews, and history
-      const [bookmarksRes, reviewsRes, historyRes] = await Promise.all([
+      // Fetch bookmarks (API) and user export (contains reviews & history)
+      const [bookmarksRes, exportRes] = await Promise.all([
         axios
-          .get(`${API_URL}/bookmarks`, { headers })
-          .catch(() => ({ data: { bookmarks: [] } })),
+          .get(`${API_URL}/api/bookmarks`, { headers })
+          .catch(() => ({ data: [] })),
         axios
-          .get(`${API_URL}/reviews`, { headers })
-          .catch(() => ({ data: { reviews: [] } })),
-        axios
-          .get(`${API_URL}/history`, { headers })
-          .catch(() => ({ data: { history: [] } })),
+          .get(`${API_URL}/users/me/export`, { headers })
+          .catch(() => ({ data: { data: {} } })),
       ]);
 
-      setBookmarks(bookmarksRes.data.bookmarks || []);
-      setReviews(reviewsRes.data.reviews || []);
-      setHistory(historyRes.data.history || []);
+      // Bookmarks endpoint returns an array of BookmarkOut
+      setBookmarks(bookmarksRes.data || []);
+
+      // Export payload has shape { meta, data: { reviews, bookmarks, history, ... } }
+      const exported = exportRes.data?.data || {};
+      setReviews(exported.reviews || []);
+      setHistory(exported.history || []);
+      // Enrich bookmarks with movie titles by fetching movie metadata
+      if ((bookmarksRes.data || []).length > 0) {
+        try {
+          const bm = bookmarksRes.data || [];
+          const moviePromises = bm.map((b) =>
+            axios
+              .get(`${API_URL}/api/movies/${b.movie_id}`)
+              .then((r) => ({ ...b, title: r.data.title }))
+              .catch(() => ({ ...b, title: b.title || b.movie_id }))
+          );
+          const enriched = await Promise.all(moviePromises);
+          setBookmarks(enriched || []);
+        } catch (err) {
+          // If enrichment fails, just keep original bookmarks
+          console.warn('Failed to enrich bookmarks with movie titles', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch user data:', err);
     } finally {
@@ -165,17 +184,20 @@ const UserDashboard = () => {
           ) : (
             <div className="items-grid">
               {bookmarks.slice(0, 6).map((bookmark, index) => (
-                <motion.div
-                  key={index}
-                  className="item-card"
+                <motion.button
+                  key={bookmark.id || index}
+                  type="button"
+                  className="item-card clickable"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.1 }}
+                  onClick={() => navigate(`/movies/${bookmark.movie_id}`)}
+                  aria-label={`Open details for ${bookmark.title || bookmark.movie_id}`}
                 >
                   <div className="item-title">
                     {bookmark.title || bookmark.movie_id}
                   </div>
-                </motion.div>
+                </motion.button>
               ))}
             </div>
           )}
@@ -206,10 +228,13 @@ const UserDashboard = () => {
                   transition={{ delay: index * 0.1 }}
                 >
                   <div className="review-header">
-                    <span className="review-movie">{review.movie_id}</span>
-                    <span className="review-rating">★ {review.rating}/5</span>
+                    <span className="review-movie">{review.movie_name}</span>
+                    <span className="review-rating">★ {review.rating}/10</span>
                   </div>
-                  <p className="review-text">{review.review_text}</p>
+                  {review.title_review && (
+                    <h4 className="review-title">{review.title_review}</h4>
+                  )}
+                  <p className="review-text">{review.comment}</p>
                 </motion.div>
               ))}
             </div>

@@ -8,11 +8,17 @@ import pytest
 from pydantic import ValidationError
 
 from backend.schemas.movies import (
+    DirectorCount,
+    GenreCount,
+    MovieAnalyticsFilters,
+    MovieAnalyticsResponse,
     MovieBase,
     MovieListResponse,
     MovieOut,
     MovieSearchFilters,
     MovieUpdate,
+    RatingBucket,
+    YearCount,
 )
 
 # ---------- MovieBase ----------
@@ -99,3 +105,22 @@ def test_movie_base_unicode_and_html():
     m = MovieBase(title="测试 🎬", movieGenres="<script>alert(1)</script>")
     assert "🎬" in m.title
     assert "<script>" in m.movieGenres
+
+
+# ---------- Analytics/Trends ----------
+
+
+def test_movie_analytics_response_model():
+    filters = MovieAnalyticsFilters(start_year=2000, end_year=2020, min_rating=7.0)
+    resp = MovieAnalyticsResponse(
+        total_movies=100,
+        filtered_movies=10,
+        filters=filters,
+        rating_buckets=[RatingBucket(bucket="6-8", count=5)],
+        releases_by_year=[YearCount(year=2010, count=3)],
+        genres=[GenreCount(genre="Drama", count=4)],
+        top_directors=[DirectorCount(director="Nolan", count=2)],
+    )
+    assert resp.total_movies == 100
+    assert resp.filters.start_year == 2000
+    assert resp.rating_buckets[0].bucket == "6-8"

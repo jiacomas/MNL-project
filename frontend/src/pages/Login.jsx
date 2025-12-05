@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Lock, User } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -101,6 +101,16 @@ const Login = () => {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </motion.button>
+
+          <div className="login-footer">
+            <p>
+              Don't have an account? <Link to="/signup">Sign up</Link>
+            </p>
+            <p>
+              Forgot your password?{' '}
+              <Link to="/forgot-password">Reset it here</Link>
+            </p>
+          </div>
         </form>
       </motion.div>
     </div>

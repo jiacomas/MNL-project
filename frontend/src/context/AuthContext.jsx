@@ -20,6 +20,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is already logged in
     const token = localStorage.getItem('token');
+    // Helpful debug: print detected API URL
+    // (useful if VITE_API_URL is misconfigured)
+    // eslint-disable-next-line no-console
+    console.debug('Auth API_URL =', API_URL);
     if (token) {
       fetchCurrentUser(token);
     } else {
@@ -29,7 +33,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchCurrentUser = async (token) => {
     try {
-      const response = await axios.get(`${API_URL}/auth/me`, {
+      const response = await axios.get(`${API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(response.data);
@@ -47,7 +51,8 @@ export const AuthProvider = ({ children }) => {
       formData.append('username', username);
       formData.append('password', password);
 
-      const response = await axios.post(`${API_URL}/auth/token`, formData, {
+      const url = `${API_URL}/users/token`;
+      const response = await axios.post(url, formData, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
@@ -57,7 +62,17 @@ export const AuthProvider = ({ children }) => {
       await fetchCurrentUser(access_token);
       return true;
     } catch (error) {
+      // Provide more helpful debug info in console for 404s / network issues
+      // eslint-disable-next-line no-console
       console.error('Login failed:', error);
+      // eslint-disable-next-line no-console
+      console.debug('Login request url:', `${API_URL}/users/token`);
+      // eslint-disable-next-line no-console
+      console.debug(
+        'Axios error response:',
+        error?.response?.data,
+        error?.response?.status
+      );
       return false;
     }
   };
@@ -67,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         await axios.post(
-          `${API_URL}/auth/logout`,
+          `${API_URL}/users/logout`,
           {},
           {
             headers: { Authorization: `Bearer ${token}` },

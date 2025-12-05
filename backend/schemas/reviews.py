@@ -10,6 +10,7 @@ RatingField = Field(..., ge=0, le=10, description="Rating score from 0 to 10")
 
 class ReviewBase(BaseModel):
     # Common fields for review schemas
+    user_id: Optional[str] = None
     review_id: str
     movie_name: str
     username: str

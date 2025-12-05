@@ -184,3 +184,58 @@ class MovieSearchFilters(BaseModel):
             return v
         v = v.strip()
         return v or None
+
+
+# ---------- Analytics / Trends ----------
+
+
+class RatingBucket(BaseModel):
+    """Histogram bucket aggregation for IMDb-style ratings."""
+
+    bucket: str
+    count: int
+
+
+class YearCount(BaseModel):
+    """Number of movies released per year."""
+
+    year: int
+    count: int
+
+
+class GenreCount(BaseModel):
+    """Number of movies grouped by genre."""
+
+    genre: str
+    count: int
+
+
+class DirectorCount(BaseModel):
+    """Number of movies directed by each director."""
+
+    director: str
+    count: int
+
+
+class MovieAnalyticsFilters(BaseModel):
+    """Echoes back filters used for analytics."""
+
+    start_year: Optional[int] = Field(None, ge=1800)
+    end_year: Optional[int] = Field(None, ge=1800)
+    min_rating: Optional[float] = Field(None, ge=0, le=10)
+
+
+class MovieAnalyticsResponse(BaseModel):
+    """
+    Structured analytics result used by the /api/movies/analytics endpoint.
+
+    This is designed to be chart-friendly on the frontend.
+    """
+
+    total_movies: int
+    filtered_movies: int
+    filters: MovieAnalyticsFilters
+    rating_buckets: list[RatingBucket]
+    releases_by_year: list[YearCount]
+    genres: list[GenreCount]
+    top_directors: list[DirectorCount]

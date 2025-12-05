@@ -4,10 +4,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
 import Movies from './pages/Movies';
 import MovieDetail from './pages/MovieDetail';
+import RequestPasswordReset from './pages/RequestPasswordReset';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
 
 const RedirectToDashboard = () => {
@@ -34,8 +37,13 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public auth routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<RequestPasswordReset />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
+          {/* Protected app routes */}
           <Route
             element={
               <ProtectedRoute>
@@ -57,6 +65,7 @@ function App() {
             <Route path="/movies/:movieId" element={<MovieDetail />} />
           </Route>
 
+          {/* Root + fallback */}
           <Route path="/" element={<RedirectToDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
